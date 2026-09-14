@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Stick It Out Lessons | Learn Drums with Mike Staus</title>
+  <meta name="description" content="Online drum lessons with Mike Staus. 30-day programs, daily workouts, and Blink-style grooves you can actually use on the kit." />
+  <meta property="og:title" content="Stick It Out Lessons | Mike Staus" />
+  <meta property="og:description" content="Join Stick It Out Lessons for structured drum programs, daily workouts, and coaching from Mike Staus." />
+  <meta property="og:image" content="./img/mike.jpg" />
+  <link rel="icon" href="./img/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            void: '#0B0C0E',
+            panel: '#16181C',
+            card: '#1A1D22',
+            line: '#2A2E35',
+            mute: '#9CA3AF',
+            teal: { DEFAULT: '#14B8A6', soft: '#CCFBF1', deep: '#0F766E' },
+            bluecta: '#3B82F6',
+            coral: '#F97316'
+          },
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] },
+          boxShadow: {
+            soft: '0 20px 50px rgba(0,0,0,.35)',
+            card: '0 12px 40px rgba(0,0,0,.28)'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      background: #0B0C0E;
+      color: #fff;
+      -webkit-tap-highlight-color: transparent;
+    }
+    ::selection { background: rgba(20, 184, 166, .35); color: #fff; }
+    .tap { min-height: 44px; }
+    .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+    .check {
+      background: #14B8A6; color: #fff; width: 1.25rem; height: 1.25rem; border-radius: 9999px;
+      display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      font-size: .7rem; font-weight: 700; line-height: 1;
+    }
+    details summary { list-style: none; }
+    details summary::-webkit-details-marker { display: none; }
+    details[open] .faq-chev { transform: rotate(180deg); }
+    .pricing-bg {
+      background:
+        linear-gradient(180deg, rgba(11,12,14,.88), rgba(11,12,14,.96)),
+        url('./img/gym/kit.jpg') center/cover no-repeat;
+    }
+    .hero-mosaic {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: repeat(4, minmax(0, 1fr));
+      gap: .55rem;
+      padding: .75rem;
+      height: 100%;
+    }
+    .hero-mosaic img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: .85rem;
+      filter: grayscale(1) brightness(.48) contrast(1.05);
+    }
+    .hm-a { grid-column: 1 / 3; grid-row: 1 / 3; }
+    .hm-b { grid-column: 3 / 5; grid-row: 1 / 2; }
+    .hm-c { grid-column: 5 / 7; grid-row: 1 / 3; }
+    .hm-d { grid-column: 3 / 5; grid-row: 2 / 4; }
+    .hm-e { grid-column: 1 / 3; grid-row: 3 / 5; }
+    .hm-f { grid-column: 5 / 7; grid-row: 3 / 4; }
+    .hm-g { grid-column: 3 / 5; grid-row: 4 / 5; }
+    .hm-h { grid-column: 5 / 7; grid-row: 4 / 5; }
+    @media (max-width: 640px) {
+      .hero-mosaic {
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, minmax(0, 1fr));
+        gap: .4rem;
+        padding: .5rem;
+      }
+      .hm-a { grid-column: 1 / 3; grid-row: 1 / 3; }
+      .hm-b { grid-column: 3 / 5; grid-row: 1 / 2; }
+      .hm-c { grid-column: 3 / 5; grid-row: 2 / 4; }
+      .hm-d { grid-column: 1 / 3; grid-row: 3 / 5; }
+      .hm-e { grid-column: 3 / 5; grid-row: 4 / 5; }
+      .hm-f, .hm-g, .hm-h { display: none; }
+    }
+    .fade-up {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity .45s ease, transform .45s ease;
+    }
+    .fade-up.is-in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .fade-up { opacity: 1; transform: none; transition: none; }
+    }
+    .price-card {
+      background: rgba(26, 29, 34, .92);
+      border: 1px solid rgba(255,255,255,.08);
+      transition: border-color .2s ease, transform .2s ease;
+    }
+    .price-card.is-featured {
+      border-color: rgba(20, 184, 166, .55);
+      background: rgba(22, 28, 30, .96);
+      transform: translateY(-6px);
+      box-shadow: 0 18px 40px rgba(0,0,0,.4);
+    }
+    @media (max-width: 639px) {
+      .price-card.is-featured { transform: none; }
+    }
+  </style>
+  <meta name="designer" content="Blaze Digital Design" data-blaze-credit-head="1" />
+  <meta name="theme-color" content="#0B0C0E" />
+</head>
+<body class="bg-void text-white antialiased">
+
+  <header class="sticky top-0 z-50 border-b border-white/10 bg-void/90 backdrop-blur-md">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <a href="./membership.html" class="font-extrabold tracking-tight text-sm sm:text-base uppercase">
+        StickItOut<span class="text-teal">.Lessons</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-6 text-sm text-white/75">
+        <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
+        <a href="#programs" class="hover:text-white transition-colors">Programs</a>
+        <a href="#mike" class="hover:text-white transition-colors">About Mike</a>
+        <a href="./index.html" class="hover:text-white transition-colors">Book</a>
+      </nav>
+      <div class="flex items-center gap-2">
+        <a href="./account.html" class="tap inline-flex items-center justify-center px-3 py-2 rounded-lg bg-bluecta text-white text-sm font-semibold hover:bg-blue-600 transition-colors">Login</a>
+        <a href="./membership-checkout.html?plan=biannual" class="tap inline-flex items-center justify-center px-3 py-2 sm:px-3.5 rounded-lg bg-teal text-white text-sm font-semibold hover:bg-teal-deep transition-colors js-checkout-cta">Get Started</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="safe-bottom">
+
+    <!-- Hero -->
+    <section class="relative min-h-[92svh] flex items-center overflow-hidden">
+      <div class="absolute inset-0" aria-hidden="true">
+        <div class="hero-mosaic">
+          <img class="hm-a" src="./img/gym/kit.jpg" alt="" />
+          <img class="hm-b" src="./img/gym/drummer.jpg" alt="" />
+          <img class="hm-c" src="./img/gym/live.jpg" alt="" />
+          <img class="hm-d" src="./img/gym/sticks.jpg" alt="" />
+          <img class="hm-e" src="./img/gym/snare.jpg" alt="" />
+          <img class="hm-f" src="./img/gym/hand-speed.jpg" alt="" />
+          <img class="hm-g" src="./img/gym/pop-punk.jpg" alt="" />
+          <img class="hm-h" src="./img/gym/practice.jpg" alt="" />
+        </div>
+      </div>
+      <div class="absolute inset-0 bg-gradient-to-b from-void/55 via-void/78 to-void"></div>
+
+      <div class="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-24 sm:py-28 text-center">
+        <h1 class="text-[2.35rem] sm:text-5xl md:text-[3.55rem] font-extrabold tracking-tight leading-[1.05]">
+          Everything You Need To Learn<br class="hidden sm:block" /> Drums Online
+        </h1>
+        <p class="mt-5 text-base sm:text-lg text-white/78 max-w-2xl mx-auto leading-relaxed">
+          Stick It Out Lessons is Mike Staus teaching the Blink-pocket stuff he actually plays:
+          30-day programs, daily workouts, and a clear plan every time you sit down at the kit.
+        </p>
+
+        <div class="mt-7 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-teal/40 bg-void/55 px-5 py-2.5 text-xs sm:text-sm text-white/90 backdrop-blur-sm">
+          <span class="inline-flex items-center gap-1.5"><span class="text-teal" aria-hidden="true">★</span> Built for real practice</span>
+          <span class="hidden sm:inline text-teal/35" aria-hidden="true">|</span>
+          <span class="inline-flex items-center gap-1.5"><span class="text-teal" aria-hidden="true">◉</span> Berklee-trained teacher</span>
+          <span class="hidden sm:inline text-teal/35" aria-hidden="true">|</span>
+          <span class="inline-flex items-center gap-1.5"><span class="text-teal" aria-hidden="true">✓</span> Progress you can feel</span>
+        </div>
+
+        <div class="mt-9">
+          <a href="./membership-checkout.html?plan=biannual" class="tap inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-teal text-white text-base font-semibold shadow-soft hover:bg-teal-deep transition-colors js-checkout-cta">
+            Start Your Week Free Trial
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Learn With Mike -->
+    <section id="mike" class="bg-void pt-1">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center mb-7">
+        <a href="./membership-checkout.html?plan=biannual" class="tap inline-flex items-center justify-center px-6 py-3 rounded-full bg-teal text-white text-sm font-semibold hover:bg-teal-deep transition-colors js-checkout-cta">
+          Start Your Week Free Trial
+        </a>
+      </div>
+
+      <div class="bg-white text-void rounded-t-[2rem] sm:rounded-t-[2.75rem]">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+          <div class="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div class="fade-up">
+              <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Learn With Mike</h2>
+              <p class="mt-5 text-[15px] sm:text-base text-mute leading-relaxed">
+                Mike&rsquo;s passion for punk drumming makes this whole thing possible. A Berklee-trained musician, Staus delivers the hard-driving, fast technical beats that pop-punk fans can&rsquo;t get enough of. He&rsquo;s also the production force behind FlickN, has toured the US with national acts, and co-founded FlickN and Wink-183 in Billings, MT in 2024.
+              </p>
+              <ul class="mt-7 space-y-3.5 text-[15px] sm:text-base text-void/80">
+                <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>One instructor, clear programs, all levels welcome</span></li>
+                <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>Personal guidance through member lives and feedback</span></li>
+                <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>Practice logging and progress tracking</span></li>
+                <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>A community of drummers who actually show up</span></li>
+                <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>Blink / Travis-style vocabulary, taught honestly (in the style of)</span></li>
+              </ul>
+            </div>
+
+            <div class="relative fade-up" style="transition-delay:.08s">
+              <div class="rounded-2xl overflow-hidden shadow-soft border border-black/5 aspect-[4/5] sm:aspect-[5/6] bg-panel">
+                <img src="./img/mike.jpg" alt="Mike Staus playing drums live" class="w-full h-full object-cover object-top" width="800" height="1000" />
+              </div>
+              <div class="absolute -bottom-5 left-3 right-3 sm:left-5 sm:right-auto sm:max-w-sm bg-void text-white rounded-2xl p-4 sm:p-5 shadow-soft border border-white/10">
+                <p class="text-sm leading-relaxed text-white/90 italic">
+                  &ldquo;My number one priority in teaching is to help you grow. Whether you learn best by watching, listening, reading, or a mix of all three, we&rsquo;ll do it together.&rdquo;
+                </p>
+                <p class="mt-2.5 text-xs font-semibold text-teal uppercase tracking-wider">Mike Staus · Drums</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Why learn online -->
+        <div class="border-t border-black/5 bg-[#F7F8FA]">
+          <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-[4.5rem]">
+            <div class="text-center max-w-2xl mx-auto mb-11 fade-up">
+              <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-void">Why learn drums online?</h2>
+              <p class="mt-4 text-mute leading-relaxed">
+                Learning drums online gives you <strong class="text-void font-semibold">total freedom and flexibility</strong>.
+                No rigid schedule. Open your phone, do today&rsquo;s workout, and practice at your own rhythm.
+              </p>
+            </div>
+            <div class="grid sm:grid-cols-3 gap-5">
+              <div class="fade-up rounded-2xl bg-white border border-black/[0.07] p-7 text-center shadow-[0_8px_24px_rgba(0,0,0,.04)]">
+                <div class="mx-auto w-12 h-12 rounded-full bg-gradient-to-br from-coral to-orange-600 text-white flex items-center justify-center shadow-sm" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                </div>
+                <h3 class="mt-5 font-bold text-void text-lg leading-snug">Learn drums at your own pace</h3>
+                <p class="mt-2.5 text-sm text-mute leading-relaxed">Short daily workouts you can actually finish. Miss a day? Pick it back up tomorrow.</p>
+              </div>
+              <div class="fade-up rounded-2xl bg-white border border-black/[0.07] p-7 text-center shadow-[0_8px_24px_rgba(0,0,0,.04)]" style="transition-delay:.06s">
+                <div class="mx-auto w-12 h-12 rounded-full bg-gradient-to-br from-coral to-orange-600 text-white flex items-center justify-center shadow-sm" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                </div>
+                <h3 class="mt-5 font-bold text-void text-lg leading-snug">Expert instruction from a real player</h3>
+                <p class="mt-2.5 text-sm text-mute leading-relaxed">Mike teaches what he plays live: hard-driving pop-punk grooves, fills, and endurance.</p>
+              </div>
+              <div class="fade-up rounded-2xl bg-white border border-black/[0.07] p-7 text-center shadow-[0_8px_24px_rgba(0,0,0,.04)]" style="transition-delay:.12s">
+                <div class="mx-auto w-12 h-12 rounded-full bg-gradient-to-br from-coral to-orange-600 text-white flex items-center justify-center shadow-sm" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <h3 class="mt-5 font-bold text-void text-lg leading-snug">Structured learning with feedback</h3>
+                <p class="mt-2.5 text-sm text-mute leading-relaxed">BPM goals, day-30 retests, and member lives so you&rsquo;re never guessing alone.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Programs -->
+        <div id="programs" class="bg-white">
+          <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-[4.5rem]">
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5 mb-9 fade-up">
+              <div class="max-w-xl">
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-teal-deep mb-2">Courses &amp; workouts</p>
+                <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-void">Pick a program. Show up daily.</h2>
+                <p class="mt-3 text-mute leading-relaxed">Each program is 30 days. You always know what to practice today. Finished ones stay in your library.</p>
+              </div>
+              <a href="./membership-checkout.html?plan=biannual" class="tap inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-void text-white text-sm font-semibold hover:bg-teal transition-colors self-start js-checkout-cta">Get full access</a>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-5">
+              <article class="fade-up group rounded-2xl overflow-hidden border border-black/[0.06] bg-[#F7F8FA] flex flex-col hover:border-black/15 transition-colors">
+                <div class="relative aspect-[16/10] overflow-hidden bg-line">
+                  <img src="./img/gym/kit.jpg" alt="Sparkle Mapex kit on a dark stage" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" />
+                  <span class="absolute top-3 left-3 text-[11px] font-bold bg-teal text-white px-2.5 py-1 rounded-md tracking-wide">Featured</span>
+                </div>
+                <div class="p-6 flex flex-col flex-grow">
+                  <h3 class="text-xl font-extrabold text-void">Blink Groove Builder</h3>
+                  <p class="mt-2 text-sm text-mute leading-relaxed flex-grow">Thirty days of driving 8ths, chorus stamina, and fills that still land when you&rsquo;re tired. The Blink / Travis pocket Mike plays every weekend, taught in the style of.</p>
+                  <p class="mt-4 text-xs font-bold text-teal-deep uppercase tracking-wider">30 workouts · Day-30 retest</p>
+                </div>
+              </article>
+
+              <article class="fade-up group rounded-2xl overflow-hidden border border-black/[0.06] bg-[#F7F8FA] flex flex-col hover:border-black/15 transition-colors" style="transition-delay:.05s">
+                <div class="relative aspect-[16/10] overflow-hidden bg-line">
+                  <img src="./img/gym/sticks.jpg" alt="Hands and sticks working a mic'd snare" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" />
+                </div>
+                <div class="p-6 flex flex-col flex-grow">
+                  <h3 class="text-xl font-extrabold text-void">30-Day Hand Speed</h3>
+                  <p class="mt-2 text-sm text-mute leading-relaxed flex-grow">Singles, doubles, ladders. Daily BPM targets so you can hear yourself get faster without rushing form.</p>
+                  <p class="mt-4 text-xs font-bold text-mute uppercase tracking-wider">30 workouts · Retest included</p>
+                </div>
+              </article>
+
+              <article class="fade-up group rounded-2xl overflow-hidden border border-black/[0.06] bg-[#F7F8FA] flex flex-col hover:border-black/15 transition-colors" style="transition-delay:.08s">
+                <div class="relative aspect-[16/10] overflow-hidden bg-line">
+                  <img src="./img/gym/snare.jpg" alt="Vic Firth sticks crossed on a snare" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" />
+                </div>
+                <div class="p-6 flex flex-col flex-grow">
+                  <h3 class="text-xl font-extrabold text-void">Paradiddle 200</h3>
+                  <p class="mt-2 text-sm text-mute leading-relaxed flex-grow">Clean accents, orchestrations, and control on the way to 200. No more mushy hands mid-fill.</p>
+                  <p class="mt-4 text-xs font-bold text-mute uppercase tracking-wider">30 workouts · PR board</p>
+                </div>
+              </article>
+
+              <article class="fade-up group rounded-2xl overflow-hidden border border-black/[0.06] bg-[#F7F8FA] flex flex-col hover:border-black/15 transition-colors" style="transition-delay:.1s">
+                <div class="relative aspect-[16/10] overflow-hidden bg-line">
+                  <img src="./img/gym/drummer.jpg" alt="Close-up of a drummer hitting the snare" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" />
+                </div>
+                <div class="p-6 flex flex-col flex-grow">
+                  <h3 class="text-xl font-extrabold text-void">Foot Speed</h3>
+                  <p class="mt-2 text-sm text-mute leading-relaxed flex-grow">Single and double pedal work with clear daily targets, so your feet catch up to your hands.</p>
+                  <p class="mt-4 text-xs font-bold text-mute uppercase tracking-wider">30 workouts · Pedal focus</p>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pricing -->
+        <div id="pricing" class="pricing-bg border-t border-white/5">
+          <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-[4.75rem]">
+            <div class="text-center mb-10 fade-up">
+              <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">One Plan, Full Access</h2>
+              <p class="mt-3 text-white/65 max-w-xl mx-auto leading-relaxed">
+                Choose your plan and unlock every program, practice tracking, and member lives. Same access on every tier.
+              </p>
+            </div>
+
+            <div class="grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto items-stretch fade-up">
+              <a href="./membership-checkout.html?plan=monthly" class="price-card rounded-2xl p-7 text-center flex flex-col justify-center min-h-[168px] hover:border-white/25 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal">
+                <h3 class="text-xs font-bold uppercase tracking-[0.22em] text-white/55">Monthly</h3>
+                <p class="mt-4 text-[2rem] font-extrabold text-white tracking-tight">$29.99 <span class="text-base font-semibold text-white/50">/mo</span></p>
+                <p class="mt-4 text-xs font-semibold text-teal">Select plan →</p>
+              </a>
+              <a href="./membership-checkout.html?plan=biannual" class="price-card is-featured rounded-2xl p-7 text-center flex flex-col justify-center min-h-[180px] hover:border-teal/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal">
+                <h3 class="text-xs font-bold uppercase tracking-[0.22em] text-white/55">Biannual</h3>
+                <p class="mt-4 text-[2rem] font-extrabold text-white tracking-tight">$149.95 <span class="text-base font-semibold text-white/50">/6mo</span></p>
+                <p class="mt-2 text-sm font-semibold text-white/55">1 month savings</p>
+                <p class="mt-3 text-xs font-semibold text-teal">Select plan →</p>
+              </a>
+              <a href="./membership-checkout.html?plan=annual" class="price-card rounded-2xl p-7 text-center flex flex-col justify-center min-h-[168px] hover:border-white/25 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal">
+                <h3 class="text-xs font-bold uppercase tracking-[0.22em] text-white/55">Annual</h3>
+                <p class="mt-4 text-[2rem] font-extrabold text-white tracking-tight">$269.90 <span class="text-base font-semibold text-white/50">/yr</span></p>
+                <p class="mt-2 text-sm font-semibold text-white/55">3 month savings</p>
+                <p class="mt-3 text-xs font-semibold text-teal">Select plan →</p>
+              </a>
+            </div>
+
+            <div class="mt-9 text-center fade-up">
+              <a href="./membership-checkout.html?plan=biannual" id="pricing-trial-cta" class="tap inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-teal text-white text-base font-semibold shadow-soft hover:bg-teal-deep transition-colors js-checkout-cta">
+                Start Your Week Free Trial
+              </a>
+              <p class="mt-3 text-xs text-white/40" id="pricing-footnote">Join checkout or the waitlist. Pricing is locked in for launch.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ -->
+        <div id="faq" class="bg-void text-white border-t border-white/5">
+          <div class="max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-[4.5rem]">
+            <h2 class="text-3xl font-extrabold tracking-tight text-center mb-9 flex items-center justify-center gap-2.5 fade-up">
+              <span class="inline-flex w-8 h-8 rounded-full border border-white/25 items-center justify-center text-sm font-semibold" aria-hidden="true">?</span>
+              FAQ
+            </h2>
+            <div class="space-y-3">
+              <details class="fade-up rounded-2xl bg-panel border border-white/10 px-5 py-1" open>
+                <summary class="tap cursor-pointer font-semibold text-white py-4 flex items-center justify-between gap-4">
+                  <span>What do I get with membership?</span>
+                  <svg class="faq-chev w-5 h-5 text-white/40 shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+                </summary>
+                <p class="pb-4 text-sm text-white/65 leading-relaxed">Every active and archived 30-day program, daily workout plans, BPM tracking, day-30 retests, and member lives with Mike.</p>
+              </details>
+              <details class="fade-up rounded-2xl bg-panel border border-white/10 px-5 py-1">
+                <summary class="tap cursor-pointer font-semibold text-white py-4 flex items-center justify-between gap-4">
+                  <span>Is this official Travis Barker or Blink-182 content?</span>
+                  <svg class="faq-chev w-5 h-5 text-white/40 shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+                </summary>
+                <p class="pb-4 text-sm text-white/65 leading-relaxed">No. Mike teaches <em>in the style of</em> that pocket from years of playing it live. No official endorsement.</p>
+              </details>
+              <details class="fade-up rounded-2xl bg-panel border border-white/10 px-5 py-1">
+                <summary class="tap cursor-pointer font-semibold text-white py-4 flex items-center justify-between gap-4">
+                  <span>How is this different from random YouTube lessons?</span>
+                  <svg class="faq-chev w-5 h-5 text-white/40 shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+                </summary>
+                <p class="pb-4 text-sm text-white/65 leading-relaxed">You always know what to practice today. Programs are 30 days with clear goals and a retest, more like a gym plan than a pile of videos.</p>
+              </details>
+              <details class="fade-up rounded-2xl bg-panel border border-white/10 px-5 py-1">
+                <summary class="tap cursor-pointer font-semibold text-white py-4 flex items-center justify-between gap-4">
+                  <span>Do I need the Stick It Out book?</span>
+                  <svg class="faq-chev w-5 h-5 text-white/40 shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+                </summary>
+                <p class="pb-4 text-sm text-white/65 leading-relaxed">Nope. Membership stands on its own. The book is there if you want deeper coordination work later.</p>
+              </details>
+              <details class="fade-up rounded-2xl bg-panel border border-white/10 px-5 py-1">
+                <summary class="tap cursor-pointer font-semibold text-white py-4 flex items-center justify-between gap-4">
+                  <span>Can I cancel anytime?</span>
+                  <svg class="faq-chev w-5 h-5 text-white/40 shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+                </summary>
+                <p class="pb-4 text-sm text-white/65 leading-relaxed">Monthly is month-to-month once live. Longer plans show the savings up front. Full checkout details when payment launches.</p>
+              </details>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-void text-white border-t border-white/5">
+          <div class="max-w-4xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center fade-up">
+            <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Ready when you are.</h2>
+            <p class="mt-3 text-white/65 max-w-xl mx-auto leading-relaxed">
+              Grab a week free when checkout goes live, then keep going if it feels right. Mike builds the plan. You show up and play.
+            </p>
+            <a href="./membership-checkout.html?plan=biannual" class="tap mt-8 inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-teal text-white text-base font-semibold hover:bg-teal-deep transition-colors js-checkout-cta">Start Your Week Free Trial</a>
+            <p class="mt-5"><a href="./index.html" class="text-sm text-white/40 hover:text-white underline underline-offset-4 transition-colors">Back to the Stick It Out book</a></p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-white/10 px-4 sm:px-6 py-8 safe-bottom bg-void">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between gap-3 text-xs text-white/40">
+      <p>© <span id="y"></span> Michael Staus · Stick It Out Lessons</p>
+      <a href="https://blazedigitaldesign.com" class="hover:text-white transition-colors">Built by Blaze Digital</a>
+    </div>
+  </footer>
+  <script src="./js/membership-commerce.js"></script>
+  <script>
+    document.getElementById('y').textContent = new Date().getFullYear();
+    (function () {
+      var C = window.SIOLessons;
+      if (C) {
+        var href = C.checkoutHref(C.defaultPlanId);
+        document.querySelectorAll('.js-checkout-cta').forEach(function (el) {
+          el.setAttribute('href', href);
+          if (el.id === 'pricing-trial-cta' || el.textContent.indexOf('Week Free Trial') !== -1) {
+            el.textContent = C.trialLabel;
+          }
+        });
+        var note = document.getElementById('pricing-footnote');
+        if (note) {
+          note.textContent = C.anyCheckoutLive()
+            ? 'Encrypted checkout via Stripe. Cancel anytime on monthly.'
+            : 'Checkout opens from here. Join the waitlist if payment links are not live yet.';
+        }
+      }
+      var nodes = document.querySelectorAll('.fade-up');
+      if (!nodes.length) return;
+      if (!('IntersectionObserver' in window)) {
+        nodes.forEach(function (n) { n.classList.add('is-in'); });
+        return;
+      }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-in');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+      nodes.forEach(function (n) { io.observe(n); });
+    })();
+  </script>
+</body>
+</html>

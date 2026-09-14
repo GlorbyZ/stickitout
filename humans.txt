@@ -1,0 +1,13 @@
+/* TEAM */
+
+Studio: Blaze Digital Design
+Founder: Zaylyn Young
+Contact: z@blazedigitaldesign.com
+Phone: (406) 272-5734
+Location: Billings, MT, USA
+Site: https://blazedigitaldesign.com/
+
+/* SITE */
+
+Standards: HTML5, CSS, JavaScript
+Software: Hand-coded (no WordPress, no templates)

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>You&rsquo;re in | Stick It Out Lessons</title>
+  <meta name="description" content="Welcome to Stick It Out Lessons. Your membership is ready." />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="./img/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            void: '#0B0C0E',
+            panel: '#16181C',
+            teal: { DEFAULT: '#14B8A6', deep: '#0F766E' }
+          },
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] },
+          boxShadow: { soft: '0 20px 50px rgba(0,0,0,.35)' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: "Plus Jakarta Sans", system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .tap { min-height: 44px; }
+    .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+  </style>
+  <meta name="designer" content="Blaze Digital Design" data-blaze-credit-head="1" />
+  <meta name="theme-color" content="#0B0C0E" />
+</head>
+<body class="bg-void text-white antialiased min-h-screen flex flex-col">
+
+  <header class="border-b border-white/10">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <a href="./membership.html" class="font-extrabold tracking-tight text-sm uppercase">
+        StickItOut<span class="text-teal">.Lessons</span>
+      </a>
+      <a href="./account.html" class="text-sm text-white/55 hover:text-white transition-colors">Account</a>
+    </div>
+  </header>
+
+  <main class="flex-grow safe-bottom flex items-center justify-center px-4 sm:px-6 py-16">
+    <div class="w-full max-w-lg text-center">
+      <div class="mx-auto w-14 h-14 rounded-full bg-teal/20 border border-teal/40 flex items-center justify-center text-teal text-2xl font-bold" aria-hidden="true">✓</div>
+      <h1 class="mt-6 text-3xl sm:text-4xl font-extrabold tracking-tight">You&rsquo;re in.</h1>
+      <p class="mt-4 text-white/65 leading-relaxed">
+        Welcome to Stick It Out Lessons. Your plan unlocks every program, daily workouts, BPM tracking, and member lives with Mike.
+      </p>
+
+      <ol class="mt-8 text-left space-y-3 rounded-2xl border border-white/10 bg-panel p-5 text-sm text-white/75">
+        <li class="flex gap-3"><span class="text-teal font-bold shrink-0">1</span><span>Pick a 30-day program and do today&rsquo;s workout.</span></li>
+        <li class="flex gap-3"><span class="text-teal font-bold shrink-0">2</span><span>Hit your BPM goals. Retest on day 30.</span></li>
+        <li class="flex gap-3"><span class="text-teal font-bold shrink-0">3</span><span>Jump into member lives when you want feedback.</span></li>
+      </ol>
+
+      <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+        <a href="./portal.html" class="tap inline-flex items-center justify-center px-6 py-3 rounded-full bg-teal text-white text-sm font-semibold hover:bg-teal-deep transition-colors shadow-soft">
+          Open member portal
+        </a>
+        <a href="./account.html" class="tap inline-flex items-center justify-center px-6 py-3 rounded-full border border-white/20 text-white text-sm font-semibold hover:border-teal hover:text-teal transition-colors">
+          Go to your account
+        </a>
+      </div>
+
+      <p class="mt-6 text-xs text-white/35 leading-relaxed">
+        Manage payment method, plan changes, and cancel anytime from your account billing hub (Stripe Customer Portal).
+      </p>
+    </div>
+  </main>
+
+  <footer class="border-t border-white/10 px-4 py-6 text-center text-xs text-white/35 safe-bottom">
+    <p>© <span id="y"></span> Michael Staus · Stick It Out Lessons</p>
+  </footer>
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+</body>
+</html>

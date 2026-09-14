@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Member Portal | Stick It Out Lessons</title>
+  <meta name="description" content="Your Stick It Out Lessons member portal. Today&rsquo;s workout, programs, and practice tracking." />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="./img/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            void: '#0B0C0E',
+            panel: '#16181C',
+            mute: '#9CA3AF',
+            teal: { DEFAULT: '#14B8A6', deep: '#0F766E' },
+            bluecta: '#3B82F6',
+            coral: '#F97316'
+          },
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] },
+          boxShadow: { soft: '0 20px 50px rgba(0,0,0,.35)' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: "Plus Jakarta Sans", system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .tap { min-height: 44px; }
+    .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+    .video-wrap { position: relative; width: 100%; padding-bottom: 56.25%; background: #000; border-radius: 1rem; overflow: hidden; }
+    .video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    ::selection { background: rgba(20, 184, 166, .35); color: #fff; }
+  </style>
+  <meta name="designer" content="Blaze Digital Design" data-blaze-credit-head="1" />
+  <meta name="theme-color" content="#0B0C0E" />
+</head>
+<body class="bg-void text-white antialiased min-h-screen flex flex-col">
+
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-void/90 backdrop-blur-md">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <a href="./membership.html" class="font-extrabold tracking-tight text-sm uppercase">
+        StickItOut<span class="text-teal">.Lessons</span>
+      </a>
+      <nav class="flex items-center gap-2 sm:gap-3 text-sm">
+        <span class="hidden sm:inline text-white/35 text-xs uppercase tracking-wider mr-1">Portal</span>
+        <a href="./account.html" class="tap inline-flex items-center justify-center px-3 py-2 rounded-lg bg-bluecta text-white text-sm font-semibold hover:bg-blue-600 transition-colors">Account</a>
+        <a href="./membership.html" class="tap inline-flex items-center justify-center px-3 py-2 rounded-lg border border-white/15 text-white/80 text-sm font-semibold hover:border-white/40 transition-colors">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-grow safe-bottom">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+
+      <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-8">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.18em] text-teal">Member portal</p>
+          <h1 class="mt-1 text-3xl sm:text-4xl font-extrabold tracking-tight">Today&rsquo;s workout</h1>
+          <p class="mt-2 text-sm text-white/55" id="greet">Welcome back. Hit play, then log your BPM.</p>
+        </div>
+        <p class="text-xs text-white/35 sm:text-right">Day <span class="text-white font-semibold">7</span> of 30 · Blink Groove Builder</p>
+      </div>
+
+      <div class="grid lg:grid-cols-[1.4fr_1fr] gap-6 lg:gap-8 items-start">
+
+        <!-- Video + workout -->
+        <section class="rounded-2xl border border-white/10 bg-panel p-4 sm:p-5 shadow-soft">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4 px-1">
+            <div>
+              <h2 class="text-lg font-extrabold">Driving 8ths · Chorus stamina</h2>
+              <p class="text-xs text-white/45 mt-0.5">Target BPM: 140 · ~12 min</p>
+            </div>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-void bg-teal px-2.5 py-1 rounded-md">Day 7</span>
+          </div>
+
+          <div class="video-wrap border border-white/10">
+            <iframe
+              src="https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0"
+              title="Today&rsquo;s lesson video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              loading="lazy"
+              referrerpolicy="strict-origin-when-cross-origin"
+            ></iframe>
+          </div>
+
+          <div class="mt-5 grid sm:grid-cols-3 gap-3">
+            <div class="rounded-xl bg-void/70 border border-white/10 px-4 py-3">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-white/40">Warm-up</p>
+              <p class="mt-1 text-sm font-semibold">Singles @ 100</p>
+            </div>
+            <div class="rounded-xl bg-void/70 border border-white/10 px-4 py-3">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-white/40">Main</p>
+              <p class="mt-1 text-sm font-semibold">8ths · open hats</p>
+            </div>
+            <div class="rounded-xl bg-void/70 border border-white/10 px-4 py-3">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-white/40">Cooldown</p>
+              <p class="mt-1 text-sm font-semibold">Fill ladder × 4</p>
+            </div>
+          </div>
+
+          <form id="log-form" class="mt-5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+            <label class="flex-1 block">
+              <span class="text-xs font-semibold text-white/50">BPM you hit</span>
+              <input type="number" id="bpm-input" min="40" max="300" value="140" inputmode="numeric"
+                class="mt-1.5 w-full rounded-xl bg-void border border-white/15 px-4 py-3 text-sm text-white focus:outline-none focus:border-teal" />
+            </label>
+            <button type="submit" class="tap inline-flex items-center justify-center px-6 py-3 rounded-xl bg-teal text-white text-sm font-semibold hover:bg-teal-deep transition-colors">
+              Log workout
+            </button>
+          </form>
+          <p id="log-done" class="hidden mt-3 text-sm text-teal"></p>
+        </section>
+
+        <!-- Side rail -->
+        <aside class="space-y-5">
+          <section class="rounded-2xl border border-white/10 bg-panel p-5">
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-teal">Progress</p>
+            <h3 class="mt-1 font-extrabold text-lg">This week</h3>
+            <div class="mt-4 h-2 rounded-full bg-void overflow-hidden border border-white/5">
+              <div class="h-full w-[58%] rounded-full bg-gradient-to-r from-teal to-teal-deep" aria-hidden="true"></div>
+            </div>
+            <p class="mt-2 text-xs text-white/45">4 of 7 days logged · streak 3</p>
+            <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div class="rounded-xl bg-void/60 border border-white/10 p-3">
+                <dt class="text-[10px] uppercase tracking-wider text-white/40">Last BPM</dt>
+                <dd class="mt-1 font-extrabold text-white" id="last-bpm">138</dd>
+              </div>
+              <div class="rounded-xl bg-void/60 border border-white/10 p-3">
+                <dt class="text-[10px] uppercase tracking-wider text-white/40">Goal</dt>
+                <dd class="mt-1 font-extrabold text-teal">140</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="rounded-2xl border border-white/10 bg-panel p-5">
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-teal">Your programs</p>
+            <ul class="mt-3 space-y-2">
+              <li>
+                <a href="#today" class="flex items-center gap-3 rounded-xl border border-teal/40 bg-teal/10 px-3 py-3 hover:bg-teal/15 transition-colors">
+                  <img src="./img/gym/kit.jpg" alt="" class="w-12 h-12 rounded-lg object-cover shrink-0" width="48" height="48" />
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold truncate">Blink Groove Builder</span>
+                    <span class="block text-xs text-teal">Active · Day 7</span>
+                  </span>
+                </a>
+              </li>
+              <li>
+                <div class="flex items-center gap-3 rounded-xl border border-white/10 bg-void/40 px-3 py-3 opacity-80">
+                  <img src="./img/gym/sticks.jpg" alt="" class="w-12 h-12 rounded-lg object-cover shrink-0" width="48" height="48" />
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold truncate">30-Day Hand Speed</span>
+                    <span class="block text-xs text-white/40">In library</span>
+                  </span>
+                </div>
+              </li>
+              <li>
+                <div class="flex items-center gap-3 rounded-xl border border-white/10 bg-void/40 px-3 py-3 opacity-80">
+                  <img src="./img/gym/snare.jpg" alt="" class="w-12 h-12 rounded-lg object-cover shrink-0" width="48" height="48" />
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold truncate">Paradiddle 200</span>
+                    <span class="block text-xs text-white/40">Locked · finish active first</span>
+                  </span>
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <section class="rounded-2xl border border-white/10 bg-panel p-5">
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-white/40">Quick links</p>
+            <div class="mt-3 flex flex-col gap-2">
+              <a href="./account.html#billing" class="tap text-sm text-white/70 hover:text-teal transition-colors">Manage billing</a>
+              <a href="./membership.html#programs" class="tap text-sm text-white/70 hover:text-teal transition-colors">All programs</a>
+              <a href="./membership-welcome.html" class="tap text-sm text-white/70 hover:text-teal transition-colors">Welcome tips</a>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <p class="mt-8 text-center text-[11px] text-white/30">
+        Portal mockup · lesson video is a placeholder embed until Mike&rsquo;s lesson library is connected
+      </p>
+    </div>
+  </main>
+
+  <footer class="border-t border-white/10 px-4 sm:px-6 py-6 safe-bottom">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between gap-2 text-xs text-white/35">
+      <p>© <span id="y"></span> Michael Staus · Stick It Out Lessons</p>
+      <a href="https://blazedigitaldesign.com" class="hover:text-white transition-colors">Built by Blaze Digital</a>
+    </div>
+  </footer>
+
+  <script src="./js/membership-commerce.js"></script>
+  <script>
+    (function () {
+      document.getElementById('y').textContent = new Date().getFullYear();
+      var C = window.SIOLessons;
+      if (C) {
+        var state = C.loadState();
+        var email = state.email || state.waitlistEmail;
+        if (email) {
+          var name = (state.waitlistName || email.split('@')[0] || 'drummer');
+          document.getElementById('greet').textContent = 'Hey ' + name + '. Hit play, then log your BPM.';
+        }
+      }
+
+      document.getElementById('log-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var bpm = document.getElementById('bpm-input').value;
+        document.getElementById('last-bpm').textContent = bpm;
+        var done = document.getElementById('log-done');
+        done.classList.remove('hidden');
+        done.textContent = 'Logged ' + bpm + ' BPM for Day 7. See you tomorrow.';
+        if (C) C.saveState({ lastBpm: Number(bpm), lastWorkoutDay: 7 });
+      });
+    })();
+  </script>
+</body>
+</html>

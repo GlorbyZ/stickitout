@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Checkout | Stick It Out Lessons</title>
+  <meta name="description" content="Choose your Stick It Out Lessons plan and start your week free trial." />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="./img/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            void: '#0B0C0E',
+            panel: '#16181C',
+            mute: '#9CA3AF',
+            teal: { DEFAULT: '#14B8A6', deep: '#0F766E' },
+            bluecta: '#3B82F6'
+          },
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] },
+          boxShadow: { soft: '0 20px 50px rgba(0,0,0,.35)' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: "Plus Jakarta Sans", system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .tap { min-height: 44px; }
+    .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+    .plan-btn.is-active { border-color: rgba(20,184,166,.65); background: rgba(20,184,166,.12); }
+    .hidden-block { display: none !important; }
+  </style>
+  <meta name="designer" content="Blaze Digital Design" data-blaze-credit-head="1" />
+  <meta name="theme-color" content="#0B0C0E" />
+</head>
+<body class="bg-void text-white antialiased min-h-screen flex flex-col">
+
+  <header class="border-b border-white/10 bg-void/95">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <a href="./membership.html" class="font-extrabold tracking-tight text-sm uppercase">
+        StickItOut<span class="text-teal">.Lessons</span>
+      </a>
+      <a href="./membership.html" class="text-sm text-white/55 hover:text-white transition-colors">Back</a>
+    </div>
+  </header>
+
+  <main class="flex-grow safe-bottom flex items-center justify-center px-4 sm:px-6 py-10 sm:py-14">
+    <div class="w-full max-w-5xl rounded-2xl border border-white/10 bg-panel overflow-hidden shadow-soft grid md:grid-cols-2">
+
+      <!-- Summary -->
+      <div class="p-8 sm:p-10 border-b md:border-b-0 md:border-r border-white/10 bg-[#12141A]">
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-teal mb-6">Order summary</p>
+        <div class="flex gap-4 items-start">
+          <div class="w-20 h-20 rounded-xl overflow-hidden border border-white/10 shrink-0 bg-void">
+            <img src="./img/mike.jpg" alt="" class="w-full h-full object-cover object-top" width="160" height="160" />
+          </div>
+          <div>
+            <h1 class="text-xl font-extrabold tracking-tight" id="summary-title">Stick It Out Lessons</h1>
+            <p class="mt-1 text-sm text-white/55" id="summary-plan">Biannual membership</p>
+            <p class="mt-2 text-xs text-white/40">Full access · week free trial when live</p>
+          </div>
+        </div>
+
+        <div class="mt-8 space-y-3 border-t border-white/10 pt-6 text-sm">
+          <div class="flex justify-between text-white/60">
+            <span>Plan</span>
+            <span class="text-white font-semibold" id="summary-label">Biannual</span>
+          </div>
+          <div class="flex justify-between text-white/60" id="savings-row">
+            <span>Savings</span>
+            <span class="text-teal font-semibold" id="summary-savings">1 month savings</span>
+          </div>
+          <div class="flex justify-between text-lg font-extrabold text-white pt-4 border-t border-white/10">
+            <span>Total</span>
+            <span><span id="summary-price">$149.95</span> <span class="text-sm font-semibold text-white/45" id="summary-interval">/6mo</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Select + pay -->
+      <div class="p-8 sm:p-10 flex flex-col justify-center">
+        <h2 class="text-2xl font-extrabold tracking-tight">Choose your plan</h2>
+        <p class="mt-2 text-sm text-white/55">Same full access on every tier. Pick the billing rhythm that fits.</p>
+
+        <div class="mt-6 space-y-2" id="plan-picker" role="radiogroup" aria-label="Membership plan"></div>
+
+        <!-- Live Stripe CTA -->
+        <div id="pay-live" class="mt-7 hidden-block">
+          <a id="pay-button" href="#" class="tap w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-teal text-white text-base font-semibold hover:bg-teal-deep transition-colors shadow-soft">
+            <span id="pay-text">Start Your Week Free Trial</span>
+          </a>
+          <p class="mt-3 text-xs text-white/40 text-center flex items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+            Encrypted by Stripe
+          </p>
+        </div>
+
+        <!-- Waitlist -->
+        <div id="pay-waitlist" class="mt-7">
+          <p class="text-sm text-white/65 leading-relaxed mb-4">
+            Checkout is launching soon. Join the waitlist for <strong class="text-white" id="waitlist-plan-name">Biannual</strong> and we&rsquo;ll email you when the week free trial opens.
+          </p>
+          <form id="waitlist-form" class="space-y-3">
+            <label class="block">
+              <span class="sr-only">Name</span>
+              <input type="text" name="name" id="waitlist-name" required autocomplete="name" placeholder="Your name"
+                class="w-full rounded-xl bg-void border border-white/15 px-4 py-3 text-sm text-white placeholder:text-white/35 focus:outline-none focus:border-teal" />
+            </label>
+            <label class="block">
+              <span class="sr-only">Email</span>
+              <input type="email" name="email" id="waitlist-email" required autocomplete="email" placeholder="Email"
+                class="w-full rounded-xl bg-void border border-white/15 px-4 py-3 text-sm text-white placeholder:text-white/35 focus:outline-none focus:border-teal" />
+            </label>
+            <button type="submit" class="tap w-full inline-flex items-center justify-center px-6 py-3.5 rounded-full bg-teal text-white text-base font-semibold hover:bg-teal-deep transition-colors">
+              Join the waitlist
+            </button>
+          </form>
+          <p id="waitlist-done" class="hidden-block mt-4 text-sm text-teal leading-relaxed"></p>
+          <p class="mt-3 text-xs text-white/35 text-center">Launching soon · pricing locked in</p>
+        </div>
+
+        <p class="mt-6 text-center text-xs text-white/35">
+          <a href="./account.html" class="underline underline-offset-2 hover:text-white transition-colors">Already a member? Manage billing</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-white/10 px-4 py-6 text-center text-xs text-white/35 safe-bottom">
+    <p>© <span id="y"></span> Michael Staus · Stick It Out Lessons</p>
+  </footer>
+
+  <script src="./js/membership-commerce.js"></script>
+  <script>
+    (function () {
+      document.getElementById('y').textContent = new Date().getFullYear();
+      var C = window.SIOLessons;
+      var current = C.parsePlanFromQuery();
+
+      var picker = document.getElementById('plan-picker');
+      var payLive = document.getElementById('pay-live');
+      var payWait = document.getElementById('pay-waitlist');
+      var payBtn = document.getElementById('pay-button');
+      var payText = document.getElementById('pay-text');
+      var savingsRow = document.getElementById('savings-row');
+
+      function renderPicker() {
+        picker.innerHTML = '';
+        C.planList().forEach(function (plan) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'plan-btn tap w-full text-left rounded-xl border border-white/10 bg-void/60 px-4 py-3.5 transition-colors hover:border-white/25' +
+            (plan.id === current.id ? ' is-active' : '');
+          btn.setAttribute('role', 'radio');
+          btn.setAttribute('aria-checked', plan.id === current.id ? 'true' : 'false');
+          btn.dataset.plan = plan.id;
+          btn.innerHTML =
+            '<div class="flex items-center justify-between gap-3">' +
+            '<div><p class="text-xs font-bold uppercase tracking-[0.18em] text-white/50">' + plan.label + '</p>' +
+            (plan.savings ? '<p class="mt-0.5 text-xs text-teal">' + plan.savings + '</p>' : '') +
+            '</div>' +
+            '<p class="text-lg font-extrabold text-white">' + plan.priceLabel +
+            ' <span class="text-sm font-semibold text-white/45">' + plan.interval + '</span></p>' +
+            '</div>';
+          btn.addEventListener('click', function () {
+            selectPlan(plan.id);
+          });
+          picker.appendChild(btn);
+        });
+      }
+
+      function selectPlan(id) {
+        current = C.getPlan(id);
+        history.replaceState(null, '', '?plan=' + encodeURIComponent(current.id));
+        updateSummary();
+        renderPicker();
+        updatePayMode();
+      }
+
+      function updateSummary() {
+        document.getElementById('summary-plan').textContent = current.label + ' membership';
+        document.getElementById('summary-label').textContent = current.label;
+        document.getElementById('summary-price').textContent = current.priceLabel;
+        document.getElementById('summary-interval').textContent = current.interval;
+        document.getElementById('waitlist-plan-name').textContent = current.label;
+        if (current.savings) {
+          savingsRow.classList.remove('hidden-block');
+          document.getElementById('summary-savings').textContent = current.savings;
+        } else {
+          savingsRow.classList.add('hidden-block');
+        }
+      }
+
+      function updatePayMode() {
+        if (C.checkoutEnabled(current)) {
+          payLive.classList.remove('hidden-block');
+          payWait.classList.add('hidden-block');
+          payBtn.href = current.checkoutUrl;
+          payText.textContent = C.trialLabel;
+        } else {
+          payLive.classList.add('hidden-block');
+          payWait.classList.remove('hidden-block');
+        }
+      }
+
+      document.getElementById('waitlist-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var name = document.getElementById('waitlist-name').value;
+        var email = document.getElementById('waitlist-email').value;
+        C.joinWaitlist(name, email, current.id);
+        C.setSessionEmail(email);
+        document.getElementById('waitlist-form').classList.add('hidden-block');
+        var done = document.getElementById('waitlist-done');
+        done.classList.remove('hidden-block');
+        done.textContent = 'You\u2019re on the list for ' + current.label + '. We\u2019ll email ' + email.trim() + ' when checkout opens.';
+      });
+
+      updateSummary();
+      renderPicker();
+      updatePayMode();
+    })();
+  </script>
+</body>
+</html>
