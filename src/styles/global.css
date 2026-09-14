@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@theme inline {
+  --color-blackout: var(--sio-blackout);
+  --color-wings: var(--sio-wings);
+  --color-cue: var(--sio-cue);
+  --color-gel: var(--sio-gel);
+  --color-chrome: var(--sio-chrome);
+  --color-on-gel: var(--sio-on-gel);
+  --font-display: var(--sio-font-display);
+  --font-body: var(--sio-font-body);
+  --radius-sio: var(--sio-radius);
+  --tracking-display: var(--sio-tracking-display);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--sio-font-body);
+  background: var(--sio-blackout);
+  color: var(--sio-cue);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--sio-gel);
+  color: var(--sio-on-gel);
+}
+
+.font-display {
+  font-family: var(--sio-font-display);
+  letter-spacing: var(--sio-tracking-display);
+  text-transform: uppercase;
+}
+
+.tap {
+  min-height: 44px;
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.honeypot {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+details > summary {
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+details[open] .faq-chev {
+  transform: rotate(180deg);
+}

@@ -1,0 +1,27 @@
+---
+export const prerender = true;
+
+import Marketing from '../../layouts/Marketing.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import { getCollection } from 'astro:content';
+
+const challenges = (await getCollection('challenges')).filter((entry) => entry.data.published);
+---
+
+<Marketing title="Challenges | Stick It Out" description="Member challenges. Submit UI is a later slice.">
+  <PageHeader
+    title="Challenges"
+    lede="Film the fill. Take the note. Submit UI and judging are not in this PR — schema is ready."
+  />
+  <div class="mx-auto max-w-3xl space-y-4 px-4 py-12 sm:px-6">
+    {
+      challenges.map((challenge) => (
+        <article class="rounded-sio border border-chrome/20 bg-wings p-6">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gel">{challenge.data.status}</p>
+          <h2 class="font-display mt-1 text-3xl tracking-display text-cue">{challenge.data.title}</h2>
+          <p class="mt-2 text-sm text-chrome">{challenge.data.excerpt}</p>
+        </article>
+      ))
+    }
+  </div>
+</Marketing>

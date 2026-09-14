@@ -1,0 +1,28 @@
+---
+export const prerender = true;
+
+import Marketing from '../../layouts/Marketing.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import TrackCard from '../../components/TrackCard.astro';
+import { getCollection } from 'astro:content';
+
+const tracks = (await getCollection('tracks')).filter((entry) => entry.data.published);
+---
+
+<Marketing title="Tracks | Stick It Out" description="Lesson tracks — Blink-pocket work, hand speed, paradiddles, feet.">
+  <PageHeader title="Tracks" lede="Pick a lane. Show up weekly. Finished lessons stay in your library." />
+  <div class="mx-auto grid max-w-6xl gap-5 px-4 py-12 sm:grid-cols-2 sm:px-6">
+    {
+      tracks.map((track) => (
+        <TrackCard
+          title={track.data.title}
+          excerpt={track.data.excerpt}
+          cover={track.data.cover}
+          lessonCount={track.data.lessonCount}
+          featured={track.data.featured}
+          href="/join"
+        />
+      ))
+    }
+  </div>
+</Marketing>

@@ -1,0 +1,15 @@
+---
+interface Props {
+  title: string;
+  lede?: string;
+}
+
+const { title, lede } = Astro.props;
+---
+
+<header class="border-b border-chrome/15">
+  <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
+    <h1 class="font-display text-5xl tracking-display text-cue sm:text-6xl">{title}</h1>
+    {lede && <p class="mt-4 max-w-2xl text-base leading-relaxed text-chrome">{lede}</p>}
+  </div>
+</header>

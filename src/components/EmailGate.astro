@@ -1,0 +1,78 @@
+---
+interface Props {
+  heading?: string;
+  lede?: string;
+  source?: string;
+  cta?: string;
+}
+
+const {
+  heading = 'Claim lesson 01',
+  lede = 'Anthem Part Two — in the style of that driving pocket. Confirm the email. Watch the lesson. No fake localStorage unlock.',
+  source = 'free-lesson',
+  cta = 'Send the confirm link',
+} = Astro.props;
+---
+
+<form
+  class="js-email-gate mx-auto w-full max-w-md space-y-3 rounded-sio border border-chrome/25 bg-wings p-6"
+  data-source={source}
+>
+  <h3 class="font-display text-2xl tracking-display text-cue">{heading}</h3>
+  <p class="text-sm leading-relaxed text-chrome">{lede}</p>
+  <label class="block">
+    <span class="sr-only">Email</span>
+    <input
+      type="email"
+      name="email"
+      required
+      autocomplete="email"
+      placeholder="you@email.com"
+      class="w-full rounded-sio border border-chrome/30 bg-blackout px-4 py-3 text-sm text-cue placeholder:text-chrome/60 focus:border-gel focus:outline-none"
+    />
+  </label>
+  <label class="honeypot" aria-hidden="true">
+    Company
+    <input type="text" name="company" tabindex="-1" autocomplete="off" />
+  </label>
+  <button
+    type="submit"
+    class="tap inline-flex w-full items-center justify-center rounded-sio bg-gel px-6 py-3 text-sm font-semibold text-on-gel hover:opacity-90"
+  >
+    {cta}
+  </button>
+  <p class="js-email-gate-status min-h-[1.25rem] text-sm text-chrome" role="status"></p>
+</form>
+
+<script>
+  const forms = document.querySelectorAll<HTMLFormElement>('.js-email-gate');
+  forms.forEach((form) => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const status = form.querySelector('.js-email-gate-status');
+      const button = form.querySelector('button[type="submit"]');
+      const data = new FormData(form);
+      const email = String(data.get('email') || '').trim();
+      const company = String(data.get('company') || '');
+      const source = form.dataset.source || 'free-lesson';
+      if (status) status.textContent = 'Sending…';
+      if (button instanceof HTMLButtonElement) button.disabled = true;
+      try {
+        const res = await fetch('/api/subscribe', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email, company, source }),
+        });
+        const json = (await res.json()) as { ok?: boolean; message?: string };
+        if (status) {
+          status.textContent = json.message || (res.ok ? 'Check your inbox to confirm.' : 'Could not send. Try again.');
+        }
+        if (res.ok) form.reset();
+      } catch {
+        if (status) status.textContent = 'Network error. Try again.';
+      } finally {
+        if (button instanceof HTMLButtonElement) button.disabled = false;
+      }
+    });
+  });
+</script>

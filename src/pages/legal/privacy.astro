@@ -1,0 +1,25 @@
+---
+export const prerender = true;
+
+import Marketing from '../../layouts/Marketing.astro';
+import PageHeader from '../../components/PageHeader.astro';
+---
+
+<Marketing title="Privacy | Stick It Out" description="What we collect for the free-lesson funnel and membership.">
+  <PageHeader title="Privacy" lede="Email for the lesson confirm. No localStorage bleed as the source of truth." />
+  <div class="mx-auto max-w-3xl space-y-4 px-4 py-12 text-sm leading-relaxed text-chrome sm:px-6">
+    <p>
+      We collect the email you submit on the free-lesson gate, waitlist, or contact stub. That row lives
+      in Supabase (<code class="text-cue">subscribers</code>). A confirm token is emailed via Resend.
+    </p>
+    <p>
+      Membership login (next slice) will use Supabase Auth. Payment details are handled by Stripe — we do
+      not store card numbers.
+    </p>
+    <p>
+      Giveaway footnote (later): if we run a drawing, we will say what extra data is collected and how
+      long it is kept before anyone enters.
+    </p>
+    <p>Questions about data: use the contact page once a real mailbox is connected.</p>
+  </div>
+</Marketing>

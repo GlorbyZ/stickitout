@@ -1,0 +1,30 @@
+---
+export const prerender = true;
+
+import Marketing from '../layouts/Marketing.astro';
+import PageHeader from '../components/PageHeader.astro';
+---
+
+<Marketing title="About Mike | Stick It Out" description="Mike Staus — Berklee-trained drummer, FlickN, Wink-183, Billings MT.">
+  <PageHeader title="About Mike" />
+  <div class="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2">
+    <img src="/img/mike.jpg" alt="Mike Staus playing drums live" class="rounded-sio border border-chrome/20 object-cover object-top" />
+    <div class="space-y-4 text-chrome leading-relaxed">
+      <p>
+        Mike’s passion for punk drumming makes this whole thing possible. A Berklee-trained musician,
+        Staus delivers the hard-driving, fast technical beats that pop-punk fans can’t get enough of.
+      </p>
+      <p>
+        He’s the production force behind FlickN, has toured the US with national acts, and co-founded
+        FlickN and Wink-183 in Billings, MT in 2024.
+      </p>
+      <p>
+        Blink / Travis-style vocabulary is taught honestly <em>in the style of</em>. There is no official
+        endorsement.
+      </p>
+      <p class="text-sm">
+        Availability for lives and 1:1s is not published here. Don’t invent a calendar.
+      </p>
+    </div>
+  </div>
+</Marketing>

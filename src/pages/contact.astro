@@ -1,0 +1,22 @@
+---
+export const prerender = true;
+
+import Marketing from '../layouts/Marketing.astro';
+import PageHeader from '../components/PageHeader.astro';
+import EmailGate from '../components/EmailGate.astro';
+---
+
+<Marketing title="Contact | Stick It Out" description="Get on the list. A dedicated mailbox is not invented here.">
+  <PageHeader
+    title="Contact"
+    lede="No public teaching calendar and no invented inbox. Leave an email — we’ll use the same confirm flow when a real mailbox is connected."
+  />
+  <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+    <EmailGate
+      heading="Leave your email"
+      lede="This captures a subscriber row with source=contact. A full message form is a later slice."
+      source="contact"
+      cta="Send the confirm link"
+    />
+  </div>
+</Marketing>

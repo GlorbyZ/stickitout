@@ -1,0 +1,28 @@
+---
+export const prerender = true;
+
+import Marketing from '../../layouts/Marketing.astro';
+---
+
+<Marketing title="Order confirmed | Stick It Out" description="Thank you for purchasing the Stick It Out PDF." noindex>
+  <div class="mx-auto max-w-lg px-4 py-24 text-center sm:px-6">
+    <p class="font-display text-5xl tracking-display text-cue">Order confirmed</p>
+    <p class="mt-4 leading-relaxed text-chrome">
+      Thank you for your support. You purchased the digital edition of <strong class="text-cue">Stick It Out</strong>.
+      Stripe emails the receipt. Save the file when it arrives.
+    </p>
+    <a
+      href="/assets/Stick_It_Out_Official.pdf"
+      download
+      class="tap mt-8 inline-flex items-center justify-center rounded-sio bg-gel px-8 py-3.5 text-sm font-semibold text-on-gel hover:opacity-90"
+    >
+      Download PDF
+    </a>
+    <p class="mt-4 text-xs text-chrome">
+      Direct download matches the existing live fulfillment until a Stripe webhook locks this down.
+    </p>
+    <p class="mt-10">
+      <a href="/" class="text-sm text-gel hover:text-cue">Return home</a>
+    </p>
+  </div>
+</Marketing>

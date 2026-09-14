@@ -1,0 +1,53 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description = 'Stick It Out Lessons — weekly drum coaching from Mike Staus. Don’t flinch on the one.',
+  image = '/img/cover.jpg',
+  noindex = false,
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://stickitoutbook.com');
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <link rel="canonical" href={canonical.href} />
+    <link rel="icon" href="/img/logo.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={image} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Bebas+Neue&display=swap"
+      rel="stylesheet"
+    />
+    <meta name="designer" content="Blaze Digital Design" data-blaze-credit-head="1" />
+    <meta name="web_author" content="Blaze Digital Design" />
+    <meta name="dcterms.creator" content="Blaze Digital Design" />
+    <link rel="author" href="https://blazedigitaldesign.com/" title="Blaze Digital Design" />
+    <link rel="describedby" href="/llms.txt" />
+    <link rel="alternate" type="text/markdown" href="/credits.md" title="Studio credit (markdown)" />
+    <link rel="author" type="text/plain" href="/humans.txt" title="humans.txt" />
+    <slot name="head" />
+  </head>
+  <body class="bg-blackout text-cue font-body min-h-dvh flex flex-col antialiased">
+    <slot />
+  </body>
+</html>

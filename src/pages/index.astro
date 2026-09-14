@@ -1,0 +1,200 @@
+---
+export const prerender = true;
+
+import Marketing from '../layouts/Marketing.astro';
+import Hero from '../components/Hero.astro';
+import LessonCard from '../components/LessonCard.astro';
+import TrackCard from '../components/TrackCard.astro';
+import PricingTable from '../components/PricingTable.astro';
+import FaqAccordion from '../components/FaqAccordion.astro';
+import EmailGate from '../components/EmailGate.astro';
+import BookStrip from '../components/BookStrip.astro';
+import { getCollection } from 'astro:content';
+import { commerce } from '../lib/commerce';
+
+const lessons = (await getCollection('lessons'))
+  .filter((entry) => entry.data.published)
+  .sort((a, b) => a.data.week - b.data.week)
+  .slice(0, 4);
+
+const tracks = (await getCollection('tracks'))
+  .filter((entry) => entry.data.published)
+  .sort((a, b) => Number(b.data.featured) - Number(a.data.featured));
+
+function lessonHref(isFree: boolean) {
+  return isFree ? '/free-lesson' : '/join';
+}
+---
+
+<Marketing
+  title="Stick It Out Lessons | Mike Staus"
+  description="Weekly drum lessons with Mike Staus. When the lights drop, you either have it or you don’t."
+  image="/img/mike.jpg"
+>
+  <Hero />
+
+  <section class="border-t border-chrome/15">
+    <div class="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:items-center">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gel">The problem</p>
+        <h2 class="font-display mt-3 text-4xl tracking-display text-cue sm:text-5xl">
+          Random YouTube is not a plan.
+        </h2>
+        <p class="mt-5 text-base leading-relaxed text-chrome">
+          You bookmark a groove, skip the boring week, and wonder why the pocket still falls apart
+          when the house lights drop. A pile of videos is not a set list.
+        </p>
+      </div>
+      <div class="rounded-sio border border-chrome/25 bg-wings p-8">
+        <p class="font-display text-3xl tracking-display text-cue">Scroll. Save. Forget.</p>
+        <p class="mt-3 text-sm leading-relaxed text-chrome">
+          Algorithm soup. No BPM target. No week. No one in the room who will tell you the fill rushed.
+          That is the default. This is the other option.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="border-t border-chrome/15 bg-wings">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gel">How it works</p>
+      <h2 class="font-display mt-3 text-4xl tracking-display text-cue sm:text-5xl">
+        1 lesson = 1 week.
+      </h2>
+      <ol class="mt-10 grid gap-6 sm:grid-cols-3">
+        <li class="rounded-sio border border-chrome/20 bg-blackout p-6">
+          <p class="font-display text-4xl text-gel">01</p>
+          <h3 class="mt-3 font-semibold text-cue">Get the week’s lesson</h3>
+          <p class="mt-2 text-sm leading-relaxed text-chrome">
+            One video, one pocket, one target. You always know what to practice this week.
+          </p>
+        </li>
+        <li class="rounded-sio border border-chrome/20 bg-blackout p-6">
+          <p class="font-display text-4xl text-gel">02</p>
+          <h3 class="mt-3 font-semibold text-cue">Hit the BPM. Film the fill.</h3>
+          <p class="mt-2 text-sm leading-relaxed text-chrome">
+            Log it when the portal ships. The metric is tighter than last week — nothing else.
+          </p>
+        </li>
+        <li class="rounded-sio border border-chrome/20 bg-blackout p-6">
+          <p class="font-display text-4xl text-gel">03</p>
+          <h3 class="mt-3 font-semibold text-cue">Next week, don’t flinch.</h3>
+          <p class="mt-2 text-sm leading-relaxed text-chrome">
+            The library stays. Tracks stack. When the lights drop, you already have it.
+          </p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="border-t border-chrome/15">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <div class="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gel">Library</p>
+          <h2 class="font-display mt-3 text-4xl tracking-display text-cue">Preview the work.</h2>
+        </div>
+        <a href="/lessons" class="text-sm font-semibold text-gel hover:text-cue">All lessons →</a>
+      </div>
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {
+          lessons.map((lesson) => (
+            <LessonCard
+              title={lesson.data.title}
+              excerpt={lesson.data.excerpt}
+              week={lesson.data.week}
+              isFree={lesson.data.isFree}
+              cover={lesson.data.cover}
+              href={lessonHref(lesson.data.isFree)}
+            />
+          ))
+        }
+      </div>
+      <div class="mt-12 grid gap-5 sm:grid-cols-2">
+        {
+          tracks.map((track) => (
+            <TrackCard
+              title={track.data.title}
+              excerpt={track.data.excerpt}
+              cover={track.data.cover}
+              lessonCount={track.data.lessonCount}
+              featured={track.data.featured}
+              href="/tracks"
+            />
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section id="mike" class="border-t border-chrome/15 bg-wings">
+    <div class="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gel">The teacher</p>
+        <h2 class="font-display mt-3 text-4xl tracking-display text-cue">Learn with Mike.</h2>
+        <p class="mt-5 text-base leading-relaxed text-chrome">
+          Mike’s passion for punk drumming makes this whole thing possible. A Berklee-trained musician,
+          Staus delivers the hard-driving, fast technical beats that pop-punk fans can’t get enough of.
+          He’s also the production force behind FlickN, has toured the US with national acts, and
+          co-founded FlickN and Wink-183 in Billings, MT in 2024.
+        </p>
+        <ul class="mt-6 space-y-2 text-sm text-cue">
+          <li>— One instructor, clear programs, all levels welcome</li>
+          <li>— Blink / Travis-style vocabulary, taught honestly (in the style of)</li>
+          <li>— A community of drummers who actually show up</li>
+        </ul>
+        <blockquote class="mt-8 border-l-2 border-gel pl-4 text-sm italic text-chrome">
+          “My number one priority in teaching is to help you grow. Whether you learn best by watching,
+          listening, reading, or a mix of all three, we’ll do it together.”
+          <footer class="mt-2 not-italic text-xs font-semibold uppercase tracking-wider text-gel">
+            Mike Staus · Drums
+          </footer>
+        </blockquote>
+      </div>
+      <div class="overflow-hidden rounded-sio border border-chrome/20">
+        <img src="/img/mike.jpg" alt="Mike Staus playing drums live" class="h-full w-full object-cover object-top" width="800" height="1000" />
+      </div>
+    </div>
+  </section>
+
+  <section id="pricing" class="border-t border-chrome/15">
+    <div class="mx-auto max-w-4xl px-4 py-20 sm:px-6">
+      <div class="mb-10 text-center">
+        <h2 class="font-display text-4xl tracking-display text-cue sm:text-5xl">One plan, full access</h2>
+        <p class="mx-auto mt-3 max-w-xl text-chrome">
+          Same library on every tier. Pricing is the demo copy already in this repo — not a new number.
+        </p>
+      </div>
+      <PricingTable />
+      <div class="mt-8 text-center">
+        <a
+          href={commerce.joinHref()}
+          class="tap inline-flex items-center justify-center rounded-sio bg-gel px-8 py-3.5 text-base font-semibold text-on-gel hover:opacity-90"
+        >
+          Claim your spot
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section id="free-lesson" class="border-t border-chrome/15 bg-wings">
+    <div class="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
+      <h2 class="font-display text-4xl tracking-display text-cue">Start with lesson 01</h2>
+      <p class="mx-auto mt-3 max-w-xl text-chrome">
+        Anthem Part Two. Confirm the email. The lights drop either way — better to have the pocket.
+      </p>
+      <div class="mt-8 text-left">
+        <EmailGate />
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="border-t border-chrome/15">
+    <div class="mx-auto max-w-3xl px-4 py-20 sm:px-6">
+      <h2 class="font-display mb-8 text-center text-4xl tracking-display text-cue">FAQ</h2>
+      <FaqAccordion />
+    </div>
+  </section>
+
+  <BookStrip />
+</Marketing>

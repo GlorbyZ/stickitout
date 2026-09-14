@@ -1,0 +1,51 @@
+---
+export const prerender = false;
+
+import Marketing from '../layouts/Marketing.astro';
+import PageHeader from '../components/PageHeader.astro';
+import EmailGate from '../components/EmailGate.astro';
+import { commerce } from '../lib/commerce';
+
+const plan = commerce.getPlan(Astro.url.searchParams.get('plan'));
+const live = commerce.checkoutEnabled(plan);
+---
+
+<Marketing
+  title="Join | Stick It Out Lessons"
+  description="Claim your spot on Stick It Out Lessons. Stripe membership links are not live yet."
+  noindex
+>
+  <PageHeader
+    title="Claim your spot"
+    lede={`${plan.label} · ${plan.priceLabel}${plan.interval}. Same full access on every tier.`}
+  />
+  <div class="mx-auto max-w-lg px-4 py-12 sm:px-6">
+    {
+      live ? (
+        <a
+          href={plan.checkoutUrl}
+          class="tap inline-flex w-full items-center justify-center rounded-sio bg-gel px-8 py-3.5 font-semibold text-on-gel hover:opacity-90"
+        >
+          {commerce.trialLabel}
+        </a>
+      ) : (
+        <div class="space-y-6">
+          <p class="text-sm leading-relaxed text-chrome">
+            Membership Stripe Payment Links are empty in <code class="text-cue">src/lib/commerce.ts</code>.
+            Do not invent product IDs. Join the waitlist for <strong class="text-cue">{plan.label}</strong> and
+            we’ll email when checkout is real.
+          </p>
+          <EmailGate
+            heading="Waitlist"
+            lede={`We’ll mail you when ${plan.label} checkout is live.`}
+            source={`waitlist:${plan.id}`}
+            cta="Join the waitlist"
+          />
+        </div>
+      )
+    }
+    <p class="mt-6 text-center text-xs text-chrome">
+      <a href="/login" class="underline hover:text-cue">Already a member? Login is next.</a>
+    </p>
+  </div>
+</Marketing>

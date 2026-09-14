@@ -1,0 +1,33 @@
+---
+export const prerender = true;
+
+import Marketing from '../../layouts/Marketing.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import LessonCard from '../../components/LessonCard.astro';
+import { getCollection } from 'astro:content';
+
+const lessons = (await getCollection('lessons'))
+  .filter((entry) => entry.data.published)
+  .sort((a, b) => a.data.week - b.data.week || a.data.title.localeCompare(b.data.title));
+---
+
+<Marketing title="Lessons | Stick It Out" description="Weekly drum lessons from Mike Staus. One lesson = one week.">
+  <PageHeader
+    title="Lessons"
+    lede="One lesson per week. Lesson 01 is free. The rest of the library ships with membership."
+  />
+  <div class="mx-auto grid max-w-6xl gap-5 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-3">
+    {
+      lessons.map((lesson) => (
+        <LessonCard
+          title={lesson.data.title}
+          excerpt={lesson.data.excerpt}
+          week={lesson.data.week}
+          isFree={lesson.data.isFree}
+          cover={lesson.data.cover}
+          href={lesson.data.isFree ? '/free-lesson' : '/join'}
+        />
+      ))
+    }
+  </div>
+</Marketing>
