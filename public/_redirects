@@ -1,0 +1,11 @@
+/membership.html    /                    301
+/membership         /                    301
+/payment.html       /book                301
+/payment            /book                301
+/unlock.html        /book/thanks         301
+/unlock             /book/thanks         301
+/membership-checkout.html  /join         301
+/membership-welcome.html   /join         301
+/account.html       /login               301
+/account            /login               301
+/portal.html        /portal              301

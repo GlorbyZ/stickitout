@@ -1,0 +1,5 @@
+{
+  "name": "stickitout",
+  "compatibility_date": "2026-09-14",
+  "compatibility_flags": ["nodejs_compat"]
+}

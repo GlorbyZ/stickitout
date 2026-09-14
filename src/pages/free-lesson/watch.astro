@@ -1,0 +1,64 @@
+---
+export const prerender = false;
+
+import Marketing from '../../layouts/Marketing.astro';
+import VideoPlaceholder from '../../components/VideoPlaceholder.astro';
+import { getCollection } from 'astro:content';
+import { cloudflareEnv } from '../../lib/env';
+import { createServiceClient } from '../../lib/supabase';
+
+const token = Astro.url.searchParams.get('t') || '';
+const cfEnv = await cloudflareEnv();
+const supabase = createServiceClient(cfEnv);
+
+let allowed = false;
+if (token && supabase) {
+  const { data } = await supabase
+    .from('subscribers')
+    .select('id, confirmed_at, confirm_expires_at')
+    .eq('confirm_token', token)
+    .maybeSingle();
+  const unexpired = !data?.confirm_expires_at || new Date(data.confirm_expires_at) > new Date();
+  allowed = Boolean(data?.confirmed_at && unexpired);
+}
+
+if (!allowed) {
+  return Astro.redirect('/free-lesson');
+}
+
+const lesson = (await getCollection('lessons')).find((entry) => entry.data.isFree);
+---
+
+<Marketing
+  title="Watch lesson 01 | Stick It Out"
+  description="Your confirmed free lesson — Anthem Part Two."
+  noindex
+>
+  <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gel">Lesson 01 · Week 1</p>
+    <h1 class="font-display mt-2 text-5xl tracking-display text-cue">
+      {lesson?.data.title ?? 'Anthem Part Two'}
+    </h1>
+    <p class="mt-4 text-chrome">{lesson?.data.excerpt}</p>
+    <div class="mt-8">
+      {
+        lesson?.data.videoUrl ? (
+          <div class="aspect-video overflow-hidden rounded-sio border border-chrome/25">
+            <iframe
+              src={lesson.data.videoUrl}
+              title={lesson.data.title}
+              class="h-full w-full"
+              allowfullscreen
+            />
+          </div>
+        ) : (
+          <VideoPlaceholder title="Anthem Part Two" note="TODO: Mike’s lesson 01 embed. No URL invented." />
+        )
+      }
+    </div>
+    <p class="mt-8 text-sm text-chrome">
+      This watch link is tied to your confirmed email — not a browser stash. Next:{' '}
+      <a class="text-gel hover:text-cue" href="/join">claim your spot</a> for the rest of the library.
+    </p>
+  </div>
+</Marketing>

@@ -1,0 +1,23 @@
+---
+export const prerender = false;
+
+import Portal from '../../layouts/Portal.astro';
+---
+
+<Portal title="Member portal | Stick It Out" description="Member portal stub. Auth and BPM UI come later.">
+  <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gel">Portal</p>
+    <h1 class="font-display mt-2 text-5xl tracking-display text-cue">Today’s workout</h1>
+    <p class="mt-4 text-chrome leading-relaxed">
+      Schema for <code class="text-cue">lesson_progress</code>, <code class="text-cue">bpm_logs</code>, and
+      <code class="text-cue">memberships</code> is in <code class="text-cue">supabase/migrations</code>.
+      This page is a stub so <code class="text-cue">/portal</code> is server-rendered and ready for auth.
+    </p>
+    <ul class="mt-6 list-disc space-y-2 pl-5 text-sm text-chrome">
+      <li>TODO: Supabase magic link session gate</li>
+      <li>TODO: BPM logger UI</li>
+      <li>TODO: challenge submit UI</li>
+    </ul>
+    <a href="/login" class="mt-8 inline-block text-sm text-gel hover:text-cue">Login stub →</a>
+  </div>
+</Portal>

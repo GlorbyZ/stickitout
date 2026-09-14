@@ -1,0 +1,31 @@
+---
+export const prerender = true;
+
+import Marketing from '../layouts/Marketing.astro';
+import PageHeader from '../components/PageHeader.astro';
+---
+
+<Marketing
+  title="Login | Stick It Out"
+  description="Member login. Supabase magic link is the next slice."
+  noindex
+>
+  <PageHeader
+    title="Login"
+    lede="Supabase magic link auth is next. This page exists so the route is real. No localStorage session."
+  />
+  <div class="mx-auto max-w-lg px-4 py-12 sm:px-6">
+    <div class="rounded-sio border border-chrome/20 bg-wings p-6">
+      <p class="text-sm leading-relaxed text-chrome">
+        TODO: <code class="text-cue">signInWithOtp</code> against Supabase Auth. Portal, BPM logs, and
+        memberships already have tables. Do not paste a fake magic-link UI that stores email in the browser.
+      </p>
+      <a
+        href="/join"
+        class="tap mt-6 inline-flex items-center justify-center rounded-sio bg-gel px-5 py-3 text-sm font-semibold text-on-gel hover:opacity-90"
+      >
+        Claim your spot
+      </a>
+    </div>
+  </div>
+</Marketing>

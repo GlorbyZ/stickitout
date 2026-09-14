@@ -1,0 +1,16 @@
+/* Stick It Out — Brand Direction 02 "House Lights Down"
+   Hex lives here only. Components use these CSS variables (and Tailwind
+   mappings in global.css that point at them). */
+:root {
+  --sio-blackout: #0c0b0a;
+  --sio-wings: #161311;
+  --sio-cue: #f2ebe3;
+  --sio-gel: #e8a317;
+  --sio-chrome: #9aa3ad;
+  --sio-on-gel: #1a1206;
+
+  --sio-font-display: "Bebas Neue", Impact, sans-serif;
+  --sio-font-body: "Barlow", system-ui, sans-serif;
+  --sio-tracking-display: 0.04em;
+  --sio-radius: 0.2rem;
+}

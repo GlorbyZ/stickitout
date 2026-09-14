@@ -1,0 +1,26 @@
+---
+export const prerender = true;
+
+import Marketing from '../../layouts/Marketing.astro';
+import PageHeader from '../../components/PageHeader.astro';
+---
+
+<Marketing title="Terms | Stick It Out" description="Minimal terms for Stick It Out Lessons and the book.">
+  <PageHeader title="Terms" lede="Short version until counsel reviews a longer draft." />
+  <div class="mx-auto max-w-3xl space-y-4 px-4 py-12 text-sm leading-relaxed text-chrome sm:px-6">
+    <p>Stick It Out Lessons and the Stick It Out PDF are products of Michael Staus.</p>
+    <p>
+      Membership access, when live, is licensed not sold. The book PDF is a one-time purchase via Stripe.
+      Do not redistribute either.
+    </p>
+    <p>
+      Blink-182 / Travis Barker names appear only to describe a playing style. There is no endorsement,
+      partnership, or official course.
+    </p>
+    <p>
+      Giveaway footnote (later): if a kit, lesson, or merch drawing is run, official rules will be posted
+      here before anyone is asked to enter. This sentence exists so we do not forget.
+    </p>
+    <p>These terms may be updated. Continued use after a post means you accept the new version.</p>
+  </div>
+</Marketing>

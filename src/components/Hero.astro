@@ -1,0 +1,49 @@
+---
+interface Props {
+  kicker?: string;
+  headline?: string;
+  lede?: string;
+  primaryHref?: string;
+  primaryLabel?: string;
+  secondaryHref?: string;
+  secondaryLabel?: string;
+}
+
+const {
+  kicker = 'Stick It Out Lessons',
+  headline = "When the lights drop, you either have it or you don't.",
+  lede = "Don’t flinch on the one. Weekly lessons from Mike Staus — Berklee-trained, touring pop-punk drummer — built like a set list, not a YouTube pile.",
+  primaryHref = '/join',
+  primaryLabel = 'Claim your spot',
+  secondaryHref = '/free-lesson',
+  secondaryLabel = 'Get the free lesson',
+} = Astro.props;
+---
+
+<section class="relative overflow-hidden">
+  <div class="absolute inset-0" aria-hidden="true">
+    <img src="/img/gym/kit.jpg" alt="" class="h-full w-full object-cover opacity-35" />
+    <div class="absolute inset-0 bg-linear-to-b from-blackout/70 via-blackout/80 to-blackout"></div>
+  </div>
+  <div class="relative mx-auto max-w-4xl px-4 py-24 text-center sm:px-6 sm:py-32">
+    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-gel">{kicker}</p>
+    <h1 class="font-display mt-4 text-5xl leading-[0.95] tracking-display text-cue sm:text-7xl">
+      {headline}
+    </h1>
+    <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-chrome sm:text-lg">{lede}</p>
+    <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <a
+        href={primaryHref}
+        class="tap inline-flex items-center justify-center rounded-sio bg-gel px-8 py-3.5 text-base font-semibold text-on-gel hover:opacity-90"
+      >
+        {primaryLabel}
+      </a>
+      <a
+        href={secondaryHref}
+        class="tap inline-flex items-center justify-center rounded-sio border border-chrome/40 px-8 py-3.5 text-base font-semibold text-cue hover:border-gel"
+      >
+        {secondaryLabel}
+      </a>
+    </div>
+  </div>
+</section>

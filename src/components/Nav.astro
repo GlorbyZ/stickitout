@@ -1,0 +1,52 @@
+---
+const path = Astro.url.pathname;
+const links = [
+  { href: '/lessons', label: 'Lessons' },
+  { href: '/tracks', label: 'Tracks' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/book', label: 'Book' },
+  { href: '/free-lesson', label: 'Free lesson' },
+];
+
+function isActive(href: string) {
+  if (href === '/') return path === '/';
+  return path === href || path.startsWith(`${href}/`);
+}
+---
+
+<header class="sticky top-0 z-50 border-b border-chrome/20 bg-blackout/90 backdrop-blur-md">
+  <div class="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+    <a href="/" class="font-display text-xl tracking-display text-cue hover:text-gel">
+      Stick It Out
+    </a>
+    <nav class="hidden items-center gap-6 md:flex" aria-label="Primary">
+      {
+        links.map((link) => (
+          <a
+            href={link.href}
+            class:list={[
+              'text-sm uppercase tracking-wider transition-colors',
+              isActive(link.href) ? 'text-gel' : 'text-chrome hover:text-cue',
+            ]}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+    <div class="flex items-center gap-2">
+      <a
+        href="/login"
+        class="tap hidden items-center justify-center px-3 py-2 text-sm text-chrome hover:text-cue sm:inline-flex"
+      >
+        Login
+      </a>
+      <a
+        href="/join"
+        class="tap inline-flex items-center justify-center rounded-sio bg-gel px-3 py-2 text-sm font-semibold text-on-gel hover:opacity-90"
+      >
+        Claim your spot
+      </a>
+    </div>
+  </div>
+</header>

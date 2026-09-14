@@ -1,0 +1,50 @@
+---
+interface Props {
+  title: string;
+  excerpt: string;
+  href: string;
+  cover?: string;
+  lessonCount?: number;
+  featured?: boolean;
+}
+
+const {
+  title,
+  excerpt,
+  href,
+  cover = '/img/gym/kit.jpg',
+  lessonCount,
+  featured = false,
+} = Astro.props;
+---
+
+<article class="group flex flex-col overflow-hidden rounded-sio border border-chrome/20 bg-wings">
+  <a href={href} class="relative block aspect-16/10 overflow-hidden">
+    <img
+      src={cover}
+      alt=""
+      class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+      loading="lazy"
+    />
+    {
+      featured && (
+        <span class="absolute top-3 left-3 rounded-sio bg-gel px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-on-gel">
+          Featured
+        </span>
+      )
+    }
+  </a>
+  <div class="flex flex-grow flex-col p-5">
+    <h3 class="font-display text-2xl tracking-display text-cue">
+      <a href={href} class="hover:text-gel">{title}</a>
+    </h3>
+    <p class="mt-2 flex-grow text-sm leading-relaxed text-chrome">{excerpt}</p>
+    {
+      lessonCount != null && (
+        <p class="mt-4 text-xs font-bold uppercase tracking-wider text-gel">
+          {lessonCount} weekly lessons
+        </p>
+      )
+    }
+  </div>
+</article>

@@ -1,0 +1,54 @@
+---
+export const prerender = true;
+
+import Marketing from '../../layouts/Marketing.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import VideoPlaceholder from '../../components/VideoPlaceholder.astro';
+import { commerce } from '../../lib/commerce';
+
+const book = commerce.book;
+---
+
+<Marketing
+  title="Stick It Out book | $19.99 PDF"
+  description="Digital PDF of Stick It Out — a kick and hand coordination system by Michael Staus."
+  image="/img/cover.jpg"
+>
+  <PageHeader
+    title="The book."
+    lede="A kick and hand coordination system built on repetition, control, and honesty. Instant PDF via Stripe."
+  />
+
+  <div class="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-start">
+    <img
+      src="/img/cover.jpg"
+      alt="Stick It Out cover art"
+      class="w-full max-w-sm rounded-sio border border-chrome/20 shadow-2xl"
+      width="512"
+      height="663"
+    />
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gel">{book.format} · {book.priceLabel}</p>
+      <h2 class="font-display mt-2 text-4xl tracking-display text-cue">{book.title}</h2>
+      <p class="mt-4 text-chrome leading-relaxed">
+        Rhythm is resilience. No shortcuts, no gimmicks, no filler — demanding patterns taken far enough
+        to actually change your playing. Membership is separate. This is the book.
+      </p>
+      <a
+        href={book.checkoutUrl}
+        class="tap mt-8 inline-flex items-center justify-center rounded-sio bg-gel px-8 py-3.5 text-base font-semibold text-on-gel hover:opacity-90"
+      >
+        Pay {book.priceLabel} · encrypted by Stripe
+      </a>
+      <p class="mt-3 text-xs text-chrome">{book.note}</p>
+
+      <div class="mt-12">
+        <h3 class="font-display text-2xl tracking-display text-cue">Mike’s explainer</h3>
+        <p class="mt-2 mb-4 text-sm text-chrome">
+          No explainer video is in this repo yet. Placeholder only — do not invent a YouTube URL.
+        </p>
+        <VideoPlaceholder title="Book explainer" />
+      </div>
+    </div>
+  </div>
+</Marketing>

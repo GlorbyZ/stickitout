@@ -1,0 +1,42 @@
+---
+const year = new Date().getFullYear();
+---
+
+<footer class="safe-bottom mt-auto border-t border-chrome/20 bg-blackout">
+  <div class="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6">
+    <div class="flex flex-col justify-between gap-8 md:flex-row">
+      <div>
+        <p class="font-display text-2xl tracking-display text-cue">Stick It Out</p>
+        <p class="mt-2 max-w-sm text-sm text-chrome">Don’t flinch on the one.</p>
+      </div>
+      <nav class="grid grid-cols-2 gap-x-10 gap-y-2 text-sm text-chrome sm:grid-cols-3" aria-label="Footer">
+        <a class="hover:text-cue" href="/lessons">Lessons</a>
+        <a class="hover:text-cue" href="/tracks">Tracks</a>
+        <a class="hover:text-cue" href="/challenges">Challenges</a>
+        <a class="hover:text-cue" href="/pricing">Pricing</a>
+        <a class="hover:text-cue" href="/join">Join</a>
+        <a class="hover:text-cue" href="/book">Book</a>
+        <a class="hover:text-cue" href="/about">About</a>
+        <a class="hover:text-cue" href="/faq">FAQ</a>
+        <a class="hover:text-cue" href="/contact">Contact</a>
+        <a class="hover:text-cue" href="/legal/terms">Terms</a>
+        <a class="hover:text-cue" href="/legal/privacy">Privacy</a>
+        <a class="hover:text-cue" href="/login">Login</a>
+      </nav>
+    </div>
+    <div class="flex flex-col gap-3 border-t border-chrome/15 pt-6 text-xs text-chrome sm:flex-row sm:items-center sm:justify-between">
+      <p>© {year} Michael Staus · Stick It Out Lessons</p>
+      <a
+        href="https://blazedigitaldesign.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 uppercase tracking-widest hover:text-cue"
+      >
+        <svg width="12" height="16" viewBox="0 0 12 16" aria-hidden="true">
+          <path fill="currentColor" d="M6.8 0L0 9.2h4.4L3.2 16 12 6.2H7.4L6.8 0z"></path>
+        </svg>
+        Built by Blaze Digital Design
+      </a>
+    </div>
+  </div>
+</footer>

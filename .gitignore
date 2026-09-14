@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+.dev.vars
 .vscode/sftp.json
 
 # Editor / OS
@@ -14,7 +15,9 @@ Thumbs.db
 logs/
 *.log
 
-# Dependencies (if added later)
+# Dependencies and build
 node_modules/
 dist/
 .cache/
+.astro/
+.wrangler/

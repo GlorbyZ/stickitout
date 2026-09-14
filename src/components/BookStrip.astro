@@ -1,0 +1,28 @@
+---
+import { commerce } from '../lib/commerce';
+---
+
+<section class="border-t border-chrome/15 bg-wings">
+  <div class="mx-auto grid max-w-6xl items-center gap-8 px-4 py-14 sm:px-6 md:grid-cols-[8rem_1fr_auto]">
+    <img
+      src="/img/cover.jpg"
+      alt="Stick It Out cover"
+      class="mx-auto w-28 rounded-sio border border-chrome/20 shadow-lg md:mx-0"
+      width="512"
+      height="663"
+    />
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gel">The book</p>
+      <h2 class="font-display mt-1 text-3xl tracking-display text-cue">{commerce.book.title}</h2>
+      <p class="mt-2 max-w-xl text-sm leading-relaxed text-chrome">
+        A kick and hand coordination system. Membership stands alone — the PDF is here if you want the deeper book work.
+      </p>
+    </div>
+    <a
+      href="/book"
+      class="tap inline-flex items-center justify-center rounded-sio bg-gel px-6 py-3 text-sm font-semibold text-on-gel hover:opacity-90"
+    >
+      Get the PDF {commerce.book.priceLabel}
+    </a>
+  </div>
+</section>
