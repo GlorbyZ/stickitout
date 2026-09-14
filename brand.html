@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Brand Directions | Stick It Out</title>
+  <meta name="description" content="Six brand identity directions for Stick It Out — color, type, and voice. Pick what sticks." />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="./img/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow:wght@400;500;600&family=Bebas+Neue&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=Karla:wght@400;500;600&family=Literata:opsz,wght@7..72,500;7..72,700&family=Manrope:wght@400;500;600;700&family=Sora:wght@400;500;600&family=Source+Sans+3:wght@400;600&family=Space+Grotesk:wght@500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #12141a;
+      --paper: #f3f1ec;
+      --mute: #6b6e76;
+      --line: rgba(18, 20, 26, 0.12);
+      --ease: cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Manrope", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+
+    .shell {
+      width: min(1120px, calc(100% - 2rem));
+      margin-inline: auto;
+    }
+
+    /* —— Intro —— */
+    .intro {
+      padding: clamp(3rem, 8vw, 5.5rem) 0 2.5rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .intro-kicker {
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--mute);
+      font-weight: 600;
+      margin: 0 0 1rem;
+    }
+    .intro h1 {
+      font-family: "Syne", sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.4rem, 6vw, 4.2rem);
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      margin: 0 0 1rem;
+      max-width: 14ch;
+    }
+    .intro-lead {
+      max-width: 38rem;
+      font-size: 1.05rem;
+      line-height: 1.55;
+      color: #3a3d45;
+      margin: 0 0 1.75rem;
+    }
+    .intro-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem 1.25rem;
+      font-size: 0.85rem;
+      color: var(--mute);
+    }
+    .intro-meta strong { color: var(--ink); font-weight: 600; }
+
+    /* —— Sticky picker —— */
+    .picker-wrap {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: color-mix(in srgb, var(--paper) 88%, transparent);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+    .picker {
+      display: flex;
+      gap: 0.4rem;
+      overflow-x: auto;
+      padding: 0.75rem 0;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .picker::-webkit-scrollbar { display: none; }
+    .picker a {
+      flex: 0 0 auto;
+      text-decoration: none;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.55rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      transition: transform 0.25s var(--ease), background 0.25s var(--ease), color 0.25s var(--ease);
+    }
+    .picker a:hover { transform: translateY(-1px); }
+    .picker a[aria-current="true"] {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+
+    /* —— Direction card —— */
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      padding: 1.5rem 0 4rem;
+    }
+
+    .dir {
+      border-radius: 1.35rem;
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--d-ink) 12%, transparent);
+      background: var(--d-bg);
+      color: var(--d-ink);
+      scroll-margin-top: 4.5rem;
+    }
+
+    .dir-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      min-height: min(78vh, 720px);
+    }
+    @media (max-width: 900px) {
+      .dir-grid { grid-template-columns: 1fr; min-height: 0; }
+    }
+
+    .dir-main {
+      padding: clamp(1.5rem, 3.5vw, 2.5rem);
+      display: flex;
+      flex-direction: column;
+      gap: 1.35rem;
+      position: relative;
+    }
+
+    .dir-side {
+      padding: clamp(1.5rem, 3.5vw, 2.5rem);
+      border-left: 1px solid color-mix(in srgb, var(--d-ink) 10%, transparent);
+      background: var(--d-panel);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    @media (max-width: 900px) {
+      .dir-side { border-left: 0; border-top: 1px solid color-mix(in srgb, var(--d-ink) 10%, transparent); }
+    }
+
+    .dir-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .dir-index {
+      font-size: 0.7rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      opacity: 0.55;
+      font-weight: 600;
+    }
+    .vote {
+      appearance: none;
+      border: 1px solid color-mix(in srgb, var(--d-ink) 22%, transparent);
+      background: transparent;
+      color: var(--d-ink);
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.45rem 0.8rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.25s var(--ease), color 0.25s var(--ease), border-color 0.25s var(--ease);
+    }
+    .vote:hover { background: color-mix(in srgb, var(--d-ink) 8%, transparent); }
+    .vote.is-on {
+      background: var(--d-accent);
+      border-color: var(--d-accent);
+      color: var(--d-on-accent);
+    }
+
+    .dir-name {
+      font-family: var(--d-display);
+      font-weight: var(--d-display-weight, 700);
+      font-size: clamp(2rem, 4.5vw, 3.15rem);
+      line-height: 0.95;
+      letter-spacing: var(--d-tracking, -0.02em);
+      margin: 0.15rem 0 0.5rem;
+      text-transform: var(--d-case, none);
+    }
+    .dir-thesis {
+      font-family: var(--d-body);
+      font-size: 1.02rem;
+      line-height: 1.5;
+      max-width: 36rem;
+      margin: 0;
+      opacity: 0.82;
+    }
+
+    .swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-top: 0.25rem;
+    }
+    .swatch {
+      width: 4.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .swatch-chip {
+      height: 2.6rem;
+      border-radius: 0.65rem;
+      border: 1px solid color-mix(in srgb, var(--d-ink) 12%, transparent);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+    }
+    .swatch span {
+      font-size: 0.68rem;
+      line-height: 1.25;
+      opacity: 0.7;
+      font-family: var(--d-body);
+    }
+    .swatch strong {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      opacity: 0.95;
+      letter-spacing: 0.01em;
+    }
+
+    .type-row {
+      display: grid;
+      gap: 0.85rem;
+      margin-top: auto;
+    }
+    .type-card {
+      border: 1px solid color-mix(in srgb, var(--d-ink) 12%, transparent);
+      border-radius: 0.9rem;
+      padding: 0.9rem 1rem;
+      background: color-mix(in srgb, var(--d-bg) 70%, var(--d-panel));
+    }
+    .type-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.5;
+      margin-bottom: 0.35rem;
+      font-family: var(--d-body);
+    }
+    .type-specimen-display {
+      font-family: var(--d-display);
+      font-weight: var(--d-display-weight, 700);
+      font-size: clamp(1.55rem, 3vw, 2.1rem);
+      line-height: 1;
+      letter-spacing: var(--d-tracking, -0.02em);
+      text-transform: var(--d-case, none);
+    }
+    .type-specimen-body {
+      font-family: var(--d-body);
+      font-size: 0.95rem;
+      line-height: 1.45;
+      opacity: 0.85;
+    }
+    .type-meta {
+      margin-top: 0.4rem;
+      font-size: 0.72rem;
+      opacity: 0.55;
+      font-family: var(--d-body);
+    }
+
+    .voice-block h3,
+    .mock-block h3 {
+      margin: 0 0 0.65rem;
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.5;
+      font-weight: 600;
+      font-family: var(--d-body);
+    }
+    .voice-lines {
+      display: grid;
+      gap: 0.75rem;
+    }
+    .voice-line {
+      border-left: 3px solid var(--d-accent);
+      padding-left: 0.85rem;
+    }
+    .voice-line .kind {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      opacity: 0.5;
+      margin-bottom: 0.2rem;
+      font-family: var(--d-body);
+    }
+    .voice-line p {
+      margin: 0;
+      font-family: var(--d-body);
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    .voice-line.headline p {
+      font-family: var(--d-display);
+      font-weight: var(--d-display-weight, 700);
+      font-size: 1.35rem;
+      line-height: 1.1;
+      letter-spacing: var(--d-tracking, -0.02em);
+      text-transform: var(--d-case, none);
+    }
+
+    .mock {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      margin-top: auto;
+      padding: 1.1rem;
+      border-radius: 1rem;
+      background: var(--d-bg);
+      border: 1px solid color-mix(in srgb, var(--d-ink) 10%, transparent);
+    }
+    .mock-brand {
+      font-family: var(--d-display);
+      font-weight: var(--d-display-weight, 700);
+      font-size: 1.15rem;
+      letter-spacing: var(--d-tracking, -0.02em);
+      text-transform: var(--d-case, none);
+    }
+    .mock-sub {
+      font-family: var(--d-body);
+      font-size: 0.88rem;
+      opacity: 0.75;
+      line-height: 1.4;
+      margin: 0;
+    }
+    .mock-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-top: 0.35rem;
+    }
+    .btn-primary {
+      appearance: none;
+      border: 0;
+      background: var(--d-accent);
+      color: var(--d-on-accent);
+      font-family: var(--d-body);
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 0.7rem 1.05rem;
+      border-radius: var(--d-radius, 0.55rem);
+      cursor: default;
+    }
+    .btn-ghost {
+      appearance: none;
+      border: 1px solid color-mix(in srgb, var(--d-ink) 22%, transparent);
+      background: transparent;
+      color: var(--d-ink);
+      font-family: var(--d-body);
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 0.65rem 1rem;
+      border-radius: var(--d-radius, 0.55rem);
+      cursor: default;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--d-body);
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--d-accent) 18%, transparent);
+      color: var(--d-ink);
+      width: fit-content;
+    }
+    .badge i {
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 50%;
+      background: var(--d-accent);
+      display: block;
+    }
+
+    .footer-note {
+      padding: 0 0 3rem;
+      color: var(--mute);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    .footer-note code {
+      font-size: 0.8em;
+      background: rgba(0,0,0,0.06);
+      padding: 0.1em 0.35em;
+      border-radius: 0.25rem;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .picker a, .vote { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="intro shell">
+    <p class="intro-kicker">Stick It Out · Brand lab</p>
+    <h1>Which identity sticks?</h1>
+    <p class="intro-lead">
+      Six complete directions for Mike’s drummer community — palette, type, and voice.
+      Shortlist the ones that feel like Stick It Out. We’ll refine the winner into the site, Discord, and Lessons.
+    </p>
+    <div class="intro-meta">
+      <span><strong>Audience:</strong> serious hobbyists → working players</span>
+      <span><strong>Job:</strong> coaching community + membership</span>
+      <span><strong>Shortlisted:</strong> <span id="shortlist-count">0</span></span>
+    </div>
+  </header>
+
+  <div class="picker-wrap">
+    <nav class="picker shell" aria-label="Brand directions">
+      <a href="#maple">01 Maple</a>
+      <a href="#stage">02 Stage</a>
+      <a href="#pad">03 Pad</a>
+      <a href="#chart">04 Chart</a>
+      <a href="#garage">05 Garage</a>
+      <a href="#studio">06 Studio</a>
+    </nav>
+  </div>
+
+  <main class="stack shell">
+
+    <!-- 1 MAPLE & LACQUER -->
+    <article class="dir" id="maple" style="
+      --d-bg:#f4ebe0; --d-panel:#ebe0d2; --d-ink:#2a2218; --d-accent:#8b4518; --d-on-accent:#f8f0e6;
+      --d-display:'Fraunces',Georgia,serif; --d-body:'Karla',sans-serif;
+      --d-display-weight:700; --d-tracking:-0.02em; --d-case:none; --d-radius:0.7rem;">
+      <div class="dir-grid">
+        <div class="dir-main">
+          <div class="dir-top">
+            <div>
+              <div class="dir-index">Direction 01 · Instrument craft</div>
+              <h2 class="dir-name">Maple &amp; Lacquer</h2>
+            </div>
+            <button type="button" class="vote" data-vote="maple">Shortlist</button>
+          </div>
+          <p class="dir-thesis">The brand feels like a well-played maple snare — warm wood, careful finish, earned patina. Patience over hype. Built for people who care how the stick sits in the hand.</p>
+          <div class="swatches">
+            <div class="swatch"><div class="swatch-chip" style="background:#f4ebe0"></div><span><strong>Shell</strong>#F4EBE0</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#ebe0d2"></div><span><strong>Rim</strong>#EBE0D2</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#2a2218"></div><span><strong>Ink</strong>#2A2218</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#8b4518"></div><span><strong>Lacquer</strong>#8B4518</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#c4a574"></div><span><strong>Grain</strong>#C4A574</span></div>
+          </div>
+          <div class="type-row">
+            <div class="type-card">
+              <div class="type-label">Display · Fraunces</div>
+              <div class="type-specimen-display">Stick It Out</div>
+              <div class="type-meta">Soft serif with optical size — craft, not costume</div>
+            </div>
+            <div class="type-card">
+              <div class="type-label">Body · Karla</div>
+              <div class="type-specimen-body">Break the plateau with honest reps. Notation, tracks, and weekly critique — no fluff between you and the kit.</div>
+              <div class="type-meta">Humanist sans · readable at practice-pad distance</div>
+            </div>
+          </div>
+        </div>
+        <div class="dir-side">
+          <div class="voice-block">
+            <h3>Voice</h3>
+            <div class="voice-lines">
+              <div class="voice-line"><div class="kind">Tagline</div><p>Play it until it’s yours.</p></div>
+              <div class="voice-line headline"><div class="kind">Headline</div><p>Wood, wire, and the work between.</p></div>
+              <div class="voice-line"><div class="kind">CTA</div><p>Join the practice room</p></div>
+              <div class="voice-line"><div class="kind">Microcopy</div><p>Post one clip. Get notes that respect your time at the kit.</p></div>
+            </div>
+          </div>
+          <div class="mock-block">
+            <h3>UI feel</h3>
+            <div class="mock">
+              <span class="badge"><i></i> Members open</span>
+              <div class="mock-brand">Stick It Out</div>
+              <p class="mock-sub">Weekly coaching, peer critique, and resources that live behind the membership door.</p>
+              <div class="mock-actions">
+                <button class="btn-primary" tabindex="-1">Start this week</button>
+                <button class="btn-ghost" tabindex="-1">See the method</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 2 HOUSE LIGHTS DOWN -->
+    <article class="dir" id="stage" style="
+      --d-bg:#0c0b0a; --d-panel:#161311; --d-ink:#f2ebe3; --d-accent:#e8a317; --d-on-accent:#1a1206;
+      --d-display:'Bebas Neue',Impact,sans-serif; --d-body:'Barlow',sans-serif;
+      --d-display-weight:400; --d-tracking:0.04em; --d-case:uppercase; --d-radius:0.2rem;">
+      <div class="dir-grid">
+        <div class="dir-main">
+          <div class="dir-top">
+            <div>
+              <div class="dir-index">Direction 02 · Tour / stage</div>
+              <h2 class="dir-name">House Lights Down</h2>
+            </div>
+            <button type="button" class="vote" data-vote="stage">Shortlist</button>
+          </div>
+          <p class="dir-thesis">Blackout stage, amber gel, chrome flash. The brand that shows up when the house lights drop — urgent, physical, built for people who want the seat behind the kit to feel like a gig.</p>
+          <div class="swatches">
+            <div class="swatch"><div class="swatch-chip" style="background:#0c0b0a"></div><span><strong>Blackout</strong>#0C0B0A</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#161311"></div><span><strong>Wings</strong>#161311</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#f2ebe3"></div><span><strong>Cue</strong>#F2EBE3</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#e8a317"></div><span><strong>Gel</strong>#E8A317</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#9aa3ad"></div><span><strong>Chrome</strong>#9AA3AD</span></div>
+          </div>
+          <div class="type-row">
+            <div class="type-card">
+              <div class="type-label">Display · Bebas Neue</div>
+              <div class="type-specimen-display">Stick It Out</div>
+              <div class="type-meta">Condensed poster type — venue, flyer, load-in</div>
+            </div>
+            <div class="type-card">
+              <div class="type-label">Body · Barlow</div>
+              <div class="type-specimen-body">Count it off. Film the fill. Take the note. Next week you’re tighter than last — that’s the only metric that matters.</div>
+              <div class="type-meta">Industrial grotesque · clean under stage lighting</div>
+            </div>
+          </div>
+        </div>
+        <div class="dir-side">
+          <div class="voice-block">
+            <h3>Voice</h3>
+            <div class="voice-lines">
+              <div class="voice-line"><div class="kind">Tagline</div><p>Don’t flinch on the one.</p></div>
+              <div class="voice-line headline"><div class="kind">Headline</div><p>When the lights drop, you either have it or you don’t.</p></div>
+              <div class="voice-line"><div class="kind">CTA</div><p>Claim your spot</p></div>
+              <div class="voice-line"><div class="kind">Microcopy</div><p>Limited seats. Weekly calls. Feedback that hits like a click track.</p></div>
+            </div>
+          </div>
+          <div class="mock-block">
+            <h3>UI feel</h3>
+            <div class="mock">
+              <span class="badge"><i></i> Call tonight</span>
+              <div class="mock-brand">Stick It Out</div>
+              <p class="mock-sub">Live coaching, practice drops, and a room of players who show up ready.</p>
+              <div class="mock-actions">
+                <button class="btn-primary" tabindex="-1">Get in</button>
+                <button class="btn-ghost" tabindex="-1">Watch a recap</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 3 PRACTICE PAD -->
+    <article class="dir" id="pad" style="
+      --d-bg:#eef1f4; --d-panel:#e2e7ed; --d-ink:#1c2430; --d-accent:#ff4d1a; --d-on-accent:#ffffff;
+      --d-display:'Space Grotesk',sans-serif; --d-body:'Manrope',sans-serif;
+      --d-display-weight:700; --d-tracking:-0.03em; --d-case:none; --d-radius:999px;">
+      <div class="dir-grid">
+        <div class="dir-main">
+          <div class="dir-top">
+            <div>
+              <div class="dir-index">Direction 03 · Athletic practice</div>
+              <h2 class="dir-name">Practice Pad</h2>
+            </div>
+            <button type="button" class="vote" data-vote="pad">Shortlist</button>
+          </div>
+          <p class="dir-thesis">Rubber pad gray, signal orange, stopwatch clarity. Training culture for the kit — measurable reps, clean systems, progress you can feel in your hands after thirty days.</p>
+          <div class="swatches">
+            <div class="swatch"><div class="swatch-chip" style="background:#eef1f4"></div><span><strong>Pad</strong>#EEF1F4</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#e2e7ed"></div><span><strong>Foam</strong>#E2E7ED</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#1c2430"></div><span><strong>Stick</strong>#1C2430</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#ff4d1a"></div><span><strong>Click</strong>#FF4D1A</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#5b6b7c"></div><span><strong>Metronome</strong>#5B6B7C</span></div>
+          </div>
+          <div class="type-row">
+            <div class="type-card">
+              <div class="type-label">Display · Space Grotesk</div>
+              <div class="type-specimen-display">Stick It Out</div>
+              <div class="type-meta">Geometric, modern — coaching product energy</div>
+            </div>
+            <div class="type-card">
+              <div class="type-label">Body · Manrope</div>
+              <div class="type-specimen-body">Thirty days. Daily workouts. Groove modules you can actually use on a real kit — not just on a screen.</div>
+              <div class="type-meta">Friendly geometric · UI-native</div>
+            </div>
+          </div>
+        </div>
+        <div class="dir-side">
+          <div class="voice-block">
+            <h3>Voice</h3>
+            <div class="voice-lines">
+              <div class="voice-line"><div class="kind">Tagline</div><p>Reps that transfer to the kit.</p></div>
+              <div class="voice-line headline"><div class="kind">Headline</div><p>Plateaus break when the work gets specific.</p></div>
+              <div class="voice-line"><div class="kind">CTA</div><p>Start the 30-day block</p></div>
+              <div class="voice-line"><div class="kind">Microcopy</div><p>Upload today’s take. Get coaching notes before your next practice.</p></div>
+            </div>
+          </div>
+          <div class="mock-block">
+            <h3>UI feel</h3>
+            <div class="mock">
+              <span class="badge"><i></i> Day 12 of 30</span>
+              <div class="mock-brand">Stick It Out</div>
+              <p class="mock-sub">Structured programs, weekly live feedback, and a practice lab that keeps you honest.</p>
+              <div class="mock-actions">
+                <button class="btn-primary" tabindex="-1">Continue workout</button>
+                <button class="btn-ghost" tabindex="-1">View program</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 4 CHART PAPER -->
+    <article class="dir" id="chart" style="
+      --d-bg:#f7f4ec; --d-panel:#efe9dc; --d-ink:#1a1f2a; --d-accent:#1f4b99; --d-on-accent:#f7f4ec;
+      --d-display:'Literata',Georgia,serif; --d-body:'Source Sans 3',sans-serif;
+      --d-display-weight:700; --d-tracking:-0.015em; --d-case:none; --d-radius:0.35rem;">
+      <div class="dir-grid">
+        <div class="dir-main">
+          <div class="dir-top">
+            <div>
+              <div class="dir-index">Direction 04 · Study / notation</div>
+              <h2 class="dir-name">Chart Paper</h2>
+            </div>
+            <button type="button" class="vote" data-vote="chart">Shortlist</button>
+          </div>
+          <p class="dir-thesis">Staff paper, pencil blue, ink black. The brand of the desk between sessions — charts, markings, careful listening. Serious study without sounding academic.</p>
+          <div class="swatches">
+            <div class="swatch"><div class="swatch-chip" style="background:#f7f4ec"></div><span><strong>Staff</strong>#F7F4EC</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#efe9dc"></div><span><strong>Margin</strong>#EFE9DC</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#1a1f2a"></div><span><strong>Ink</strong>#1A1F2A</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#1f4b99"></div><span><strong>Pencil</strong>#1F4B99</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#b8c0cc"></div><span><strong>Ledger</strong>#B8C0CC</span></div>
+          </div>
+          <div class="type-row">
+            <div class="type-card">
+              <div class="type-label">Display · Literata</div>
+              <div class="type-specimen-display">Stick It Out</div>
+              <div class="type-meta">Literary serif tuned for screens — chart energy</div>
+            </div>
+            <div class="type-card">
+              <div class="type-label">Body · Source Sans 3</div>
+              <div class="type-specimen-body">Exclusive notation, backing tracks, and technique breakdowns — the pages you wish someone handed you years ago.</div>
+              <div class="type-meta">Clear documentary sans · annotation-friendly</div>
+            </div>
+          </div>
+        </div>
+        <div class="dir-side">
+          <div class="voice-block">
+            <h3>Voice</h3>
+            <div class="voice-lines">
+              <div class="voice-line"><div class="kind">Tagline</div><p>Mark it. Play it. Own it.</p></div>
+              <div class="voice-line headline"><div class="kind">Headline</div><p>The charts between you and the breakthrough.</p></div>
+              <div class="voice-line"><div class="kind">CTA</div><p>Open the library</p></div>
+              <div class="voice-line"><div class="kind">Microcopy</div><p>New notation drops Fridays. Bring questions to the call.</p></div>
+            </div>
+          </div>
+          <div class="mock-block">
+            <h3>UI feel</h3>
+            <div class="mock">
+              <span class="badge"><i></i> Resource drop</span>
+              <div class="mock-brand">Stick It Out</div>
+              <p class="mock-sub">A private desk for notation, tracks, and coaching notes — shared with a small cohort.</p>
+              <div class="mock-actions">
+                <button class="btn-primary" tabindex="-1">Browse charts</button>
+                <button class="btn-ghost" tabindex="-1">Ask Mike</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 5 GARAGE SIGNAL -->
+    <article class="dir" id="garage" style="
+      --d-bg:#1c1c1c; --d-panel:#262626; --d-ink:#f5f5f0; --d-accent:#f0e100; --d-on-accent:#141414;
+      --d-display:'Archivo Black',Impact,sans-serif; --d-body:'IBM Plex Sans',sans-serif;
+      --d-display-weight:400; --d-tracking:-0.01em; --d-case:uppercase; --d-radius:0;">
+      <div class="dir-grid">
+        <div class="dir-main">
+          <div class="dir-top">
+            <div>
+              <div class="dir-index">Direction 05 · Raw / garage</div>
+              <h2 class="dir-name">Garage Signal</h2>
+            </div>
+            <button type="button" class="vote" data-vote="garage">Shortlist</button>
+          </div>
+          <p class="dir-thesis">Concrete floor, caution yellow, no polish required. Blunt, loud, loyal to the grind. For players who want a community that sounds like a rehearsal space, not a lifestyle brand.</p>
+          <div class="swatches">
+            <div class="swatch"><div class="swatch-chip" style="background:#1c1c1c"></div><span><strong>Concrete</strong>#1C1C1C</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#262626"></div><span><strong>Amp</strong>#262626</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#f5f5f0"></div><span><strong>Tape</strong>#F5F5F0</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#f0e100"></div><span><strong>Caution</strong>#F0E100</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#d62828"></div><span><strong>Spray</strong>#D62828</span></div>
+          </div>
+          <div class="type-row">
+            <div class="type-card">
+              <div class="type-label">Display · Archivo Black</div>
+              <div class="type-specimen-display">Stick It Out</div>
+              <div class="type-meta">Heavy, blocky — stencil / flyer / sticker energy</div>
+            </div>
+            <div class="type-card">
+              <div class="type-label">Body · IBM Plex Sans</div>
+              <div class="type-specimen-body">Share the take. Take the hit. Show up again. Peer feedback and live calls for people who actually practice.</div>
+              <div class="type-meta">Engineered sans · straight talk</div>
+            </div>
+          </div>
+        </div>
+        <div class="dir-side">
+          <div class="voice-block">
+            <h3>Voice</h3>
+            <div class="voice-lines">
+              <div class="voice-line"><div class="kind">Tagline</div><p>Keep hitting.</p></div>
+              <div class="voice-line headline"><div class="kind">Headline</div><p>No soft landings. Just better hands.</p></div>
+              <div class="voice-line"><div class="kind">CTA</div><p>Get in the room</p></div>
+              <div class="voice-line"><div class="kind">Microcopy</div><p>Post the ugly take. That’s the one we coach.</p></div>
+            </div>
+          </div>
+          <div class="mock-block">
+            <h3>UI feel</h3>
+            <div class="mock">
+              <span class="badge"><i></i> Spots limited</span>
+              <div class="mock-brand">Stick It Out</div>
+              <p class="mock-sub">Accountability, critique, and calls. Bring your sticks. Leave the excuses.</p>
+              <div class="mock-actions">
+                <button class="btn-primary" tabindex="-1">Join up</button>
+                <button class="btn-ghost" tabindex="-1">Rules</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 6 AFTER-HOURS STUDIO -->
+    <article class="dir" id="studio" style="
+      --d-bg:#14181f; --d-panel:#1c222c; --d-ink:#e8edf5; --d-accent:#3d9cf0; --d-on-accent:#061018;
+      --d-display:'Syne',sans-serif; --d-body:'Sora',sans-serif;
+      --d-display-weight:800; --d-tracking:-0.035em; --d-case:none; --d-radius:0.85rem;">
+      <div class="dir-grid">
+        <div class="dir-main">
+          <div class="dir-top">
+            <div>
+              <div class="dir-index">Direction 06 · Late studio</div>
+              <h2 class="dir-name">After-Hours Studio</h2>
+            </div>
+            <button type="button" class="vote" data-vote="studio">Shortlist</button>
+          </div>
+          <p class="dir-thesis">Dim control room, LED meter blue, late-night focus. Premium coaching community — calm, modern, confident. Feels like a private studio membership, not a course funnel.</p>
+          <div class="swatches">
+            <div class="swatch"><div class="swatch-chip" style="background:#14181f"></div><span><strong>Booth</strong>#14181F</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#1c222c"></div><span><strong>Console</strong>#1C222C</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#e8edf5"></div><span><strong>Label</strong>#E8EDF5</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#3d9cf0"></div><span><strong>Meter</strong>#3D9CF0</span></div>
+            <div class="swatch"><div class="swatch-chip" style="background:#c47a3a"></div><span><strong>Warm lamp</strong>#C47A3A</span></div>
+          </div>
+          <div class="type-row">
+            <div class="type-card">
+              <div class="type-label">Display · Syne</div>
+              <div class="type-specimen-display">Stick It Out</div>
+              <div class="type-meta">Wide contemporary display — membership brand</div>
+            </div>
+            <div class="type-card">
+              <div class="type-label">Body · Sora</div>
+              <div class="type-specimen-body">A focused room for growth: live coaching, exclusive resources, and players who hold the standard with you.</div>
+              <div class="type-meta">Modern geometric · product UI ready</div>
+            </div>
+          </div>
+        </div>
+        <div class="dir-side">
+          <div class="voice-block">
+            <h3>Voice</h3>
+            <div class="voice-lines">
+              <div class="voice-line"><div class="kind">Tagline</div><p>Stay in the pocket. Stay in the room.</p></div>
+              <div class="voice-line headline"><div class="kind">Headline</div><p>Private coaching energy. Community that keeps the bar high.</p></div>
+              <div class="voice-line"><div class="kind">CTA</div><p>Request membership</p></div>
+              <div class="voice-line"><div class="kind">Microcopy</div><p>Enrollment opens in limited windows. Members get first call on masterclasses.</p></div>
+            </div>
+          </div>
+          <div class="mock-block">
+            <h3>UI feel</h3>
+            <div class="mock">
+              <span class="badge"><i></i> Members only</span>
+              <div class="mock-brand">Stick It Out</div>
+              <p class="mock-sub">Weekly sessions, practice critique, and perks that make sticking with it easier.</p>
+              <div class="mock-actions">
+                <button class="btn-primary" tabindex="-1">Apply</button>
+                <button class="btn-ghost" tabindex="-1">How it works</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </main>
+
+  <footer class="footer-note shell">
+    Shortlists save in this browser only. Open <code>brand.html</code> next to Mike, tap Shortlist on the ones that feel right, then tell me the winners to lock in.
+  </footer>
+
+  <script>
+    (function () {
+      const KEY = "sio-brand-shortlist";
+      const votes = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+      const countEl = document.getElementById("shortlist-count");
+      const links = [...document.querySelectorAll(".picker a")];
+      const sections = [...document.querySelectorAll(".dir")];
+
+      function sync() {
+        document.querySelectorAll(".vote").forEach((btn) => {
+          const on = votes.has(btn.dataset.vote);
+          btn.classList.toggle("is-on", on);
+          btn.textContent = on ? "Shortlisted ✓" : "Shortlist";
+          btn.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        countEl.textContent = String(votes.size);
+        localStorage.setItem(KEY, JSON.stringify([...votes]));
+      }
+
+      document.querySelectorAll(".vote").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.vote;
+          if (votes.has(id)) votes.delete(id);
+          else votes.add(id);
+          sync();
+        });
+      });
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+          if (!visible) return;
+          const id = visible.target.id;
+          links.forEach((a) => {
+            a.setAttribute("aria-current", a.getAttribute("href") === "#" + id ? "true" : "false");
+          });
+        },
+        { rootMargin: "-35% 0px -45% 0px", threshold: [0.2, 0.5, 0.8] }
+      );
+      sections.forEach((s) => io.observe(s));
+      sync();
+    })();
+  </script>
+</body>
+</html>
