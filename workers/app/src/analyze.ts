@@ -250,6 +250,25 @@ export const ANALYZE_CSS = `
 .az .hud .pill.warn { background: var(--gel); color: var(--on-gel); }
 .az .hud .pill.good { background: #1f7a45; color: #fff; }
 .az .hud .pill.rec { background: #c0392b; color: #fff; font-weight: 700; }
+/* Live fps badge: green at 60 fps, brand accent under 50, red when too low to analyse. */
+.az .hud .pill.fps-badge { min-height: 32px; padding: 0 0.8rem; font-size: 0.95rem; font-weight: 700; display: inline-flex; align-items: center; }
+.az .hud .pill.fps-badge.good { background: #1f7a45; color: #fff; }
+.az .hud .pill.fps-badge.warn { background: var(--gel); color: var(--on-gel); }
+.az .hud .pill.fps-badge.bad { background: #c0392b; color: #fff; }
+.az .hud .pill.fps-badge.idle { background: rgba(12, 11, 10, 0.78); color: var(--cue); }
+/* Camera picker above the preview */
+.az .cam-bar { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.7rem; }
+.az .cam-bar[hidden], .az #cam-flip[hidden] { display: none; }
+.az .cam-bar label { margin: 0; flex: 0 0 auto; }
+.az .cam-bar select { flex: 1 1 auto; min-width: 0; width: auto; min-height: 48px; }
+.az .cam-bar .btn { flex: 0 0 auto; min-height: 48px; padding: 0 1rem; }
+.az .saved-fps { margin-bottom: 0.4rem; font-size: 0.9rem; color: var(--chrome); }
+.az .saved-fps b { color: var(--cue); } .az .saved-fps.good b { color: var(--ok); } .az .saved-fps.warn b { color: var(--gel); }
+/* 60 fps capture: no blur layers over the live preview on this page. A backdrop-filter on the
+   sticky top bar and the fixed dock re-blurs every camera frame the video scrolls under, which
+   costs phone GPUs frames. Solid bars look the same on this dark page. */
+header.bar, body.kind-member .dock { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: #0c0b0a !important; }
+.az .stage { contain: paint; }
 .az .countdown { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font-family: "Bebas Neue", system-ui, sans-serif; font-size: 8rem; color: var(--gel); text-shadow: 0 4px 24px #000; }
 @media (orientation: portrait) and (max-width: 640px) { .az #stage { aspect-ratio: 3 / 4; max-height: 64svh; margin-inline: auto; } }
