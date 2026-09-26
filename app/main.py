@@ -311,7 +311,13 @@ async def reject_oversized(request: Request, call_next):
     if (request.url.path in ("/api/analyze", "/api/dataset") and request.method == "POST"
             and length.isdigit() and int(length) > MAX_UPLOAD_BYTES + 1024 * 1024):
         return error(413, too_large_message())
-    return await call_next(request)
+    response = await call_next(request)
+    path = request.url.path
+    if path in ("/", "/label") or path.startswith("/static/"):
+        # Revalidate every time (ETag makes it cheap), so a proxy or CDN in front of the
+        # tunnel never keeps serving an old copy of the front end after a code change.
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.get("/api/config")

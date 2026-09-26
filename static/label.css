@@ -1,7 +1,7 @@
 /* Label page (training data). Builds on style.css. */
 .lbl-main { max-width: 1440px; }
 .lbl-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
-.lbl-side { position: sticky; top: 62px; max-height: calc(100vh - 74px); overflow: auto; }
+.lbl-side { min-width: 0; position: sticky; top: 62px; max-height: calc(100vh - 74px); overflow: auto; }
 .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .small-btn { padding: 5px 11px; font-size: .86rem; border-radius: 8px; }
 .clip-list { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; max-height: 44vh; overflow: auto; }
@@ -70,13 +70,13 @@ kbd { font: 700 .74rem ui-monospace, monospace; background: #f5f1e4; border: 1px
 .meta-form label.check { flex-direction: row; align-items: flex-start; gap: 8px; }
 textarea { font: inherit; padding: 8px 10px; border: 1px solid #d6d0bf; border-radius: 9px; resize: vertical; }
 @media (max-width: 1100px) {
-  .lbl-grid { grid-template-columns: 1fr; }
+  .lbl-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 860px) {
-  .lbl-layout { grid-template-columns: 1fr; }
+  .lbl-layout { grid-template-columns: minmax(0, 1fr); }
   .lbl-side { position: static; max-height: none; }
   .clip-list { max-height: 30vh; }
-  .keys-grid { grid-template-columns: 1fr; }
+  .keys-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
   .lbl-stage { height: 34vh; }

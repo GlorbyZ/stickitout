@@ -172,7 +172,11 @@ def test_label_page_behind_gate(job_store, dataset_store):
     assert res.status_code == 303 and res.headers["location"] == "/label"
     page = gated.get("/label")
     assert page.status_code == 200 and "Label training clips" in page.text
-    assert gated.get("/static/label.js").status_code == 200
+    js = gated.get("/static/label.js")
+    assert js.status_code == 200
+    # Front-end files are revalidated each time so a CDN in front of the tunnel never serves a stale copy.
+    assert js.headers["cache-control"] == "no-cache"
+    assert page.headers["cache-control"] == "no-cache"
     assert gated.get("/api/dataset").json()["clips"] == []
 
 
