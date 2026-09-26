@@ -14,7 +14,7 @@ Status: `live` · `partial` · `stub` · `broken` · `redirect` · `not-started`
 | https://member.stickitoutdrums.com/ | Member portal (Cloudflare Worker + D1) |
 | https://admin.stickitoutdrums.com/ | Admin portal (same Worker, allowlist) |
 | https://stickitout-portals.zayyo.workers.dev/ | Worker fallback. Local admin is `/_admin` |
-| https://analyzer-origin.stickitoutdrums.com/ | Analyzer origin (FastAPI on the studio PC) via its own named Cloudflare Tunnel `sio-analyzer-origin` (id `4a6ec999-62d3-4426-b7ca-4b0ee23e011b`, ingress to `http://127.0.0.1:8800`). Every path except `/healthz` needs the ACCESS_TOKEN. Up only while the PC runs `start-remote.ps1`. Separate from the pre-existing `chud` tunnel service |
+| https://analyzer-origin.stickitoutdrums.com/ | Analyzer origin (FastAPI on the studio PC) via its own named Cloudflare Tunnel `sio-analyzer-origin` (id `4a6ec999-62d3-4426-b7ca-4b0ee23e011b`, ingress to `http://127.0.0.1:8800`). Every path except `/healthz` needs the ACCESS_TOKEN. Up only while the PC runs `start-remote.ps1`. Separate from the pre-existing `chud` tunnel service. Zone cache rule `18d1feed09c94fd6a6ec7361c5be78a9` (phase http_request_cache_settings) sets cache off for this host so key-gated files are never served from the CDN cache (added and purged 2026-09-26 3:40 PM MT) |
 | stickitoutbook.com | Dead / NXDOMAIN. Do not use |
 
 ## Where people live
