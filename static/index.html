@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Analyze | Stick It Out</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/style.css?v=3">
+  <link rel="stylesheet" href="/static/style.css?v=4">
 </head>
 <body>
   <header class="topbar">
@@ -63,6 +63,7 @@
             <span id="hud-fps" class="pill fps-badge idle">camera off</span>
             <span id="hud-res" class="pill"></span>
             <span id="hud-rec" class="pill rec" hidden>REC 0:00</span>
+            <span id="hud-debug" class="pill debug" hidden></span>
           </div>
           <div id="countdown" class="countdown" hidden></div>
           <div id="stage-empty" class="stage-empty">
@@ -71,10 +72,12 @@
           </div>
         </div>
         <div id="fps-tip" class="notice warn" role="status" hidden></div>
+        <p id="skel-note" class="skel-note small" role="status" hidden></p>
         <div id="framing" class="notice" hidden></div>
         <div class="controls">
           <label class="check"><input type="checkbox" id="mirror" checked> Mirror preview</label>
           <label class="check"><input type="checkbox" id="show-skel" checked> Skeleton</label>
+          <label class="check stats-toggle"><input type="checkbox" id="show-stats"> Stats</label>
           <button type="button" id="rec-btn" class="btn primary" disabled>Record</button>
         </div>
         <p class="hint muted">The skeleton is drawn only on screen. The recorded file is the plain camera video with sound.
@@ -136,7 +139,8 @@
           <video id="playback" controls playsinline preload="metadata"></video>
           <canvas id="play-overlay"></canvas>
         </div>
-        <label class="check"><input type="checkbox" id="play-skel"> Draw skeleton on playback (runs in your browser)</label>
+        <label class="check"><input type="checkbox" id="play-skel"> Draw skeleton on playback (every frame, from the analysis)</label>
+        <p id="play-debug" class="small muted play-debug" hidden></p>
       </div>
       <div class="grid2">
         <div class="card" id="sticking-card"></div>
@@ -174,6 +178,6 @@
       <p class="center small" id="add-training-msg" hidden></p>
     </section>
   </main>
-  <script type="module" src="/static/app.js?v=3"></script>
+  <script type="module" src="/static/app.js?v=4"></script>
 </body>
 </html>

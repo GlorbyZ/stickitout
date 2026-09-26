@@ -105,6 +105,28 @@ def probe_video(path: Path) -> VideoInfo:
                      width, height, has_audio, container)
 
 
+def frame_times(path: Path) -> list[float]:
+    """Presentation time in seconds of every video frame, in display order, on the file's own timeline.
+
+    ffmpeg -copyts keeps the stream start offset and edit list, which is the same timeline a
+    browser reports as requestVideoFrameCallback mediaTime (verified in Chrome on a variable
+    frame rate MP4 with B-frames and a 0.25 s start offset). Playback overlays look frames up
+    by these values. Returns [] when the file cannot be read.
+    """
+    crc = _run(["-loglevel", "error", "-copyts", "-i", str(path), "-map", "0:v:0", "-c", "copy", "-f", "framecrc", "-"])
+    tb_m = re.search(r"#tb 0: (\d+)/(\d+)", crc.stdout)
+    if not tb_m:
+        return []
+    tb = int(tb_m.group(1)) / int(tb_m.group(2))
+    pts = []
+    for ln in crc.stdout.splitlines():
+        if ln and not ln.startswith("#"):
+            cols = [c.strip() for c in ln.split(",")]
+            if len(cols) >= 4 and cols[2].lstrip("-").isdigit():
+                pts.append(int(cols[2]))
+    return [round(p * tb, 6) for p in sorted(pts)]
+
+
 def min_fps() -> float:
     """Lowest accepted measured frame rate (config.MIN_FPS, read at call time)."""
     return float(config.MIN_FPS)

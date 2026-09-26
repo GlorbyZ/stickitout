@@ -112,20 +112,17 @@ test("no em dashes in user-facing copy", () => {
   for (const s of [lowFpsTip(30, true), lowFpsTip(30, false), fpsBadge(30).text, fpsBadge(15).text]) assert.ok(!s.includes("\u2014"));
 });
 
-import { detectPlan } from "../../static/camera.js";
+import { skeletonPlan } from "../../static/camera.js";
 
-test("pose tracking: every 2nd frame in preview at 60 fps, 10 Hz while recording", () => {
-  assert.deepEqual(detectPlan({ cameraFps: 60 }), { every: 2, pause: false, reason: "" });
-  assert.equal(detectPlan({ cameraFps: 30 }).every, 1);
-  assert.equal(detectPlan({ recording: true, cameraFps: 60, fps: 60, detectCost: 4 }).every, 6);
-  assert.equal(detectPlan({ cameraFps: 60, fps: 50 }).every, 3);
-  assert.equal(detectPlan({ cameraFps: 60, skeletonOn: false }).every, 6);
+test("skeleton runs on every frame in preview and while recording", () => {
+  assert.deepEqual(skeletonPlan({ cameraFps: 60, fps: 60 }), { run: true, reason: "" });
+  assert.deepEqual(skeletonPlan({ recording: true, cameraFps: 60, fps: 59.6 }), { run: true, reason: "" });
+  assert.equal(skeletonPlan({ skeletonOn: false }).run, true);       // preview keeps framing tips
 });
 
-test("pose tracking pauses while recording when off, slow, dropping frames, or already paused", () => {
-  assert.equal(detectPlan({ recording: true, skeletonOn: false }).reason, "off");
-  assert.equal(detectPlan({ recording: true, detectCost: 12 }).reason, "slow");
-  assert.equal(detectPlan({ recording: true, cameraFps: 60, fps: 52 }).reason, "fps");
-  assert.equal(detectPlan({ recording: true, cameraFps: 30, fps: 29.8 }).pause, false);  // a 30 fps camera is not "dropping"
-  assert.equal(detectPlan({ recording: true, held: true, fps: 60 }).reason, "held");
+test("skeleton stops while recording only when off or when a 60 fps camera really drops", () => {
+  assert.equal(skeletonPlan({ recording: true, skeletonOn: false }).reason, "off");
+  assert.equal(skeletonPlan({ recording: true, cameraFps: 60, fps: 52 }).reason, "fps");
+  assert.equal(skeletonPlan({ recording: true, cameraFps: 30, fps: 29.8 }).run, true);   // a 30 fps camera is not "dropping"
+  assert.equal(skeletonPlan({ recording: true, held: true, fps: 60 }).reason, "held");
 });

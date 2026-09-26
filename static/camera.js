@@ -147,31 +147,19 @@ export function videoBitrate(width = 1280, height = 720, fps = TARGET_FPS) {
   return Math.max(4_000_000, Math.min(12_000_000, bits));
 }
 
-export const PAUSE_BELOW_FPS = 55;   // skeleton pauses for the rest of a take when a 60 fps camera drops under this
-export const CHEAP_DETECT_MS = 8;    // detection slower than this per frame is paused while recording
+export const PAUSE_BELOW_FPS = 55;   // skeleton pauses for the rest of a take only if a 60 fps camera drops under this
 
 /**
- * How often MediaPipe runs, counted in presented camera frames, and whether it pauses.
- * Pose tracking runs on the main thread, so while recording it is cut to about 10 Hz and
- * paused completely when the member turned the skeleton off, when detection is slow on this
- * device, or when the live rate of a 60 fps camera drops under 55. A pause holds until the
- * take ends. In preview it runs at about 30 Hz (every 2nd frame at 60 fps), backing off when
- * frames drop, and at about 10 Hz with the skeleton off (framing tips only).
- * Returns {every, pause, reason} with reason one of "", "off", "slow", "fps", "held".
+ * Whether the live skeleton runs on this frame. It runs on every camera frame, in preview and
+ * while recording (MediaPipe works in a Worker, and the recording is the raw camera track, so
+ * the overlay cannot lower the file's frame rate). While recording it stops only when the
+ * member turned the skeleton off, or when a 60 fps camera's measured rate really drops under
+ * 55; that pause holds until the take ends. Returns {run, reason}: reason "", "off", "fps", "held".
  */
-export function detectPlan({ recording = false, skeletonOn = true, detectCost = 0, fps = 0, cameraFps = 60, held = false } = {}) {
-  const cam = cameraFps > 1 ? cameraFps : 30;
-  const every = (hz) => Math.max(1, Math.round(cam / hz));
-  const dropping = cam >= 58 && fps > 1 && fps < PAUSE_BELOW_FPS;
-  if (recording) {
-    if (held) return { every: 0, pause: true, reason: "held" };
-    if (!skeletonOn) return { every: 0, pause: true, reason: "off" };
-    if (detectCost > CHEAP_DETECT_MS) return { every: 0, pause: true, reason: "slow" };
-    if (dropping) return { every: 0, pause: true, reason: "fps" };
-    return { every: every(10), pause: false, reason: "" };
-  }
-  if (!skeletonOn) return { every: every(10), pause: false, reason: "" };
-  if (detectCost > 16) return { every: every(15), pause: false, reason: "slow" };
-  if (dropping) return { every: every(20), pause: false, reason: "fps" };
-  return { every: every(30), pause: false, reason: "" };
+export function skeletonPlan({ recording = false, skeletonOn = true, fps = 0, cameraFps = 60, held = false } = {}) {
+  if (!recording) return { run: true, reason: "" };   // preview: skeleton or framing tips on every frame
+  if (held) return { run: false, reason: "held" };
+  if (!skeletonOn) return { run: false, reason: "off" };
+  if (cameraFps >= 58 && fps > 1 && fps < PAUSE_BELOW_FPS) return { run: false, reason: "fps" };
+  return { run: true, reason: "" };
 }

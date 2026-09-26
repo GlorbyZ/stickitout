@@ -30,10 +30,11 @@ from pathlib import Path
 from . import jobs, tuning
 from .audio import analyze_audio
 from .fusion import fuse
-from .media import LOW_FPS_BELOW, MediaError, VideoInfo, extract_audio, is_low_fps, low_fps_message, min_fps, probe_video
+from .media import (LOW_FPS_BELOW, MediaError, VideoInfo, extract_audio, frame_times, is_low_fps, low_fps_message,
+                    min_fps, probe_video)
 from .scoring import score_report
 from .sticking import check_sticking
-from .video import MAX_PROCESS_WIDTH, build_tracks, extract_landmarks, session_metrics
+from .video import MAX_PROCESS_WIDTH, POSE_MODEL, build_tracks, extract_landmarks, session_metrics
 
 ENGINE_VERSION = "0.1.0"
 
@@ -53,7 +54,7 @@ def _cache_key(video_path: Path) -> dict:
     import mediapipe
     st = Path(video_path).stat()
     return {"size": st.st_size, "mtime": int(st.st_mtime), "max_width": MAX_PROCESS_WIDTH,
-            "mediapipe": mediapipe.__version__, "version": 1}
+            "mediapipe": mediapipe.__version__, "version": 2, "pose_model": POSE_MODEL}
 
 
 def landmarks(video_path: Path, progress=None, cache: Path | None = None) -> dict:
@@ -67,7 +68,11 @@ def landmarks(video_path: Path, progress=None, cache: Path | None = None) -> dic
                 return data["raw"]
         except (OSError, ValueError, KeyError):
             pass
-    raw = extract_landmarks(video_path, progress)
+    try:
+        pts = frame_times(video_path)
+    except Exception:  # timestamps only matter for playback; fall back to the decoder's
+        pts = []
+    raw = extract_landmarks(video_path, progress, pts)
     if cache:
         Path(cache).parent.mkdir(parents=True, exist_ok=True)
         tmp = Path(str(cache) + ".tmp")
@@ -75,6 +80,59 @@ def landmarks(video_path: Path, progress=None, cache: Path | None = None) -> dic
             json.dump({"key": key, "raw": raw}, fh)
         tmp.replace(cache)
     return raw
+
+
+LANDMARKS_FILE = "landmarks.json.gz"
+# Pose points sent to playback, in this order (MediaPipe ids): nose, shoulders, elbows, wrists, hips.
+PLAYBACK_POINTS = (("nose", 0), ("ls", 11), ("rs", 12), ("le", 13), ("re", 14), ("lw", 15), ("rw", 16), ("lh", 23), ("rh", 24))
+
+
+def playback_landmarks(cache: Path) -> dict | None:
+    """Compact per-frame landmarks for drawing the skeleton on playback, or None if the cache is
+    missing or older than per-frame timestamps.
+
+    t[i] is frame i's presentation time on the file's own timeline (equal to the browser's
+    requestVideoFrameCallback mediaTime). pose[i] is null when no pose was found on that frame,
+    else a flat [x, y, visibility] list for PLAYBACK_POINTS with x, y normalised to 0..1.
+    hands[i] is a list of flat [x, y] * 21 lists. stats has per-frame detection rates.
+    """
+    try:
+        with gzip.open(cache, "rt", encoding="utf-8") as fh:
+            raw = json.load(fh)["raw"]
+    except (OSError, ValueError, KeyError):
+        return None
+    frames = raw.get("frames") or []
+    if not frames or any(f.get("pts") is None for f in frames):
+        return None
+    w, h = float(raw["width"] or 1), float(raw["height"] or 1)
+    t, pose, hands = [], [], []
+    n_pose = n_hand = n_two = 0
+    for f in frames:
+        t.append(round(float(f["pts"]), 5))
+        p, b = f.get("pose"), f.get("body") or {}
+        if p:
+            n_pose += 1
+            flat = []
+            for key, _ in PLAYBACK_POINTS:
+                pt = p.get(key) or b.get(key)
+                flat += [round(pt[0] / w, 4), round(pt[1] / h, 4), round(pt[2], 2)] if pt else [0, 0, 0]
+            pose.append(flat)
+        else:
+            pose.append(None)
+        hs = [[v for x, y in hand for v in (round(x / w, 4), round(y / h, 4))] for hand in f.get("hands") or []]
+        n_hand += bool(hs)
+        n_two += len(hs) >= 2
+        hands.append(hs)
+    n = len(frames)
+    gaps = [b - a for a, b in zip(t, t[1:]) if b > a]
+    return {
+        "version": 1, "width": raw["width"], "height": raw["height"],
+        "pts_source": raw.get("pts_source", "decoder"), "pose_model": raw.get("pose_model"),
+        "points": [i for _, i in PLAYBACK_POINTS], "t": t, "pose": pose, "hands": hands,
+        "stats": {"frames": n, "pose_rate": round(n_pose / n, 4), "any_hand_rate": round(n_hand / n, 4),
+                  "two_hands_rate": round(n_two / n, 4),
+                  "median_frame_interval_s": round(sorted(gaps)[len(gaps) // 2], 6) if gaps else None},
+    }
 
 
 def run_video_stage(video_path: Path, progress, cache: Path | None = None) -> tuple[object | None, dict]:
@@ -181,7 +239,8 @@ def run(job_id: str, video_path: Path, params: dict) -> None:
         jobs.update(job_id, status="processing", stage=name, progress=round(progress, 3))
 
     try:
-        info, audio, analysed = analyze_file(video_path, params, d, stage)
+        # Per-frame landmarks are kept with the job for the playback skeleton (/api/jobs/{id}/landmarks).
+        info, audio, analysed = analyze_file(video_path, params, d, stage, landmarks_cache=d / LANDMARKS_FILE)
         job = jobs.read(job_id)
         jobs.write_report(job_id, build_report(job_id, job["created_at"], job["filename"], info, params, audio, analysed))
         jobs.update(job_id, status="done", stage="done", progress=1.0)

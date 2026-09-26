@@ -193,6 +193,21 @@ def job_video(job_id: str):
     return FileResponse(path)
 
 
+@app.get("/api/jobs/{job_id}/landmarks")
+def job_landmarks(job_id: str):
+    """Per-frame pose and hand landmarks for the playback skeleton, keyed by frame presentation time."""
+    try:
+        job = jobs.read(job_id)
+    except KeyError:
+        return error(404, "Job not found.")
+    if job["status"] != "done":
+        return error(409, f"Job is {job['status']}; landmarks are not ready yet.")
+    data = pipeline.playback_landmarks(jobs.job_dir(job_id) / pipeline.LANDMARKS_FILE)
+    if data is None:
+        return error(404, "No per-frame skeleton data for this analysis. Analyze the video again to draw it on playback.")
+    return data
+
+
 # ---------- training dataset ----------
 DATASET_META_FIELDS = ("player", "rudiment", "click_bpm", "surface", "camera_angle", "lighting", "take_type")
 

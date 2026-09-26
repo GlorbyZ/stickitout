@@ -42,11 +42,8 @@ diff, but it needs a real-phone confirmation (see the end).
   applied only to a camera facing the member.
 - **Raw track, never a canvas.** MediaRecorder still records `getUserMedia`'s camera and mic
   track. The skeleton canvas is on-screen only.
-- **Pose tracking throttled and auto-paused** (`detectPlan` in `static/camera.js`, unit tested).
-  It is scheduled by presented camera frames (`requestVideoFrameCallback`): every 2nd frame in
-  preview at 60 fps, about 10 Hz while recording, about 10 Hz for framing tips with the skeleton
-  off. During a take it pauses until the take ends when the Skeleton box is off, when a detection
-  costs more than 8 ms, or when a 60 fps camera's measured rate drops under 55.
+- **Skeleton on every camera frame, off the main thread.** See the next section. (The first
+  60 fps round throttled it to every 2nd frame and about 10 Hz while recording; that is gone.)
 - **60 fps constraint ladder.** 1280x720 then 1920x1080 with `frameRate {ideal: 60, min: 50}`,
   then 720p with `ideal: 60` and no minimum, then anything. Then `getCapabilities().frameRate.max`
   is checked, and `applyConstraints({frameRate: 60})` runs when the camera can do 60 but is set
@@ -60,10 +57,109 @@ diff, but it needs a real-phone confirmation (see the end).
   under 50 fps. The take panel shows the measured fps, container and bitrate. The results show
   "Saved video: N fps, measured by the server from the file".
 
-A Web Worker for MediaPipe (OffscreenCanvas plus transferred ImageBitmaps, as in Google's
-samples) would take pose tracking off the main thread entirely. It was not done here because
-throttling and auto-pause already keep takes at 60 fps and the change is much larger. It is the
-next step if phones still drop preview frames with the skeleton on.
+## Skeleton on every frame (live preview, 2026-09-26 4:24 PM MT)
+
+- **Per frame, no throttle.** `static/record.js` offers every presented camera frame
+  (`requestVideoFrameCallback`) to `static/pose-engine.js`. At most one frame is in flight; while
+  it runs, only the newest frame is kept and older ones are dropped, so the skeleton never lags
+  behind the video and never queues.
+- **Web Workers.** `static/pose-worker.js` runs MediaPipe Tasks Vision in a module worker:
+  PoseLandmarker (lite) and HandLandmarker (2 hands), VIDEO mode, timestamps
+  `max(last + 1, round(mediaTime ms))` so they always increase. Pose and hands run in **two
+  workers in parallel**, so a frame costs max(pose, hands), not the sum. If two workers fail to
+  start it tries one worker with both models, then the main thread.
+- **GPU first, CPU fallback.** Each worker asks for the GPU delegate (WebGL2 on an
+  `OffscreenCanvas`). A software renderer (SwiftShader, llvmpipe) counts as no GPU and uses the CPU
+  delegate, because it was 8x slower than CPU on the test box. `?delegate=GPU|CPU` overrides.
+- **Input 640 px** on the long side (`createImageBitmap` resize, transferred to the worker, not
+  copied). `?input=480` overrides; 480 was not faster on the box because the hand model crops
+  its own region anyway.
+- **Overlay at display resolution.** The canvas is sized to the drawn video box times
+  devicePixelRatio (max 3), and each result is drawn the moment it arrives, with no smoothing.
+  When a frame has no pose, the canvas is cleared.
+- **Recording is untouched.** MediaRecorder records the raw camera track. The skeleton keeps
+  running during a take unless the Skeleton box is off or a 60 fps camera's measured rate drops
+  under 55 (`skeletonPlan` in `static/camera.js`), which shows "Skeleton paused for this take:
+  the camera dropped to N fps."
+- **Honest rate.** When the skeleton runs under 90% of the camera rate for 2 s, the page says
+  "Skeleton running at N fps on this device".
+- **Debug stats.** Tick **Stats** or open the page with `?debug=1`: "camera X fps | skeleton Y fps
+  | inference Z ms (pose a, hands b) | round trip R ms | mode".
+- **Safari.** Module workers need Safari 15+, WebGL2 in an OffscreenCanvas inside a worker needs
+  Safari/iOS 17+, `requestVideoFrameCallback` needs Safari 15.4+. If the worker cannot start or
+  load the models, the engine falls back to the main thread (the previous code path, still per
+  frame with one in flight). Without `requestVideoFrameCallback` the preview uses
+  `requestAnimationFrame`.
+
+### Expected phone performance (estimate, not measured on a phone)
+
+Google's published numbers: HandLandmarker (full) 17.12 ms CPU and 12.27 ms GPU on a Pixel 6
+(whole pipeline, [hand landmarker guide](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker),
+updated 2026-08-17). The pose landmarker page's benchmark table could not be retrieved; the
+BlazePose model card gives Lite about 20 ms on a Pixel 3 GPU (about 49 fps) and about 44 fps
+on CPU ([legacy pose docs](https://github.com/google/mediapipe/blob/master/docs/solutions/pose.md)).
+With pose and hands in parallel a Pixel 6 class phone needs roughly max(pose, hands) plus 2 to
+4 ms of bitmap transfer, about 15 to 20 ms, so **about 50 to 60 fps on recent flagships and
+about 30 to 50 fps on mid-range phones** are likely. The WebGL delegate in a browser is usually
+slower than the native TFLite numbers. The on-page stats show the real value.
+
+## Results playback skeleton: the freeze and the fix
+
+**What the member saw (Android, portal Analyze tab, results playback):** the skeleton lined up
+while still, lost tracking when fast drumming started, then stayed frozen pixel-identical in a
+"hands down" pose for about 3 seconds while the video kept playing.
+
+**Cause.** The old playback overlay did not use the server's analysis at all. It ran the browser
+MediaPipe models on the playing `<video>` with `performance.now()` timestamps and drew inside
+`try { ... } catch {}`. When a detection threw or returned nothing (a busy phone, motion blur,
+GPU context trouble), the canvas was not cleared, so the last drawing stayed on screen: a stale
+pose that looks frozen. The server data was fine. Re-running the new per-frame pipeline on the
+member's two phone takes (720x1280, 59.0 and 58.8 fps, variable frame rate, `r_frame_rate` 60000/1)
+found a pose on 100% of frames (398 of 398 and 457 of 457), both hands on 100% and 97%, no two
+consecutive frames identical, and the pose wrists within about 1% of the frame from the hand
+model's wrists, even at the old 0.5 thresholds. Their frame spacing is uneven (median interval
+19.3 ms against a 16.9 ms average), which is why playback looks frames up by their own
+timestamps instead of assuming a fixed 60 fps.
+
+**Fix.**
+
+- **Server, every frame, keyed by pts.** `app/video.py` runs pose (full model by default,
+  `POSE_MODEL=lite|full|heavy`) and hands on every decoded frame in VIDEO mode with detection,
+  presence and tracking confidence 0.3 (MediaPipe default 0.5), so fast blurred strokes keep a
+  pose and tracking re-detects on its own. `app/media.py frame_times()` reads each frame's
+  presentation time with `ffmpeg -copyts` (framecrc), and every frame gets `pts` on the file's
+  own timeline (start offset and edit list kept). The analysis still uses its own zero-based `t`,
+  so scores are unchanged.
+- **Stored with the job:** `landmarks.json.gz` (cache version 2, includes the pose model).
+  `GET /api/jobs/{id}/landmarks` returns `t[]` (pts in seconds), `pose[]` (null or 9 points:
+  nose, shoulders, elbows, wrists, hips, normalised x, y, visibility), `hands[]` and `stats`
+  (frames, pose_rate, any_hand_rate, two_hands_rate, median frame interval). Older analyses return
+  404 "No per-frame skeleton data for this analysis. Analyze the video again to draw it on
+  playback." `python -m scripts.backfill_landmarks [job_id ...]` adds the data to older analyses
+  (it was run on every job on the studio PC on 2026-09-26).
+- **Playback by exact frame.** `static/app.js` loads the data once and draws on every
+  `requestVideoFrameCallback` using `meta.mediaTime` (`playbackFrame` in `static/overlay.js`,
+  unit tested). An exact match is within a third of a frame interval. A frame with no detection
+  clears the canvas; it never shows an older pose. Interpolation only fills a frame that is
+  missing from the data when both neighbours have a pose within 3.5 frame intervals. Paused or
+  seeking draws the frame on screen immediately. Without `requestVideoFrameCallback` it follows
+  `currentTime` every animation frame. `?debug=1` shows "frame N of M at T s, exact | pose found
+  on X% of frames, both hands Y% | drawn, empty, interpolated".
+- **Why mediaTime.** On the box, Chrome's `mediaTime` equalled the `ffmpeg -copyts` pts exactly
+  on a variable frame rate MP4 with B-frames and a 0.25 s start offset, including the jitter.
+  `currentTime` was up to about 9 ms off, and ffmpeg without `-copyts` zero-bases timestamps
+  (0.25 s off for such files). `timeupdate` fires only about 4 times a second and was never used.
+
+### Playback verification (live portal, 2026-09-26)
+
+| Clip | Frames | Pose found | Both hands | Browser playback (rVFC, 0.5x) |
+|---|---|---|---|---|
+| Fast VFR synthetic: 60 fps drummer, 3-frame motion blur, +6 ms jitter on 3 of 7 frames, 0.25 s start offset, B-frames | 720 | 100% | 45% | 661 frames presented, all exact pts matches, all drawn, 661 distinct skeletons, 0 repeats |
+| Same with a 1.5 s stretch with nobody in frame | 450 | 80.4% | 36% | 88 no-person frames: 87 blank (1 boundary blend frame drawn); 361 of 362 person frames drawn |
+| Member's phone takes (6.7 s at 59.0 fps and 7.8 s at 58.8 fps, re-run on the PC) | 398 and 457 | 100% | 100% and 97% | not replayed in a browser here |
+| Pytest `test_fast_vfr_clip_every_frame_keyed_by_pts` (160 bpm, 6 s) | 360 | 100% | 23% | n/a |
+
+The server `t` matched ffprobe's frame pts within 0.004 ms on the live job (720 of 720).
 
 ## Verification (2026-09-26, live portal and direct access)
 
@@ -77,9 +173,18 @@ uploaded, and measured by the server from the saved file:
 | After, skeleton off | 60 fps | 60.0 |
 | After, skeleton running all take (5 ms stand-in detector, about 10 Hz, 122 calls) | 60 fps | 60.0 |
 | After, direct access (`analyzer-origin...?key=`) | 60 fps | 60.0 |
-| Stress: real MediaPipe forced on during the take (auto-pause disabled, about 380 ms per call) | 16 fps | take measured 14.6 in the browser |
+| Every-frame worker skeleton ON all take (2 CPU workers, drummer as the fake camera, 17 fps skeleton on the GPU-less box) | 60 fps | 60.0 |
+| Every-frame worker skeleton OFF | 60 fps | 60.0 |
+| Every-frame worker skeleton ON, 4x CPU throttle (13 fps skeleton) | 60 fps | 60.0 |
+| Stress, first round only: main-thread MediaPipe forced on during the take (about 380 ms per call) | 16 fps | take measured 14.6 in the browser |
 
-The last row shows why the auto-pause matters. It is a test-only override, not how the page runs.
+The stress row is why inference moved to Web Workers: with the workers the camera and the saved
+file stay at 60 fps even while the skeleton runs at 13 to 17 fps on a slow CPU.
+
+Live skeleton on the box (no GPU, 2 CPU workers, 640 px input, a drummer as the fake camera):
+pose about 24 ms, hands about 54 ms, round trip about 58 ms, skeleton 17 to 18 fps, camera 60 fps.
+With nobody in frame it ran about 27 fps (hands model idle). One worker with both models ran
+18 to 19 fps with nobody in frame; SwiftShader "GPU" ran 2.6 fps, hence the software-renderer check.
 
 ## iOS and Android limits
 
@@ -124,6 +229,13 @@ The last row shows why the auto-pause matters. It is a test-only override, not h
   [field report on blur over streaming video](https://medium.com/@JTCreateim/backdrop-filter-property-in-css-leads-to-choppiness-in-streaming-video-45fa83f3521b).
 
 ## Needs a real-phone check
+
+- The worker skeleton on iPhone Safari (iOS 17+ GPU path, older iOS main-thread path) and on an
+  Android phone with a real GPU: the Stats line (skeleton fps, inference ms, mode) and a take with
+  the skeleton on, checked for 60.0 fps on the results.
+- Results playback on the member's Android phone with "Draw skeleton on playback" ticked during
+  fast strokes (the `?debug=1` line should say "exact" on every frame).
+- `POSE_MODEL=heavy` on the studio PC for very fast strokes (about 3x slower analysis; not tried).
 
 - iPhone Safari and an Android Chrome phone: badge value, a 30 to 60 s take with the skeleton on
   and off, and the server-measured fps on the results.

@@ -13,6 +13,7 @@ was removed), so the .task model files are downloaded once into ./models.
 from __future__ import annotations
 
 import math
+import os
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,13 +26,26 @@ from scipy.signal import find_peaks
 from . import tuning
 
 MODEL_DIR = Path(__file__).resolve().parent.parent / "models"
+# Pose model: "full" by default. POSE_MODEL=heavy is more robust on fast, blurred strokes but
+# about 3x slower per frame; "lite" is the fastest.
+POSE_MODEL = os.environ.get("POSE_MODEL", "full").strip().lower()
+if POSE_MODEL not in ("lite", "full", "heavy"):
+    POSE_MODEL = "full"
 MODELS = {
-    "pose": ("pose_landmarker_full.task",
-             "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task"),
+    "pose": (f"pose_landmarker_{POSE_MODEL}.task",
+             f"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_{POSE_MODEL}/float16/latest/pose_landmarker_{POSE_MODEL}.task"),
     "hand": ("hand_landmarker.task",
              "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"),
 }
+# Detection and tracking confidences, below the MediaPipe default of 0.5 so fast strokes with
+# motion blur keep a pose (tracking re-detects on its own when confidence falls under these).
+# Frames still need wrist visibility >= min_wrist_visibility (tuning) to count for scoring.
+MIN_DETECTION_CONFIDENCE = 0.3
+MIN_PRESENCE_CONFIDENCE = 0.3
+MIN_TRACKING_CONFIDENCE = 0.3
 POSE_IDS = {"ls": 11, "rs": 12, "le": 13, "re": 14, "lw": 15, "rw": 16}
+# Extra points kept only for drawing the playback skeleton (nose and hips).
+BODY_IDS = {"nose": 0, "lh": 23, "rh": 24}
 # Wrist visibility cutoff and the strike detector (prominence, minimum gap, smoothing) are
 # tuning settings: see app/tuning.py (defaults 0.5, 0.02 body units, 50 ms, 3 frames).
 DEGRADED_BELOW = 0.5
@@ -56,18 +70,32 @@ def ensure_models() -> dict[str, Path]:
     return paths
 
 
-def extract_landmarks(video_path: Path, progress: Callable[[float], None] | None = None) -> dict:
-    """Per-frame pose (landmarks 11-16) and both hands (21 landmarks), in pixel coordinates."""
+def extract_landmarks(video_path: Path, progress: Callable[[float], None] | None = None,
+                      pts: list[float] | None = None) -> dict:
+    """Per-frame pose (landmarks 11-16, plus nose and hips for drawing) and both hands (21
+    landmarks), in pixel coordinates, for every decoded frame.
+
+    `pts` is the presentation time of every frame from media.frame_times(). Each frame gets
+    "pts" on the file's own timeline (what a browser reports as mediaTime) so playback can draw
+    the landmarks of exactly the frame on screen. When the decoded frame count does not match,
+    the decoder's timestamps are used, shifted onto the same timeline.
+    """
     import mediapipe as mp
     from mediapipe.tasks.python import BaseOptions, vision
 
     paths = ensure_models()
     pose = vision.PoseLandmarker.create_from_options(vision.PoseLandmarkerOptions(
         base_options=BaseOptions(model_asset_path=str(paths["pose"])),
-        running_mode=vision.RunningMode.VIDEO, num_poses=1))
+        running_mode=vision.RunningMode.VIDEO, num_poses=1,
+        min_pose_detection_confidence=MIN_DETECTION_CONFIDENCE,
+        min_pose_presence_confidence=MIN_PRESENCE_CONFIDENCE,
+        min_tracking_confidence=MIN_TRACKING_CONFIDENCE))
     hands = vision.HandLandmarker.create_from_options(vision.HandLandmarkerOptions(
         base_options=BaseOptions(model_asset_path=str(paths["hand"])),
-        running_mode=vision.RunningMode.VIDEO, num_hands=2))
+        running_mode=vision.RunningMode.VIDEO, num_hands=2,
+        min_hand_detection_confidence=MIN_DETECTION_CONFIDENCE,
+        min_hand_presence_confidence=MIN_PRESENCE_CONFIDENCE,
+        min_tracking_confidence=MIN_TRACKING_CONFIDENCE))
     cap = cv2.VideoCapture(str(video_path))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -87,12 +115,14 @@ def extract_landmarks(video_path: Path, progress: Callable[[float], None] | None
             if scale < 1.0:
                 bgr = cv2.resize(bgr, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
             image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
-            frame = {"t": t_ms / 1000.0, "pose": None, "hands": []}
+            frame = {"t": t_ms / 1000.0, "pts": None, "pose": None, "body": None, "hands": []}
             res = pose.detect_for_video(image, t_ms)
             if res.pose_landmarks:
                 lm = res.pose_landmarks[0]
                 frame["pose"] = {k: (lm[i].x * width, lm[i].y * height, float(lm[i].visibility or 0.0))
                                  for k, i in POSE_IDS.items()}
+                frame["body"] = {k: (lm[i].x * width, lm[i].y * height, float(lm[i].visibility or 0.0))
+                                 for k, i in BODY_IDS.items()}
             hres = hands.detect_for_video(image, t_ms)
             for hand in hres.hand_landmarks:
                 frame["hands"].append([(p.x * width, p.y * height) for p in hand])
@@ -104,7 +134,17 @@ def extract_landmarks(video_path: Path, progress: Callable[[float], None] | None
         cap.release()
         pose.close()
         hands.close()
-    return {"frames": frames, "width": width, "height": height}
+    pts_source = "packets"
+    if pts and len(pts) == len(frames):
+        for frame, p in zip(frames, pts):
+            frame["pts"] = p
+    elif frames:
+        pts_source = "decoder"
+        offset = (pts[0] - frames[0]["t"]) if pts else 0.0
+        for frame in frames:
+            frame["pts"] = round(frame["t"] + offset, 6)
+    return {"frames": frames, "width": width, "height": height, "pts_source": pts_source,
+            "pose_model": POSE_MODEL}
 
 
 @dataclass

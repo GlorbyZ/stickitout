@@ -1,7 +1,8 @@
 // Analyze page: Upload and Record modes, job progress polling, and the results
 // dashboard (Verified score, score dials, sticking, charts, stroke table, playback).
 import { initRecord } from "./record.js";
-import { loadLandmarkers, drawSkeleton } from "./skeleton.js";
+import { drawSkeleton } from "./skeleton.js";
+import { playbackFrame, overlaySize } from "./overlay.js";
 
 // Charts (audio waveform, wrist height, timing error spread, tempo over time) are hidden for now
 // so the playback video sits near the top. Set SHOW_CHARTS = true to bring them back.
@@ -285,26 +286,61 @@ function renderStrokes(strokes, limit) {
   more.onclick = () => renderStrokes(strokes, strokes.length);
 }
 
-// Optional: skeleton over playback of the uploaded video, computed in the browser.
-let playLoop = false;
+// Optional: skeleton over playback, from the server's analysis of every frame. Landmarks are
+// stored under each frame's presentation time, which the browser reports as
+// requestVideoFrameCallback mediaTime, so each drawn skeleton belongs to the frame on screen.
+// Frames without a detection draw nothing (never a frozen, stale pose).
+let playLoop = false, playData = null, playDataJob = null;
 function setupPlayback(r) {
-  const pb = $("playback"), cv = $("play-overlay"), ctx = cv.getContext("2d"), box = $("play-skel");
+  const pb = $("playback"), cv = $("play-overlay"), ctx = cv.getContext("2d"), box = $("play-skel"), dbg = $("play-debug");
+  const debug = new URLSearchParams(location.search).has("debug") || $("show-stats")?.checked;
   pb.src = `/api/jobs/${r.job_id}/video`;
-  box.checked = false; playLoop = false; ctx.clearRect(0, 0, cv.width, cv.height);
+  box.checked = false; playLoop = false; ctx.clearRect(0, 0, cv.width, cv.height); dbg.hidden = true;
+  if (playDataJob !== r.job_id) { playData = null; playDataJob = r.job_id; }
+  let drawn = 0, empty = 0, interp = 0;
+  const draw = (mediaTime) => {
+    const rect = pb.getBoundingClientRect();
+    const size = overlaySize(rect.width, rect.height, pb.videoWidth, pb.videoHeight, Math.min(3, window.devicePixelRatio || 1));
+    if (size.width && (cv.width !== size.width || cv.height !== size.height)) { cv.width = size.width; cv.height = size.height; }
+    const f = playbackFrame(playData, mediaTime);
+    if (f.result) { drawSkeleton(ctx, f.result, cv.width, cv.height); drawn++; if (f.interpolated) interp++; }
+    else { ctx.clearRect(0, 0, cv.width, cv.height); empty++; }
+    if (debug) {
+      dbg.hidden = false;
+      const st = playData.stats || {};
+      dbg.textContent = `frame ${f.index + 1} of ${playData.t.length} at ${mediaTime.toFixed(3)} s, ${f.exact ? "exact" : f.interpolated ? "interpolated" : "no data"} | ` +
+        `pose found on ${Math.round((st.pose_rate || 0) * 100)}% of frames, both hands ${Math.round((st.two_hands_rate || 0) * 100)}% | ` +
+        `drawn ${drawn}, empty ${empty}, interpolated ${interp}`;
+    }
+  };
   box.onchange = async () => {
     playLoop = box.checked;
     if (!playLoop) { ctx.clearRect(0, 0, cv.width, cv.height); return; }
-    let lm;
-    try { lm = await loadLandmarkers(); } catch { box.checked = false; playLoop = false; showError("Could not load the skeleton model (needs internet)."); return; }
-    const tick = () => {
-      if (!playLoop) return;
-      if (pb.readyState >= 2) {
-        if (cv.width !== pb.videoWidth) { cv.width = pb.videoWidth; cv.height = pb.videoHeight; }
-        try { drawSkeleton(ctx, lm.detect(pb), cv.width, cv.height); } catch { /* frame not ready */ }
+    if (!playData) {
+      try {
+        const res = await fetch(`/api/jobs/${r.job_id}/landmarks`);
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+        playData = body;
+      } catch (e) {
+        box.checked = false; playLoop = false;
+        showError(`Could not load the skeleton for this video: ${e.message}`);
+        return;
       }
-      "requestVideoFrameCallback" in pb ? pb.requestVideoFrameCallback(tick) : requestAnimationFrame(tick);
-    };
-    tick();
+    }
+    if ("requestVideoFrameCallback" in pb) {
+      const tick = (now, meta) => {
+        if (!playLoop) return;
+        draw(meta.mediaTime);
+        pb.requestVideoFrameCallback(tick);
+      };
+      pb.requestVideoFrameCallback(tick);
+      if (pb.readyState >= 2) draw(pb.currentTime);   // paused: draw the frame on screen now
+    } else {
+      // No requestVideoFrameCallback (older browsers): follow currentTime every animation frame.
+      const tick = () => { if (!playLoop) return; if (pb.readyState >= 2) draw(pb.currentTime); requestAnimationFrame(tick); };
+      tick();
+    }
   };
 }
 

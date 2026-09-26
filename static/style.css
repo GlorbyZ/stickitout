@@ -137,3 +137,5 @@ tr.wrong td { background: #fdecec; }
 .pill.fps-badge.idle { background: rgba(0,0,0,.65); color: #fff; }
 .saved-fps { font-size: .9rem; margin-bottom: 4px; } .saved-fps.good b { color: var(--good); } .saved-fps.warn b { color: #8a6400; }
 .cam-bar[hidden], #cam-flip[hidden] { display: none; }
+.pill.debug { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .72rem; background: rgba(0,0,0,.72); color: #fff; }
+.skel-note { margin: 6px 0 0; color: #8a6400; } .play-debug { font-family: ui-monospace, Menlo, Consolas, monospace; overflow-wrap: anywhere; }

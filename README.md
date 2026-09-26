@@ -73,6 +73,7 @@ All settings are environment variables, the same everywhere (local, Docker, clou
 | `ACCESS_TOKEN` | empty | if set, the UI and API need this key (see below) |
 | `JOB_TTL_HOURS` | `72` | jobs older than this are deleted, uploads included; `0` keeps everything |
 | `MIN_FPS` | `23.5` | lowest measured frame rate accepted (24 fps and the 23.976 film rate pass); slower clips get a `422` |
+| `POSE_MODEL` | `full` | server pose model: `lite`, `full` or `heavy` (more robust on fast blurred strokes, about 3x slower). Changing it re-runs tracking for new analyses |
 | `DATASET_DIR` | `DATA_DIR/dataset` | training clips and their labels; never cleaned up (see [Training data](#training-data-labeling-clips)) |
 | `TUNING_FILE` | `./tuning.json` if present | analyzer thresholds (see [Tuning settings](#tuning-settings)) |
 | `SIO_TUNE_<NAME>` | none | one tuning setting, e.g. `SIO_TUNE_ONSET_THRESHOLD=0.25` (beats the file) |
@@ -208,11 +209,16 @@ then USB, then laptop webcam, front last) unless the member picked one before (r
 localStorage). **Switch** flips front and back. Only a camera facing the member is mirrored.
 
 **Skeleton.** The MediaPipe pose and hand skeleton (Tasks Vision, PoseLandmarker lite +
-HandLandmarker from jsDelivr) is drawn on a separate canvas over the preview. Shoulders, elbows and
-wrists are gold, hands blue, and a framing panel says what to fix. MediaPipe runs on the main
-thread, so it is scheduled by presented frames (`detectPlan`): every 2nd frame in preview at 60 fps,
-about 10 Hz while recording. It pauses for the rest of a take when the Skeleton box is off, when a
-detection costs more than 8 ms on the device, or when a 60 fps camera drops under 55 fps.
+HandLandmarker with 2 hands, from jsDelivr) is drawn on a separate canvas over the preview at
+display resolution. Shoulders, elbows and wrists are gold, hands blue, and a framing panel says
+what to fix. It runs on **every presented camera frame** in Web Workers (`static/pose-engine.js`,
+`static/pose-worker.js`): pose and hands in two workers in parallel, VIDEO mode, GPU delegate
+with a CPU fallback, 640 px input, at most one frame in flight (only the newest waiting frame is
+kept). If workers are not available (older Safari) it runs on the main thread. It keeps running
+while recording, and pauses for the rest of a take only when the Skeleton box is off or a 60 fps
+camera drops under 55 fps. When the device cannot keep up the page says "Skeleton running at N fps
+on this device". Tick **Stats** or add `?debug=1` for camera fps, skeleton fps, inference ms and
+the mode.
 
 **Recording.** MediaRecorder records the **raw camera and microphone track**, never the canvas, so
 the skeleton is not in the file. It prefers H.264 MP4 (`avc1.64002A`, level 4.2 which covers
@@ -223,8 +229,14 @@ show "Saved video: N fps, measured by the server from the file" and a "Video (se
 Before upload the page notes when a take is under 50 fps (analysed with the low frame rate
 disclaimer) or under the minimum (rejected).
 
-On the results page, "Draw skeleton on playback" runs the same browser models over the
-uploaded video.
+**Playback skeleton.** On the results page, "Draw skeleton on playback" draws the server's own
+analysis, not a new browser detection: the server runs pose and hands on every frame and stores
+them keyed by each frame's presentation time (`GET /api/jobs/{id}/landmarks`). The browser draws
+the frame whose time matches `requestVideoFrameCallback` `mediaTime`, and draws nothing on a frame
+with no detection (never an older pose). Analyses made before this existed can get the data with
+`.\.venv\Scripts\python.exe -m scripts.backfill_landmarks [job_id ...]`. See
+[docs/60fps-capture.md](docs/60fps-capture.md#results-playback-skeleton-the-freeze-and-the-fix).
+
 
 Needs internet for the CDN files and a secure page: `http://localhost:8800` on the same
 computer, or HTTPS (see [Remote access](#remote-access-over-https)) on a phone.
@@ -244,7 +256,8 @@ computer, or HTTPS (see [Remote access](#remote-access-over-https)) on a phone.
 | `test_media.py` | frame-rate measurement for WebM, variable frame rate, 30 fps and uneven 30 fps accepted and flagged, below-minimum rejection message, `MIN_FPS` configurable |
 | `test_access.py` | access gate, upload cap, old-job cleanup |
 | `test_labels_dataset.py` | labels.json schema (Python validator and JSON Schema agree on valid and invalid files), clip upload with pre-filled strokes, saving labels, Add to training set from a job, dataset errors, `/label` behind the gate, no em dashes in user-facing copy |
-| `test_frontend_js.py` | runs `node --test tests/js` (skipped without node): `static/camera.js` constraint ladder, 60 fps boost, fps badge and tip text, friendly camera names and best default, MediaRecorder type and bitrate, skeleton scheduling and auto-pause |
+| `test_frontend_js.py` | runs `node --test tests/js` (skipped without node): `static/camera.js` constraint ladder, 60 fps boost, fps badge and tip text, friendly camera names and best default, MediaRecorder type and bitrate, skeleton plan (every frame, pause only when off or under 55 fps); `static/overlay.js` playback frame lookup by mediaTime (exact match, no stale pose on a missing detection, gap interpolation limits), overlay and input sizing, rate meter |
+| `test_playback_landmarks.py` | per-frame playback data shape and detection rates, old caches not served, endpoint errors; a fast motion-blurred variable frame rate clip with a 0.25 s start offset analysed on every frame keyed by pts (pose on at least 95% of frames), and `scripts/backfill_landmarks.py` on an older analysis |
 | `test_evaluate.py` | tuning file, environment and override; metric maths (matching, hands, tempo, sticking caught/missed/false alarms, timing error, form correlation, run comparison); end to end on the synthetic drummer labeled with its known strokes (near perfect F1, hands, tempo, timing), a sloppy-labeled copy, `--compare-to`, `--compare` and a grid search |
 
 Synthetic inputs: `python scripts/make_click_test.py` writes the 120 BPM fixture;
@@ -346,12 +359,14 @@ app/          FastAPI app and pipeline
   labels.py     labels.json validation
   dataset.py    training dataset: intake, pre-fill, storage
   evaluation.py accuracy metrics (labels versus analyzer)
-static/       Analyze page (index.html, app.js, record.js, skeleton.js, style.css)
+static/       Analyze page (index.html, app.js, record.js, camera.js, skeleton.js, pose-engine.js,
+              pose-worker.js, overlay.js, style.css)
               Label page (label.html, label.js, label.css)
 schema/       report.schema.json, labels.schema.json
 scripts/      make_click_test.py, make_test_video.py, fetch_models.py, serve-remote.ps1,
+              backfill_landmarks.py (playback skeleton for older analyses),
               evaluate.py and evaluate.ps1 (accuracy evaluation)
-docs/         training-shot-list.md
+docs/         training-shot-list.md, 60fps-capture.md
 reports/      evaluation output (not committed)
 tests/        pytest suite
 samples/      real-sample report (pending)

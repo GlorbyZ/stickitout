@@ -2,12 +2,12 @@
 // Used for the live Record preview and the optional overlay on result playback.
 // This is a framing aid only: scoring always runs on the server from the uploaded file.
 
-const VERSION = "1.0.1";
-const CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VERSION}`;
+export const VERSION = "1.0.1";
+export const CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VERSION}`;
 const MODELS = "https://storage.googleapis.com/mediapipe-models";
-// The lite pose model keeps the live preview smooth on phones; the server uses the full model.
-const POSE_MODEL = `${MODELS}/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task`;
-const HAND_MODEL = `${MODELS}/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task`;
+// The lite pose model keeps the live preview at full frame rate on phones; the server uses the full model.
+export const POSE_MODEL = `${MODELS}/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task`;
+export const HAND_MODEL = `${MODELS}/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task`;
 
 export const GOLD = "#f5c518";
 const ARM_LINKS = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16]];
@@ -18,7 +18,8 @@ const HAND_LINKS = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 
 
 let loading = null;
 
-/** Load PoseLandmarker + HandLandmarker once (GPU, falling back to CPU). */
+/** Load PoseLandmarker + HandLandmarker once on this thread (GPU, falling back to CPU).
+ * Used where the pose Worker is not available (see pose-engine.js). */
 export function loadLandmarkers() {
   if (!loading) {
     loading = (async () => {
@@ -33,14 +34,17 @@ export function loadLandmarkers() {
         }),
       ]);
       let pose, hands;
-      try { [pose, hands] = await make("GPU"); } catch { [pose, hands] = await make("CPU"); }
+      let delegate = "GPU";
+      try { [pose, hands] = await make("GPU"); } catch { delegate = "CPU"; [pose, hands] = await make("CPU"); }
       let last = 0;
       return {
-        /** Detect on the current video frame. Timestamps must strictly increase. */
-        detect(video) {
-          const ts = Math.max(last + 1, performance.now());
+        delegate,
+        /** Detect on a frame (video, canvas, ImageBitmap). VIDEO mode timestamps must strictly increase:
+         * pass the frame's own time in ms (requestVideoFrameCallback mediaTime) when there is one. */
+        detect(source, tsMs) {
+          const ts = Math.max(last + 1, Math.round(tsMs ?? performance.now()));
           last = ts;
-          return { pose: pose.detectForVideo(video, ts), hands: hands.detectForVideo(video, ts) };
+          return { pose: pose.detectForVideo(source, ts), hands: hands.detectForVideo(source, ts) };
         },
       };
     })();

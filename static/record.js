@@ -3,10 +3,12 @@
 // MediaPipe skeleton over the preview, gives framing guidance, and records the raw camera
 // stream plus microphone with MediaRecorder. The overlay lives on a separate canvas, so it
 // is never baked into the recorded file.
-import { loadLandmarkers, drawSkeleton, framingAdvice } from "./skeleton.js";
+import { drawSkeleton, framingAdvice } from "./skeleton.js";
+import { createPoseEngine } from "./pose-engine.js";
+import { overlaySize, rateMeter } from "./overlay.js";
 import {
   constraintLadder, retryable, boostConstraints, fpsBadge, liveFps, lowFpsTip, isPhone,
-  friendlyCameras, bestCamera, pickMimeType, videoBitrate, detectPlan,
+  friendlyCameras, bestCamera, pickMimeType, videoBitrate, skeletonPlan,
 } from "./camera.js";
 
 // Defaults until /api/config answers (server values: MIN_FPS env var and media.LOW_FPS_BELOW).
@@ -24,10 +26,15 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
   const hudFps = $("hud-fps"), hudRes = $("hud-res"), hudRec = $("hud-rec"), framing = $("framing");
   const recBtn = $("rec-btn"), camSelect = $("cam-select"), camFlip = $("cam-flip"), mirror = $("mirror"), showSkel = $("show-skel");
   const fpsTip = $("fps-tip"), camBar = $("cam-bar"), phone = isPhone(navigator.userAgent, navigator.maxTouchPoints || 0);
-  let stream = null, landmarkers = null, lastResult = null, running = false, cameras = [], autoPicked = false, startSeq = 0;
+  let stream = null, engine = null, lastResult = null, running = false, cameras = [], autoPicked = false, startSeq = 0;
   let settingsFps = 0, measuredFps = 0, measureSince = 0, badgeAt = 0;
   let recorder = null, chunks = [], recBytes = 0, recFrames = [], recStart = 0, recTimer = null, take = null, capped = false, recBitrate = 0;
-  let fpsWindow = [], adviceAt = 0, detectCost = 0, paused = false, heldForTake = false, lastDetectFrame = -1e9;
+  let fpsWindow = [], adviceAt = 0, paused = false, heldForTake = false;
+  // Live skeleton stats: results per second, inference time in the worker, round trip.
+  const skelMeter = rateMeter(1000);
+  let inferMs = 0, poseMs = 0, handsMs = 0, latencyMs = 0, statsAt = 0, slowSeconds = 0, lastSkelCheck = 0;
+  const debugBox = $("show-stats"), hudDebug = $("hud-debug"), skelNote = $("skel-note");
+  if (new URLSearchParams(location.search).has("debug") && debugBox) debugBox.checked = true;
 
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
     const w = $("secure-warning");
@@ -103,11 +110,13 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
     running = true;
     fpsWindow = [];
     loop();
-    if (!landmarkers) {
+    if (!engine) {
       showFraming("warn", "Loading the skeleton model...");
+      engine = createPoseEngine({ onResult: onPose });
       try {
-        landmarkers = await loadLandmarkers();
+        await engine.ready;
       } catch (err) {
+        engine = null;
         showFraming("warn", "Could not load the live skeleton (needs internet for the MediaPipe files). You can still record.");
       }
     }
@@ -194,7 +203,7 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
       // presentedFrames counts every frame the camera delivered, even ones whose
       // callback we skipped while busy, so the fps reading is not dragged down
       // by skeleton detection on slow devices.
-      onFrame(meta ? meta.mediaTime : video.currentTime, meta ? meta.presentedFrames : fallbackCount(), now);
+      onFrame(meta ? meta.mediaTime : video.currentTime, meta ? meta.presentedFrames : fallbackCount(), now, meta);
       hasRVFC ? video.requestVideoFrameCallback(tick) : requestAnimationFrame((t) => tick(t));
     };
     hasRVFC ? video.requestVideoFrameCallback(tick) : requestAnimationFrame((t) => tick(t));
@@ -202,7 +211,7 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
 
   const rate = (a, b) => (b && a && b.t > a.t ? (b.n - a.n) / (b.t - a.t) : 0);
 
-  function onFrame(mediaTime, presented, now) {
+  function onFrame(mediaTime, presented, now, meta) {
     const sample = { t: mediaTime, n: presented };
     fpsWindow.push(sample);
     while (fpsWindow.length > 2 && mediaTime - fpsWindow[0].t > 1.5) fpsWindow.shift();
@@ -213,39 +222,71 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
         measuredFps = fps; badgeAt = now; showFps();
       }
     }
-    if (canvas.width !== video.videoWidth) { canvas.width = video.videoWidth; canvas.height = video.videoHeight; }
-    // Pose tracking runs on the main thread (MediaPipe), so it is scheduled by presented
-    // camera frames (camera.js detectPlan): every 2nd frame in preview at 60 fps, about 10 Hz
-    // while recording, and paused for the rest of the take when the skeleton is off, detection
-    // is slow on this device, or a 60 fps camera drops under 55 fps. The recording itself is
-    // the raw camera track, so the overlay never touches the file.
+    sizeOverlay();
+    // The skeleton runs on every camera frame, in preview and while recording: MediaPipe works
+    // in a Worker (pose-engine.js) and the recording is the raw camera track, so the overlay
+    // cannot lower the file's frame rate. While recording it stops only when switched off or
+    // when a 60 fps camera really drops under 55 fps (camera.js skeletonPlan).
     const recording = recorder?.state === "recording";
-    const plan = detectPlan({ recording, skeletonOn: showSkel.checked, detectCost, fps: measuredFps, cameraFps: settingsFps, held: heldForTake });
-    if (recording && plan.pause) heldForTake = true;
-    if (plan.pause !== paused) {
-      paused = plan.pause;
+    const plan = skeletonPlan({ recording, skeletonOn: showSkel.checked, fps: measuredFps, cameraFps: settingsFps, held: heldForTake });
+    if (recording && !plan.run) heldForTake = true;
+    if (!plan.run !== paused) {
+      paused = !plan.run;
       if (paused) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (plan.reason === "slow" || plan.reason === "fps") {
-          showFraming("warn", "Skeleton paused while recording so this device can keep 60 fps. Keep playing.");
-        } else if (plan.reason === "off") {
-          framing.hidden = true;
-        }
+        if (plan.reason === "fps") showFraming("warn", `Skeleton paused for this take: the camera dropped to ${Math.round(measuredFps)} fps. Keep playing.`);
+        else if (plan.reason === "off") framing.hidden = true;
       }
     }
-    if (landmarkers && !plan.pause && video.readyState >= 2 && presented - lastDetectFrame >= plan.every) {
-      lastDetectFrame = presented;
-      const t0 = performance.now();
-      try { lastResult = landmarkers.detect(video); } catch { lastResult = null; }
-      detectCost = detectCost ? 0.8 * detectCost + 0.2 * (performance.now() - t0) : performance.now() - t0;
-      if (showSkel.checked) drawSkeleton(ctx, lastResult, canvas.width, canvas.height);
-      else ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (now - adviceAt > 400) {
-        adviceAt = now;
-        const a = framingAdvice(lastResult);
-        showFraming(a.level, a.text);
-      }
+    if (engine && plan.run) engine.offer(video, meta);
+    if (now - statsAt > 500) { statsAt = now; showStats(now); }
+  }
+
+  // Draw at display resolution with the video's aspect ratio (the canvas is object-fit: contain like the video).
+  function sizeOverlay() {
+    const box = stage.getBoundingClientRect();
+    const size = overlaySize(box.width, box.height, video.videoWidth, video.videoHeight, Math.min(3, window.devicePixelRatio || 1));
+    if (size.width && (canvas.width !== size.width || canvas.height !== size.height)) { canvas.width = size.width; canvas.height = size.height; }
+  }
+
+  // One pose result per processed camera frame. Drawn as soon as it arrives, for the frame it
+  // belongs to; a frame without a pose clears the overlay (no stale skeleton, no smoothing lag).
+  function onPose(r) {
+    const now = performance.now();
+    if (!running) return;
+    skelMeter.add(now);
+    inferMs = inferMs ? 0.85 * inferMs + 0.15 * r.ms : r.ms;
+    latencyMs = latencyMs ? 0.85 * latencyMs + 0.15 * r.latency : r.latency;
+    if (r.poseMs != null) poseMs = poseMs ? 0.85 * poseMs + 0.15 * r.poseMs : r.poseMs;
+    if (r.handsMs != null) handsMs = handsMs ? 0.85 * handsMs + 0.15 * r.handsMs : r.handsMs;
+    lastResult = { pose: { landmarks: r.pose ? [r.pose] : [] }, hands: { landmarks: r.hands || [] } };
+    if (showSkel.checked && !paused) drawSkeleton(ctx, lastResult, canvas.width, canvas.height);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (now - adviceAt > 400 && !paused) {
+      adviceAt = now;
+      const a = framingAdvice(lastResult);
+      showFraming(a.level, a.text);
     }
+  }
+
+  // Debug stats (Stats box or ?debug=1) and an honest note when the skeleton cannot keep up.
+  function showStats(now) {
+    const skelFps = skelMeter.rate(now);
+    const mode = engine?.mode || "loading";
+    if (debugBox?.checked) {
+      hudDebug.hidden = false;
+      hudDebug.textContent = `camera ${measuredFps ? measuredFps.toFixed(1) : "?"} fps | skeleton ${skelFps.toFixed(1)} fps | ` +
+        `inference ${inferMs.toFixed(1)} ms${poseMs ? ` (pose ${poseMs.toFixed(1)}, hands ${handsMs.toFixed(1)})` : ""} | ` +
+        `round trip ${latencyMs.toFixed(1)} ms | ${mode}`;
+    } else {
+      hudDebug.hidden = true;
+    }
+    if (now - lastSkelCheck < 1000) return;
+    lastSkelCheck = now;
+    const behind = engine?.mode && showSkel.checked && !paused && measuredFps > 1 && skelFps > 0 && skelFps < 0.9 * measuredFps;
+    slowSeconds = behind ? slowSeconds + 1 : 0;
+    if (slowSeconds >= 2) { skelNote.hidden = false; skelNote.textContent = `Skeleton running at ${Math.round(skelFps)} fps on this device`; }
+    else if (!behind) skelNote.hidden = true;
   }
 
   function showFraming(level, text) {
