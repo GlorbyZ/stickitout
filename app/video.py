@@ -22,6 +22,8 @@ import cv2
 import numpy as np
 from scipy.signal import find_peaks
 
+from . import tuning
+
 MODEL_DIR = Path(__file__).resolve().parent.parent / "models"
 MODELS = {
     "pose": ("pose_landmarker_full.task",
@@ -30,12 +32,11 @@ MODELS = {
              "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"),
 }
 POSE_IDS = {"ls": 11, "rs": 12, "le": 13, "re": 14, "lw": 15, "rw": 16}
-MIN_WRIST_VISIBILITY = 0.5
+# Wrist visibility cutoff and the strike detector (prominence, minimum gap, smoothing) are
+# tuning settings: see app/tuning.py (defaults 0.5, 0.02 body units, 50 ms, 3 frames).
 DEGRADED_BELOW = 0.5
 MAX_PROCESS_WIDTH = 960           # frames are downscaled before inference to save time
 SIDE_VIEW_RATIO = 0.5             # shoulder width < 0.5 x upper arm length means a side-on camera
-STRIKE_MIN_PROMINENCE = 0.02      # wrist low point must drop this many shoulder widths
-STRIKE_MIN_GAP_S = 0.05
 TRAJECTORY_POINTS = 1500
 FINGERTIPS = (4, 8, 12, 16, 20)
 PALM = (0, 5, 9, 13, 17)
@@ -134,8 +135,9 @@ class Tracks:
 
 def build_tracks(raw: dict) -> Tracks:
     """Drop frames without both wrists visible, attach hands to wrists, pick the normalisation scale."""
+    vis = tuning.current().min_wrist_visibility
     kept = [f for f in raw["frames"] if f["pose"]
-            and f["pose"]["lw"][2] >= MIN_WRIST_VISIBILITY and f["pose"]["rw"][2] >= MIN_WRIST_VISIBILITY]
+            and f["pose"]["lw"][2] >= vis and f["pose"]["rw"][2] >= vis]
     t = np.array([f["t"] for f in kept])
     pts = {k: np.array([f["pose"][k][:2] for f in kept]).reshape(-1, 2) for k in POSE_IDS}
     hands: dict[str, list] = {"L": [], "R": []}
@@ -163,10 +165,13 @@ def detect_strikes(tracks: Tracks) -> list[dict]:
     strikes = []
     if len(tracks.t) < 5:
         return strikes
+    tune = tuning.current()
     dt = float(np.median(np.diff(tracks.t)))
+    k = max(1, int(tune.strike_smooth_frames))
     for hand, key in (("L", "lw"), ("R", "rw")):
-        y = np.convolve(tracks.y(key), np.ones(3) / 3, mode="same")
-        peaks, _ = find_peaks(y, prominence=STRIKE_MIN_PROMINENCE, distance=max(1, int(STRIKE_MIN_GAP_S / dt)))
+        y = np.convolve(tracks.y(key), np.ones(k) / k, mode="same")
+        peaks, _ = find_peaks(y, prominence=tune.strike_min_prominence,
+                              distance=max(1, int(tune.strike_min_gap_ms / 1000.0 / dt)))
         strikes += [{"t": float(tracks.t[p]), "hand": hand} for p in peaks]
     return sorted(strikes, key=lambda s: s["t"])
 

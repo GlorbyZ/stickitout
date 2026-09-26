@@ -20,15 +20,15 @@ import librosa
 import numpy as np
 from scipy.io import wavfile
 
+from . import tuning
+
 SR = 44100
-ONSET_METHOD = "specdiff"
-ONSET_FALLBACK = "hfc"          # used when specdiff finds almost nothing
+# Onset method, sensitivity (threshold), silence gate, minimum stroke spacing (min_ioi_ms,
+# default 40 ms; the fastest real strokes are about 60 ms apart) and the room-noise guard
+# (min_rel_velocity, default 5% of the loudest hit) are tuning settings: see app/tuning.py.
+ONSET_FALLBACK = "hfc"          # used when the main onset method finds almost nothing
 ONSET_WIN = 1024
 ONSET_HOP = 128                 # 2.9 ms resolution at 44.1 kHz
-ONSET_THRESHOLD = 0.3
-ONSET_SILENCE_DB = -90.0        # aubio default; a stricter gate drops real hits after they decay
-MIN_IOI_MS = 40.0               # fastest real strokes are ~60 ms apart
-MIN_REL_VELOCITY = 0.05         # room-noise guard: drop onsets under 5% of the loudest hit
 ENV_HOP = 256
 VELOCITY_WINDOW_S = 0.030
 ROLL_WINDOW_S = 4.0
@@ -52,12 +52,13 @@ def load_wav(path: Path) -> tuple[np.ndarray, int]:
     return y.astype(np.float32), SR
 
 
-def detect_onsets(y: np.ndarray, sr: int, method: str = ONSET_METHOD) -> list[dict]:
+def detect_onsets(y: np.ndarray, sr: int, method: str | None = None) -> list[dict]:
     """aubio onset detection. Returns [{t, strength}] with strength 0-1 of the session max."""
-    det = aubio.onset(method, ONSET_WIN, ONSET_HOP, sr)
-    det.set_threshold(ONSET_THRESHOLD)
-    det.set_silence(ONSET_SILENCE_DB)
-    det.set_minioi_ms(MIN_IOI_MS)
+    tune = tuning.current()
+    det = aubio.onset(method or tune.onset_method, ONSET_WIN, ONSET_HOP, sr)
+    det.set_threshold(float(tune.onset_threshold))
+    det.set_silence(float(tune.onset_silence_db))
+    det.set_minioi_ms(float(tune.min_ioi_ms))
     padded = np.concatenate([y, np.zeros(ONSET_HOP, dtype=np.float32)])
     desc, times = [], []
     for start in range(0, len(y), ONSET_HOP):
@@ -186,7 +187,8 @@ def waveform_summary(y: np.ndarray, sr: int) -> dict:
 def analyze_audio(wav_path: Path, target_bpm: float | None = None) -> dict:
     """Run the full audio module on a WAV file and return the report's audio section."""
     y, sr = load_wav(wav_path)
-    method = ONSET_METHOD
+    tune = tuning.current()
+    method = tune.onset_method
     onsets = detect_onsets(y, sr, method)
     if len(onsets) < 4 and np.max(np.abs(y), initial=0.0) > 0.01:
         method = ONSET_FALLBACK
@@ -194,7 +196,7 @@ def analyze_audio(wav_path: Path, target_bpm: float | None = None) -> dict:
 
     times = np.array([o["t"] for o in onsets])
     vel = onset_velocities(y, sr, list(times))
-    keep = vel >= MIN_REL_VELOCITY
+    keep = vel >= tune.min_rel_velocity
     onsets = [o for o, k in zip(onsets, keep) if k]
     times, vel = times[keep], vel[keep]
     if vel.size and vel.max() > 0:

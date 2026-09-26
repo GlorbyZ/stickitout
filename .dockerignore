@@ -12,3 +12,4 @@ samples/*.mp4
 samples/*.mov
 .remote-token
 logs
+reports

@@ -20,6 +20,10 @@ analysis runs on the server; the live skeleton in Record mode is only a framing 
 - [Camera guide](#camera-guide)
 - [Record mode](#record-mode)
 - [What the results mean](#what-the-results-mean)
+- [Recording for training](#recording-for-training)
+- [Training data: labeling clips](#training-data-labeling-clips)
+- [Accuracy evaluation](#accuracy-evaluation)
+- [Tuning settings](#tuning-settings)
 - [API](#api)
 - [Tests](#tests)
 - [Real-sample test (manual)](#real-sample-test-manual)
@@ -69,6 +73,9 @@ All settings are environment variables, the same everywhere (local, Docker, clou
 | `ACCESS_TOKEN` | empty | if set, the UI and API need this key (see below) |
 | `JOB_TTL_HOURS` | `72` | jobs older than this are deleted, uploads included; `0` keeps everything |
 | `MIN_FPS` | `23.5` | lowest measured frame rate accepted (24 fps and the 23.976 film rate pass); slower clips get a `422` |
+| `DATASET_DIR` | `DATA_DIR/dataset` | training clips and their labels; never cleaned up (see [Training data](#training-data-labeling-clips)) |
+| `TUNING_FILE` | `./tuning.json` if present | analyzer thresholds (see [Tuning settings](#tuning-settings)) |
+| `SIO_TUNE_<NAME>` | none | one tuning setting, e.g. `SIO_TUNE_ONSET_THRESHOLD=0.25` (beats the file) |
 
 **Access gate.** With `ACCESS_TOKEN` set, open `https://host/?key=<token>` once: the server
 sets an HttpOnly cookie (30 days) and redirects to the clean URL. Scripts can send
@@ -214,6 +221,152 @@ score means the camera could not confirm the hits: framing, light, or a sync off
 dropped or extra stroke. The report gives `sticking_accuracy_pct` and every break (time,
 stroke number, expected vs played).
 
+## Recording for training
+
+Real clips from Zaylyn and Mike Staus, labeled by hand, are how the analyzer gets measured
+and tuned. A short version of this guide is shown in Record mode ("Recording for training")
+and on the Label page; the full shot list is in
+[docs/training-shot-list.md](docs/training-shot-list.md).
+
+For every take:
+
+- **Side angle.** Phone level with the pad or drum, 2 to 3 m away, looking at the player's side.
+- **Both arms and both sticks in frame** the whole take, plus the pad or snare.
+- **Good, even light.** Face a window or lamp; no bright window behind the player.
+- **Phone on a stand** or tripod, never hand held.
+- **One clap at the start** with hands in view, then count in. It lines up sound and picture
+  (mark it with `C` on the Label page and it is left out of scoring).
+- **Click running**, loud enough to be heard on the recording. Write down its BPM.
+- **30 to 45 seconds** per take.
+- **60 fps preferred** (iPhone: Settings > Camera > Record Video > 1080p at 60 fps). 30 fps works but is less accurate.
+
+**Shot list (about 20 takes):** pad and snare; slow (70), medium (100) and fast (as fast as
+clean, about 120 to 140); singles, doubles and single paradiddles; one take with accents and
+one with ghost notes; and deliberately sloppy takes: flipped sticking, dragging behind the
+click, one hand dropping out, uneven doubles, and a mixed one. Optional extras repeat one
+take from the front, at 30 fps and in dim light, to show how much the setup matters.
+
+## Training data: labeling clips
+
+Open **`/label`** on the analyzer link (the same access key; the tab next to Analyze). It
+lists every clip in the dataset with its status (draft, done, analyzing, error).
+
+**Adding clips.** Either upload the original video file with **Add a clip** on the Label
+page (player, rudiment, click BPM and surface can be filled in right away), or analyze a
+video on the Analyze page and press **Add to training set** under the results. Either way
+the original file is stored byte for byte, the analyzer runs on it in the background, and
+the clip opens with the analyzer's strokes already marked, so labelers only fix mistakes.
+
+**Labeling a clip** (laptop keyboard recommended; the on-screen buttons also work on a phone):
+
+1. Pick the clip. Press `2` (0.5x) or `1` (0.25x) and `Space` to play. `Left`/`Right` (or
+   `,`/`.`) step one frame; `Shift`+`Left`/`Right` jump a second; `Up`/`Down` go to the
+   previous or next stroke.
+2. The timeline under the video shows left strokes on the top lane (blue), right strokes on
+   the bottom lane (red), unknown hands in the middle, the waveform behind them, and the
+   analyzer's original detections as small white triangles.
+3. Tap `F` (left) or `J` (right) on every stroke. A tap on an existing marker sets its hand
+   (so you can tap along to fix hands); a tap where nothing is marked adds a stroke.
+   `Shift`+`F`/`J` adds an accented stroke, `D`/`K` a ghost note. Taps snap to the nearest
+   sound onset within 40 ms (switch off under the timeline), and "Tap delay" compensates for
+   late taps while playing.
+4. Click a marker to select it, then `A` accent, `G` ghost, `X` sticking mistake (wrong hand
+   for the rudiment), `H` swap hand, `Del` delete, `M` move it to the playhead,
+   `Alt`+`Left`/`Right` nudge 5 ms. Drag a marker to move it, or to the other lane to change
+   the hand. `Ctrl`+`Z` / `Ctrl`+`Y` undo and redo.
+5. `C` marks the sync clap. `I` and `O` optionally limit scoring to part of the clip.
+6. Fill in **Clip details**: player, labeler, rudiment, click BPM, notes per click, surface,
+   camera angle, fps, lighting, clean or deliberately sloppy, known mistakes, and **Mike's
+   form grade (1 to 10) with a short comment**. Tick "I flagged every sticking mistake" if you
+   marked them all with `X`; otherwise evaluation works them out from the labeled hands.
+7. **Save and mark done** (`Ctrl`+`S` saves a draft; drafts also autosave every 20 seconds).
+   Only clips marked done are evaluated by default.
+
+**Files.** Each clip is a folder `DATASET_DIR/<clip_id>/` (by default
+`data\jobs\dataset\<clip_id>\`): `video.<ext>` (the original), `labels.json` (strokes and
+details, schema in [schema/labels.schema.json](schema/labels.schema.json), checked on every
+save by `app/labels.py`), `labels.prev.json` (the previous save), `analysis.json` (the
+analyzer's report at intake), `waveform.json`, `audio.wav`, `preview.mp4` (only when the
+original will not play in a browser, such as iPhone HEVC) and `cache/` (MediaPipe landmarks,
+so evaluation re-runs are fast). Stroke times are seconds from the start of the video.
+Clips are never deleted automatically; to remove one, delete its folder.
+
+## Accuracy evaluation
+
+```powershell
+.\scripts\evaluate.ps1                  # all clips marked done; add -Open to open the HTML report
+.\scripts\evaluate.ps1 --include-drafts # also clips still being labeled
+```
+
+(`python scripts/evaluate.py` with the same options on Linux or macOS.) It runs the analyzer
+over every labeled clip, compares it with the labels, prints the headline numbers and writes
+`reports\eval-<timestamp>\` with `report.md`, `report.html`, `clips.csv` (one row per clip)
+and `summary.json`.
+
+Metrics, per clip and overall:
+
+| Metric | Meaning |
+|---|---|
+| Stroke precision, recall, F1 | detected strokes matched one to one to labeled strokes within plus or minus 50 ms (`--tolerance-ms`), closest pairs first |
+| Hit count error | detected minus labeled strokes (and as a percentage) |
+| Hand-assignment accuracy | matched strokes given the labeled hand (no detected hand counts as wrong); hand coverage says how often a hand was detected |
+| Sticking-error detection | labeled wrong-hand strokes the analyzer flagged (caught), missed, and false alarms |
+| Tempo error | analyzer tempo minus the click BPM (octave errors flagged), plus the tempo implied by the labels |
+| Timing-error MAE | the analyzer's per-stroke timing error versus the labeled stroke's error against the click grid; onset placement MAE is detected time versus labeled time |
+| Form correlation | Pearson and Spearman correlation of the analyzer's form score with Mike's grades, once at least 5 clips are graded (`--min-corr-clips`) |
+
+Only the scored region counts: after the clap (plus 0.25 s) or between the `I` and `O` marks.
+
+**Comparing runs.** `--compare-to reports\eval-<earlier>` adds a comparison (each metric
+marked better or worse, and per clip F1 changes) to the new report;
+`--compare reports\eval-A reports\eval-B` compares two finished runs without re-running.
+
+**Trying settings.** `--set name=value` (repeatable) or `--tuning file.json` for one run;
+`--grid name=v1,v2,...` (repeatable) runs every combination and ranks them by `--objective`
+(`f1` by default; also `hand_accuracy`, `timing_error_mae_ms`, `combined` and others):
+
+```powershell
+.\scripts\evaluate.ps1 --grid onset_threshold=0.2,0.3,0.4 --grid min_ioi_ms=30,40,50
+```
+
+That writes `reports\grid-<timestamp>\` with `grid.md`, `grid.csv`, the baseline report,
+the best combination's full report (with a comparison against the baseline) and
+`best-tuning.json`. MediaPipe landmarks are cached per clip, so only the first run over a
+clip is slow; `--no-cache` forces a fresh pass.
+
+## Tuning settings
+
+Every threshold that decides what counts as a stroke, which hand played it and whether
+audio and video agree is in one place, `app/tuning.py` (the `Tuning` dataclass, with the
+shipped defaults and a comment per setting). Override them without editing code:
+
+1. `tuning.json` in the project folder (or the file named by `TUNING_FILE`), for example
+   `{"onset_threshold": 0.25, "min_ioi_ms": 35}`. A grid search's `best-tuning.json` can be
+   copied here as is.
+2. Environment variables `SIO_TUNE_<NAME>`, e.g. `SIO_TUNE_HAND_WINDOW_MS=50`.
+
+Restart the server (`.\restart-server.ps1`) after changing either. The settings used are
+recorded in every report under `engine.tuning`.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `onset_method` | `specdiff` | aubio onset function (`hfc`, `complex`, `energy`, ...) |
+| `onset_threshold` | `0.3` | onset sensitivity: lower finds more, quieter hits |
+| `onset_silence_db` | `-90` | ignore audio quieter than this |
+| `min_ioi_ms` | `40` | minimum stroke spacing: onsets closer than this count once |
+| `min_rel_velocity` | `0.05` | drop onsets under this share of the loudest hit |
+| `hand_window_ms` | `40` | wrist motion window around each onset for hand assignment |
+| `hand_source` | `velocity` | `velocity` (fastest downward wrist) or `strike_first` (the matched video strike's hand) |
+| `min_wrist_visibility` | `0.5` | frames with a less visible wrist are dropped |
+| `strike_min_prominence` | `0.02` | how far a wrist must drop (body units) to count as a video strike |
+| `strike_min_gap_ms` | `50` | minimum gap between strikes of one hand |
+| `strike_smooth_frames` | `3` | smoothing before finding strikes |
+| `verify_window_ms` | `40` | default audio/video match window (a request can still set its own) |
+| `low_fps_min_window_ms` | `60` | under 50 fps the window is at least this ... |
+| `low_fps_window_frames` | `1.75` | ... and at least this many frame intervals |
+| `sticking_resync_cost` | `2.0` | cost of restarting the sticking pattern versus calling strokes wrong |
+| `match_tolerance_ms` | `50` | evaluation only: label to detection match window |
+
 ## API
 
 All JSON. Errors are `{"error": "message"}` with a proper status code. With
@@ -226,6 +379,15 @@ All JSON. Errors are `{"error": "message"}` with a proper status code. With
 | `GET /api/results/{id}` | full report (`schema/report.schema.json`); `409` not ready, `422` failed, `404` unknown |
 | `GET /api/jobs/{id}/video` | the uploaded video (for playback) |
 | `GET /api/config` | `{max_upload_mb, access_gate, min_fps, full_accuracy_fps}` |
+| `GET /label` | Label page (training data) |
+| `GET /api/dataset` | `{clips: [...]}` with status, stroke counts and details per clip |
+| `POST /api/dataset` | multipart: `video` plus optional `player`, `labeler`, `rudiment`, `click_bpm`, `surface`, `camera_angle`, `lighting`, `take_type`. `202 {"clip_id"}`; analysed in the background to pre-fill strokes. Same `413`/`415`/`422` rules as `/api/analyze`. |
+| `POST /api/dataset/from-job/{job_id}` | copy a finished analysis (original video and report) into the dataset. `202 {"clip_id", "label_url"}` |
+| `GET /api/dataset/{clip_id}` | `{labels, status, video, detections, onsets, analysis}` |
+| `PUT /api/dataset/{clip_id}/labels` | save labels (JSON, `schema/labels.schema.json`); `422` with the problem when invalid |
+| `POST /api/dataset/{clip_id}/reanalyze` | re-run the analyzer for fresh detections (labels untouched) |
+| `GET /api/dataset/{clip_id}/video` | the clip (a browser copy when the original codec will not play) |
+| `GET /api/dataset/{clip_id}/waveform` | `{rate, duration_s, peaks}` for the labeling timeline |
 | `GET /healthz` | `{"ok": true}`, never gated |
 
 ```powershell
@@ -260,12 +422,15 @@ Redis (and job.json for a database row); the pipeline does not change.
 | `test_video_mediapipe.py` | real MediaPipe on the synthetic paradiddle drummer at 60 fps (coverage, Verified, sticking, schema) and at 30 fps (low fps flag, 60 ms window, still verified); skips if MediaPipe cannot run |
 | `test_media.py` | frame-rate measurement for WebM, variable frame rate, 30 fps and uneven 30 fps accepted and flagged, below-minimum rejection message, `MIN_FPS` configurable |
 | `test_access.py` | access gate, upload cap, old-job cleanup |
+| `test_labels_dataset.py` | labels.json schema (Python validator and JSON Schema agree on valid and invalid files), clip upload with pre-filled strokes, saving labels, Add to training set from a job, dataset errors, `/label` behind the gate, no em dashes in user-facing copy |
+| `test_evaluate.py` | tuning file, environment and override; metric maths (matching, hands, tempo, sticking caught/missed/false alarms, timing error, form correlation, run comparison); end to end on the synthetic drummer labeled with its known strokes (near perfect F1, hands, tempo, timing), a sloppy-labeled copy, `--compare-to`, `--compare` and a grid search |
 
 Synthetic inputs: `python scripts/make_click_test.py` writes the 120 BPM fixture;
 `python scripts/make_test_video.py out.mp4 [--drummer] [--fps 30]` makes test videos
 (`--fps 30` gives a low frame rate clip, `--fps 15` one the API rejects).
 `--drummer` animates MediaPipe's public pose sample photo so each arm dips on its
-paradiddle strokes in time with a click track.
+paradiddle strokes in time with a click track; `--labels strokes.json` also writes its known
+strokes (the answer key used by `test_evaluate.py`).
 
 ## Real-sample test (manual)
 
@@ -343,9 +508,17 @@ app/          FastAPI app and pipeline
   sticking.py   paradiddle sticking check
   scoring.py    0 to 100 scores
   pipeline.py   runs the stages and builds the report
+  tuning.py     every analyzer threshold in one settings object (file and env overrides)
+  labels.py     labels.json validation
+  dataset.py    training dataset: intake, pre-fill, storage
+  evaluation.py accuracy metrics (labels versus analyzer)
 static/       Analyze page (index.html, app.js, record.js, skeleton.js, style.css)
-schema/       report.schema.json
-scripts/      make_click_test.py, make_test_video.py, fetch_models.py, serve-remote.ps1
+              Label page (label.html, label.js, label.css)
+schema/       report.schema.json, labels.schema.json
+scripts/      make_click_test.py, make_test_video.py, fetch_models.py, serve-remote.ps1,
+              evaluate.py and evaluate.ps1 (accuracy evaluation)
+docs/         training-shot-list.md
+reports/      evaluation output (not committed)
 tests/        pytest suite
 samples/      real-sample report (pending)
 Dockerfile, docker-compose.yml, start-local.ps1, start-remote.ps1, stop-remote.ps1, restart-server.ps1

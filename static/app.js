@@ -129,6 +129,7 @@ function lowFpsNotice(r) {
 
 function render(r) {
   report = r;
+  $("add-training").disabled = false; $("add-training-msg").hidden = true;
   const { audio, video, verification: v, sticking: st, scores: s } = r;
   $("results").hidden = false;
   $("json-link").href = `/api/results/${r.job_id}`;
@@ -327,6 +328,21 @@ function renderHow() {
 }
 
 $("again").addEventListener("click", () => { $("results").hidden = true; window.scrollTo({ top: 0, behavior: "smooth" }); });
+
+// Copy this analysis (original video + report) into the training dataset for labeling.
+$("add-training").addEventListener("click", async () => {
+  if (!report) return;
+  const btn = $("add-training"), msg = $("add-training-msg");
+  btn.disabled = true; msg.hidden = false; msg.textContent = "Adding to the training set...";
+  try {
+    const res = await fetch(`/api/dataset/from-job/${report.job_id}`, { method: "POST" });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    msg.innerHTML = `Added to the training set. <a href="/label#clip=${esc(body.clip_id)}">Open it on the Label page</a>.`;
+  } catch (e) {
+    msg.textContent = `Could not add it: ${e.message}`; btn.disabled = false;
+  }
+});
 window.addEventListener("resize", () => { if (SHOW_CHARTS && report && !$("results").hidden) drawCharts(report); });
 // Deep link for reviewing a finished job: /#job=<id> (set automatically when a job finishes).
 function openFromHash() {

@@ -12,9 +12,13 @@ Two picture modes:
 Use --fps 30 for a low frame rate clip (accepted, flagged quality.low_fps) and
 --fps 15 for one the API must reject (below MIN_FPS).
 
+--labels out.json (with --drummer) also writes the known strokes as a training
+labels.json stroke list (paradiddle_strokes), so the accuracy evaluation can be
+checked against a clip whose answer is known exactly.
+
 Usage:
   python scripts/make_test_video.py out.mp4 [--drummer] [--fps 60] [--seconds 20]
-         [--bpm 100] [--per-beat 4] [--size 640x360]
+         [--bpm 100] [--per-beat 4] [--size 640x360] [--labels strokes.json]
 """
 from __future__ import annotations
 
@@ -29,12 +33,23 @@ import imageio_ffmpeg
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from scripts.make_click_test import FIRST_CLICK_S, write_click_wav  # noqa: E402
+from scripts.make_click_test import FIRST_CLICK_S, click_times, write_click_wav  # noqa: E402
 
 PERSON_URL = "https://storage.googleapis.com/mediapipe-assets/pose.jpg"
 PERSON_PATH = ROOT / "data" / "fixtures" / "pose.jpg"
 PARADIDDLE_R = (0, 2, 3, 5)  # positions of R in RLRRLRLL
 DIP_PX, DIP_SIGMA_S = 45, 0.03
+
+
+def paradiddle_strokes(seconds: float = 20.0, bpm: float = 100.0) -> list[dict]:
+    """The strokes a --drummer clip plays: one per 16th-note click, hands RLRR LRLL.
+
+    "R" is the player's right arm (the image's left half, since the person faces the camera),
+    which is how MediaPipe pose names it too.
+    """
+    return [{"t": round(float(t), 4), "hand": "R" if i % 8 in PARADIDDLE_R else "L", "type": "normal",
+             "sticking_error": False, "source": "manual", "edited": False}
+            for i, t in enumerate(click_times(bpm, seconds, 4))]
 
 
 def person_image() -> Path:
@@ -96,5 +111,10 @@ if __name__ == "__main__":
     ap.add_argument("--bpm", type=float, default=100.0)
     ap.add_argument("--per-beat", type=int, default=4)
     ap.add_argument("--size", default="640x360")
+    ap.add_argument("--labels", type=Path, help="with --drummer: also write the known strokes as JSON")
     a = ap.parse_args()
     print(make_video(a.out, a.fps, a.seconds, a.bpm, a.per_beat, a.size, a.drummer))
+    if a.labels and a.drummer:
+        import json
+        a.labels.write_text(json.dumps({"strokes": paradiddle_strokes(a.seconds, a.bpm)}, indent=2), encoding="utf-8")
+        print(a.labels)

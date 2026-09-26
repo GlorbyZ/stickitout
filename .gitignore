@@ -9,3 +9,5 @@ models/
 remote-url.txt
 .remote-token
 logs/
+reports/
+.tunnel-token

@@ -13,20 +13,27 @@ a disclaimer message, and a widened audio/video verify window.
 
 A video-stage failure never sinks the run: the form section is marked degraded
 with the reason and the audio results are still returned.
+
+analyze_file() runs stages 1 to 5 on any video file (the job runner, the training
+dataset intake and scripts/evaluate.py all use it). It can cache the MediaPipe
+landmarks, the slow part, so re-running with other tuning settings is quick.
+Thresholds come from app/tuning.py (current settings at call time).
 """
 from __future__ import annotations
 
+import gzip
+import json
 import platform
 import traceback
 from pathlib import Path
 
-from . import jobs
+from . import jobs, tuning
 from .audio import analyze_audio
 from .fusion import fuse
 from .media import LOW_FPS_BELOW, MediaError, VideoInfo, extract_audio, is_low_fps, low_fps_message, min_fps, probe_video
 from .scoring import score_report
 from .sticking import check_sticking
-from .video import build_tracks, extract_landmarks, session_metrics
+from .video import MAX_PROCESS_WIDTH, build_tracks, extract_landmarks, session_metrics
 
 ENGINE_VERSION = "0.1.0"
 
@@ -39,24 +46,57 @@ def _versions() -> dict:
     import numpy
     return {"engine": ENGINE_VERSION, "python": platform.python_version(), "aubio": str(aubio.version),
             "librosa": librosa.__version__, "mediapipe": mediapipe.__version__, "opencv": cv2.__version__,
-            "numpy": numpy.__version__}
+            "numpy": numpy.__version__, "tuning": tuning.as_dict()}
 
 
-def run_video_stage(video_path: Path, progress) -> tuple[object | None, dict]:
+def _cache_key(video_path: Path) -> dict:
+    import mediapipe
+    st = Path(video_path).stat()
+    return {"size": st.st_size, "mtime": int(st.st_mtime), "max_width": MAX_PROCESS_WIDTH,
+            "mediapipe": mediapipe.__version__, "version": 1}
+
+
+def landmarks(video_path: Path, progress=None, cache: Path | None = None) -> dict:
+    """MediaPipe landmarks for every frame, read from / written to a gzip JSON cache when given."""
+    key = _cache_key(video_path) if cache else None
+    if cache and Path(cache).exists():
+        try:
+            with gzip.open(cache, "rt", encoding="utf-8") as fh:
+                data = json.load(fh)
+            if data.get("key") == key:
+                return data["raw"]
+        except (OSError, ValueError, KeyError):
+            pass
+    raw = extract_landmarks(video_path, progress)
+    if cache:
+        Path(cache).parent.mkdir(parents=True, exist_ok=True)
+        tmp = Path(str(cache) + ".tmp")
+        with gzip.open(tmp, "wt", encoding="utf-8") as fh:
+            json.dump({"key": key, "raw": raw}, fh)
+        tmp.replace(cache)
+    return raw
+
+
+def run_video_stage(video_path: Path, progress, cache: Path | None = None) -> tuple[object | None, dict]:
     """Landmarks and session metrics. Returns (tracks or None, video section)."""
     try:
-        raw = extract_landmarks(video_path, progress)
+        raw = landmarks(video_path, progress, cache)
         tracks = build_tracks(raw)
         return tracks, session_metrics(tracks)
     except Exception as exc:  # degrade, keep the audio results
-        return None, {
-            "frames_total": 0, "frames_kept": 0, "landmark_coverage": 0.0, "degraded": True,
-            "degraded_reason": f"Video analysis failed: {type(exc).__name__}: {exc}",
-            "normalization": None,
-            "form": {"symmetry": None, "posture_drift_per_min": None, "shoulder_line_angle_deg": None,
-                     "grip_proxy": {"experimental": True, "L": None, "R": None}},
-            "trajectories": {"t": [], "left_wrist_height": [], "right_wrist_height": []},
-        }
+        return None, degraded_video(exc)
+
+
+def degraded_video(exc: Exception) -> dict:
+    """Video section for a failed video stage."""
+    return {
+        "frames_total": 0, "frames_kept": 0, "landmark_coverage": 0.0, "degraded": True,
+        "degraded_reason": f"Video analysis failed: {type(exc).__name__}: {exc}",
+        "normalization": None,
+        "form": {"symmetry": None, "posture_drift_per_min": None, "shoulder_line_angle_deg": None,
+                 "grip_proxy": {"experimental": True, "L": None, "R": None}},
+        "trajectories": {"t": [], "left_wrist_height": [], "right_wrist_height": []},
+    }
 
 
 def analyse(audio: dict, tracks, video: dict, params: dict, fps: float | None = None) -> dict:
@@ -65,7 +105,7 @@ def analyse(audio: dict, tracks, video: dict, params: dict, fps: float | None = 
     fps is the measured source frame rate (widens the verify window under 50 fps).
     """
     strokes, verification, hand_form = fuse(audio, tracks, video["degraded"],
-                                            params.get("av_offset_ms", 0.0), params.get("verify_window_ms", 40.0), fps)
+                                            params.get("av_offset_ms", 0.0), params.get("verify_window_ms"), fps)
     sticking = check_sticking(strokes, params.get("rudiment"))
     for s in strokes:
         s.setdefault("expected_hand", None)
@@ -110,6 +150,29 @@ def build_report(job_id: str, created_at: str, filename: str, info: VideoInfo, p
     }
 
 
+def analyze_file(video_path: Path, params: dict, workdir: Path, stage=None,
+                 landmarks_cache: Path | None = None) -> tuple[VideoInfo, dict, dict]:
+    """Probe, extract audio (workdir/audio.wav, reused when present), audio, video, fusion.
+
+    Returns (info, audio section, analysed sections). stage(name, progress) reports progress.
+    Raises MediaError for files that cannot be analysed.
+    """
+    stage = stage or (lambda name, progress: None)
+    stage("probing video", 0.02)
+    info = probe_video(video_path)
+    stage("extracting audio", 0.05)
+    wav = Path(workdir) / "audio.wav"
+    if not wav.exists() or wav.stat().st_mtime < Path(video_path).stat().st_mtime:
+        extract_audio(video_path, wav, info)
+    stage("analysing audio", 0.10)
+    audio = analyze_audio(wav, params.get("target_bpm"))
+    stage("tracking pose and hands", 0.30)
+    tracks, video = run_video_stage(video_path, lambda f: stage("tracking pose and hands", 0.30 + 0.55 * f),
+                                    landmarks_cache)
+    stage("fusing audio and video", 0.90)
+    return info, audio, analyse(audio, tracks, video, params, info.fps)
+
+
 def run(job_id: str, video_path: Path, params: dict) -> None:
     """Execute the full pipeline for one job, recording progress in job.json."""
     d = jobs.job_dir(job_id)
@@ -118,16 +181,7 @@ def run(job_id: str, video_path: Path, params: dict) -> None:
         jobs.update(job_id, status="processing", stage=name, progress=round(progress, 3))
 
     try:
-        stage("probing video", 0.02)
-        info = probe_video(video_path)
-        stage("extracting audio", 0.05)
-        wav = extract_audio(video_path, d / "audio.wav", info)
-        stage("analysing audio", 0.10)
-        audio = analyze_audio(wav, params.get("target_bpm"))
-        stage("tracking pose and hands", 0.30)
-        tracks, video = run_video_stage(video_path, lambda f: stage("tracking pose and hands", 0.30 + 0.55 * f))
-        stage("fusing audio and video", 0.90)
-        analysed = analyse(audio, tracks, video, params, info.fps)
+        info, audio, analysed = analyze_file(video_path, params, d, stage)
         job = jobs.read(job_id)
         jobs.write_report(job_id, build_report(job_id, job["created_at"], job["filename"], info, params, audio, analysed))
         jobs.update(job_id, status="done", stage="done", progress=1.0)

@@ -9,8 +9,10 @@ breaks; jumps are reported as re-syncs.
 """
 from __future__ import annotations
 
+from . import tuning
+
 PATTERN = "RLRRLRLL"
-RESYNC_COST = 2.0
+# The re-sync cost (default 2.0) is a tuning setting: see app/tuning.py.
 MIN_STROKES = 8
 
 
@@ -29,6 +31,7 @@ def check_sticking(strokes: list[dict], rudiment: str | None) -> dict:
         return {**base, "reason": f"Need at least {MIN_STROKES} strokes with a detected hand; found {len(seq)}. "
                                   "Hands come from video, so check framing and light."}
 
+    resync_cost = float(tuning.current().sticking_resync_cost)
     n, m = len(seq), len(PATTERN)
     cost = [[0.0] * m for _ in range(n)]
     back = [[(0, False)] * m for _ in range(n)]
@@ -38,7 +41,7 @@ def check_sticking(strokes: list[dict], rudiment: str | None) -> dict:
         best_prev = min(range(m), key=lambda s: cost[i - 1][s])
         for s in range(m):
             stay = cost[i - 1][(s - 1) % m]
-            jump = cost[i - 1][best_prev] + RESYNC_COST
+            jump = cost[i - 1][best_prev] + resync_cost
             miss = float(seq[i][1]["hand"] != PATTERN[s])
             if stay <= jump:
                 cost[i][s], back[i][s] = stay + miss, ((s - 1) % m, False)

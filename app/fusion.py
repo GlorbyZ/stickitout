@@ -4,7 +4,8 @@ verification scope update).
 Video timestamps are shifted by av_offset_ms (container sync is assumed). For
 each audio onset:
   * hand: the wrist with the greater downward velocity within +/-40 ms of the
-    onset; tie-break is the lower wrist.
+    onset; tie-break is the lower wrist. With the tuning setting
+    hand_source="strike_first" a verified onset takes the matched strike's hand.
   * verification: the onset is "verified" when a video strike (a wrist low
     point) lands within +/- verify_window_ms, matched one-to-one, closest pairs
     first. Onsets without a strike are "unverified"; strikes without an onset
@@ -19,17 +20,17 @@ from __future__ import annotations
 
 import numpy as np
 
+from . import tuning
 from .audio import fit_grid, timing_stats
 from .media import LOW_FPS_BELOW
 from .video import Tracks, detect_strikes
 
-HAND_WINDOW_S = 0.040
+# The hand window (default 40 ms), hand source, default verify window and the low frame
+# rate widening rule are tuning settings: see app/tuning.py.
 CYCLE_MAX_S = 1.0
 FIRST_CYCLE_S = 0.3
 ELBOW_MATCH_S = 0.05
-DEFAULT_VERIFY_WINDOW_MS = 40.0
-LOW_FPS_MIN_WINDOW_MS = 60.0      # floor for the verify window on clips under 50 fps
-LOW_FPS_WINDOW_FRAMES = 1.75      # ... and at least this many frame intervals
+DEFAULT_VERIFY_WINDOW_MS = tuning.Tuning.verify_window_ms   # shipped default; requests use tuning.current()
 MAX_VERIFY_WINDOW_MS = 200.0
 EPS = 1e-3
 
@@ -44,7 +45,8 @@ def effective_verify_window(requested_ms: float, fps: float | None) -> float:
     """
     if not fps or fps <= 0 or fps >= LOW_FPS_BELOW:
         return float(requested_ms)
-    widened = max(float(requested_ms), LOW_FPS_MIN_WINDOW_MS, LOW_FPS_WINDOW_FRAMES * 1000.0 / fps)
+    tune = tuning.current()
+    widened = max(float(requested_ms), tune.low_fps_min_window_ms, tune.low_fps_window_frames * 1000.0 / fps)
     return round(min(widened, MAX_VERIFY_WINDOW_MS), 1)
 
 
@@ -58,7 +60,7 @@ class _Motion:
         self.elbow = {"L": tracks.elbow_angle("l"), "R": tracks.elbow_angle("r")}
 
     def hand_at(self, t: float) -> str | None:
-        idx = np.where(np.abs(self.t - t) <= HAND_WINDOW_S)[0]
+        idx = np.where(np.abs(self.t - t) <= tuning.current().hand_window_ms / 1000.0)[0]
         if not len(idx):
             return None
         vl, vr = float(self.vel["L"][idx].max()), float(self.vel["R"][idx].max())
@@ -98,12 +100,13 @@ def match_strikes(onset_times: list[float], strikes: list[dict], window_ms: floa
 
 
 def fuse(audio: dict, tracks: Tracks | None, degraded: bool, av_offset_ms: float = 0.0,
-         verify_window_ms: float = DEFAULT_VERIFY_WINDOW_MS, fps: float | None = None) -> tuple[list[dict], dict, dict]:
+         verify_window_ms: float | None = None, fps: float | None = None) -> tuple[list[dict], dict, dict]:
     """Returns (strokes, verification, per-hand form aggregates).
 
     fps is the measured source frame rate; under 50 fps the verify window is widened.
     """
-    requested_ms = float(verify_window_ms)
+    tune = tuning.current()
+    requested_ms = float(verify_window_ms if verify_window_ms is not None else tune.verify_window_ms)
     verify_window_ms = effective_verify_window(requested_ms, fps)
     onsets = audio["onsets"]
     times = [o["t"] for o in onsets]
@@ -116,7 +119,10 @@ def fuse(audio: dict, tracks: Tracks | None, degraded: bool, av_offset_ms: float
 
     strokes, last_by_hand = [], {}
     for i, o in enumerate(onsets):
+        match = matches.get(i)
         hand = motion.hand_at(o["t"]) if motion else None
+        if match and tune.hand_source == "strike_first":
+            hand = strikes[match[0]]["hand"]
         height = awi = elbow = None
         if hand:
             prev = last_by_hand.get(hand)
@@ -124,7 +130,6 @@ def fuse(audio: dict, tracks: Tracks | None, degraded: bool, av_offset_ms: float
             height, awi = motion.cycle_metrics(hand, start, o["t"])
             elbow = motion.elbow_at(hand, o["t"])
             last_by_hand[hand] = o["t"]
-        match = matches.get(i)
         strokes.append({
             "t": o["t"], "hand": hand, "timing_error_ms": o["timing_error_ms"], "velocity": o["velocity"],
             "stroke_height": _r(height), "arm_vs_wrist_index": _r(awi), "elbow_angle_deg": _r(elbow, 2),

@@ -10,6 +10,19 @@ Endpoints (all JSON; errors are {"error": message} with a proper status code):
   GET  /healthz              {"ok": true}, never gated (for host health checks)
   GET  /                     Analyze page (upload, record, results)
 
+Training dataset (labeling page and accuracy evaluation, see app/dataset.py):
+  GET  /label                             Label page
+  GET  /api/dataset                       {clips: [summary]}
+  POST /api/dataset                       multipart: video + optional player, labeler, rudiment,
+                                          click_bpm, surface, camera_angle, lighting, take_type
+                                          -> 202 {clip_id}; analysed in the background to pre-fill strokes
+  POST /api/dataset/from-job/{job_id}     copy a finished analysis (original video + report) -> 202 {clip_id}
+  GET  /api/dataset/{clip_id}             {labels, status, video, detections, onsets, analysis}
+  PUT  /api/dataset/{clip_id}/labels      save labels (JSON, schema/labels.schema.json) -> {labels}
+  POST /api/dataset/{clip_id}/reanalyze   re-run the analyzer for fresh detections (labels untouched)
+  GET  /api/dataset/{clip_id}/video       the clip (browser copy when the original codec will not play)
+  GET  /api/dataset/{clip_id}/waveform    {rate, duration_s, peaks} for the labeling timeline
+
 Settings come from environment variables (app/config.py). If ACCESS_TOKEN is set,
 everything except /healthz is behind the access gate (app/access.py). Jobs older
 than JOB_TTL_HOURS are deleted at startup and then at most every 10 minutes.
@@ -32,9 +45,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import config, jobs, pipeline
+from . import config, dataset, jobs, labels, pipeline, tuning
 from .access import AccessGate
-from .fusion import DEFAULT_VERIFY_WINDOW_MS
 from .media import LOW_FPS_BELOW, MediaError, check_frame_rate, min_fps, probe_video
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -114,7 +126,8 @@ async def analyze(
             "rudiment": (rudiment or DEFAULT_RUDIMENT).strip()[:80] or DEFAULT_RUDIMENT,
             "target_bpm": _number(target_bpm, "target_bpm", 20, 400, None),
             "av_offset_ms": _number(av_offset_ms, "av_offset_ms", -2000, 2000, 0.0),
-            "verify_window_ms": _number(verify_window_ms, "verify_window_ms", 5, 200, DEFAULT_VERIFY_WINDOW_MS),
+            "verify_window_ms": _number(verify_window_ms, "verify_window_ms", 5, 200,
+                                        tuning.current().verify_window_ms),
         }
     except ValueError as exc:
         return error(422, str(exc))
@@ -180,11 +193,123 @@ def job_video(job_id: str):
     return FileResponse(path)
 
 
+# ---------- training dataset ----------
+DATASET_META_FIELDS = ("player", "rudiment", "click_bpm", "surface", "camera_angle", "lighting", "take_type")
+
+
+def _clip_or_404(clip_id: str):
+    if not dataset.exists(clip_id):
+        return error(404, "Clip not found.")
+    return None
+
+
+@app.get("/api/dataset")
+def dataset_list():
+    return {"clips": dataset.list_clips(), "dataset_dir": str(dataset.DATASET_DIR)}
+
+
+@app.post("/api/dataset", status_code=202)
+async def dataset_upload(request: Request, background: BackgroundTasks, video: UploadFile = File(...)):
+    form = await request.form()
+    raw = {k: str(form.get(k)).strip() for k in DATASET_META_FIELDS if form.get(k) not in (None, "")}
+    try:
+        meta = {k: (float(v) if k == "click_bpm" else v) for k, v in raw.items()}
+        meta = labels.validate_meta(meta)
+    except ValueError as exc:
+        return error(422, str(exc) if isinstance(exc, labels.LabelError) else "click_bpm must be a number.")
+    filename = Path(video.filename or "clip.mp4").name
+    ext = Path(filename).suffix.lower() or (".webm" if "webm" in (video.content_type or "") else ".mp4")
+    if ext not in ALLOWED_EXT:
+        return error(415, f"Unsupported file type {ext}. Upload an MP4, MOV or WebM video.")
+    clip_id, path = dataset.create(filename, ext, "upload", meta)
+    size = 0
+    with path.open("wb") as out:
+        while chunk := await video.read(1024 * 1024):
+            size += len(chunk)
+            if size > MAX_UPLOAD_BYTES:
+                out.close()
+                dataset.delete(clip_id)
+                return error(413, too_large_message())
+            out.write(chunk)
+    try:
+        check_frame_rate(await run_in_threadpool(probe_video, path))
+    except MediaError as exc:
+        dataset.delete(clip_id)
+        return error(422, str(exc))
+    labeler = str(form.get("labeler") or "").strip()[:80]
+    if labeler:
+        data = dataset.read_labels(clip_id)
+        data["labeler"] = labeler
+        dataset._write_json(dataset.clip_dir(clip_id) / "labels.json", labels.validate(data))
+    background.add_task(dataset.process, clip_id)
+    return {"clip_id": clip_id}
+
+
+@app.post("/api/dataset/from-job/{job_id}", status_code=202)
+def dataset_from_job(job_id: str, background: BackgroundTasks):
+    try:
+        clip_id = dataset.add_from_job(job_id)
+    except KeyError:
+        return error(404, "Job not found.")
+    except ValueError as exc:
+        return error(409, str(exc))
+    if dataset.read_status(clip_id).get("state") != "ready":
+        background.add_task(dataset.process, clip_id)
+    return {"clip_id": clip_id, "label_url": f"/label#clip={clip_id}"}
+
+
+@app.get("/api/dataset/{clip_id}")
+def dataset_detail(clip_id: str):
+    return _clip_or_404(clip_id) or dataset.detail(clip_id)
+
+
+@app.put("/api/dataset/{clip_id}/labels")
+async def dataset_save(clip_id: str, request: Request):
+    if (missing := _clip_or_404(clip_id)) is not None:
+        return missing
+    try:
+        body = await request.json()
+    except ValueError:
+        return error(400, "Send the labels as JSON.")
+    try:
+        return {"labels": dataset.save_labels(clip_id, body)}
+    except labels.LabelError as exc:
+        return error(422, str(exc))
+
+
+@app.post("/api/dataset/{clip_id}/reanalyze", status_code=202)
+def dataset_reanalyze(clip_id: str, background: BackgroundTasks):
+    if (missing := _clip_or_404(clip_id)) is not None:
+        return missing
+    if dataset.read_status(clip_id).get("state") in ("queued", "processing"):
+        return error(409, "This clip is still being processed.")
+    dataset.set_status(clip_id, state="queued", stage="queued", progress=0.0, error=None)
+    background.add_task(dataset.process, clip_id, True)
+    return {"clip_id": clip_id}
+
+
+@app.get("/api/dataset/{clip_id}/video")
+def dataset_video(clip_id: str):
+    if (missing := _clip_or_404(clip_id)) is not None:
+        return missing
+    path = dataset.video_file(clip_id)
+    return FileResponse(path) if path.exists() else error(404, "Video not found.")
+
+
+@app.get("/api/dataset/{clip_id}/waveform")
+def dataset_waveform(clip_id: str):
+    if (missing := _clip_or_404(clip_id)) is not None:
+        return missing
+    wf = dataset.waveform(clip_id)
+    return wf if wf is not None else error(409, "The waveform is not ready yet.")
+
+
 @app.middleware("http")
 async def reject_oversized(request: Request, call_next):
     """Refuse an oversized upload from its Content-Length before reading the body."""
     length = request.headers.get("content-length", "")
-    if request.url.path == "/api/analyze" and length.isdigit() and int(length) > MAX_UPLOAD_BYTES + 1024 * 1024:
+    if (request.url.path in ("/api/analyze", "/api/dataset") and request.method == "POST"
+            and length.isdigit() and int(length) > MAX_UPLOAD_BYTES + 1024 * 1024):
         return error(413, too_large_message())
     return await call_next(request)
 
@@ -203,6 +328,11 @@ def healthz():
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/label")
+def label_page():
+    return FileResponse(STATIC_DIR / "label.html")
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

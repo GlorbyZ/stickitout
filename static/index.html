@@ -12,6 +12,7 @@
     <div class="brand"><span class="logo">SIO</span> Stick It Out</div>
     <nav class="tabs" aria-label="Analyzer">
       <a class="tab active" href="#analyze" aria-current="page">Analyze</a>
+      <a class="tab" href="/label">Label</a>
     </nav>
   </header>
 
@@ -73,6 +74,16 @@
         </div>
         <p class="hint muted">The skeleton is drawn only on screen. The recorded file is the plain camera video with sound.
           Use a tripod, side angle preferred, good light, and keep your full torso, both arms and the pad in view.</p>
+        <details class="training-guide" id="training-guide">
+          <summary><b>Recording for training</b> (clips for Zaylyn and Mike to label)</summary>
+          <ul>
+            <li><b>Side angle</b>, phone level with the pad or drum, 2 to 3 m away, <b>on a stand</b>.</li>
+            <li><b>Both arms and both sticks in frame</b> the whole time, in <b>good light</b>.</li>
+            <li><b>60 fps preferred.</b> Start with <b>one clap</b> (hands in view), keep a <b>click running</b>, play <b>30 to 45 seconds</b>.</li>
+            <li>After analyzing, press <b>Add to training set</b> on the results, then label it on the <a href="/label">Label</a> page.
+              The shot list of about 20 takes is on the Label page and in <code>docs/training-shot-list.md</code>.</li>
+          </ul>
+        </details>
         <p class="tip" id="record-fps-tip"><b>Tip:</b> 60 fps is best. 30 fps works too, but fast strokes can fall between frames,
           so some scores will be estimates. Good light helps the camera keep 60 fps.</p>
         <div id="take" class="take" hidden>
@@ -153,7 +164,9 @@
         <div id="how"></div>
       </details>
       <p class="center"><button type="button" id="again" class="btn">Analyze another video</button>
-        <a id="json-link" class="btn" target="_blank" rel="noopener">Raw report JSON</a></p>
+        <a id="json-link" class="btn" target="_blank" rel="noopener">Raw report JSON</a>
+        <button type="button" id="add-training" class="btn">Add to training set</button></p>
+      <p class="center small" id="add-training-msg" hidden></p>
     </section>
   </main>
   <script type="module" src="/static/app.js"></script>
