@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+models/
+*.log
+.env
+remote-url.txt
+.remote-token
+logs/

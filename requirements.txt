@@ -1,0 +1,23 @@
+# Runtime dependencies (top level, pinned). Verified on Python 3.13 (Windows PC)
+# and Python 3.11 (Linux, the Docker image). Markers pick the builds each
+# Python supports: librosa 1.0, numpy 2.5 and scipy 1.18 need Python 3.12+.
+#
+# aubio 0.4.9 ships only as source: Windows needs MSVC Build Tools; Linux needs
+# a C compiler and, with GCC 14+, CFLAGS=-Wno-error=incompatible-pointer-types.
+# Install numpy first and build without isolation (see README).
+fastapi==0.141.1
+uvicorn==0.54.0
+python-multipart==0.0.32
+aubio==0.4.9
+librosa==1.0.0 ; python_version >= "3.12"
+librosa==0.11.0 ; python_version < "3.12"
+numpy==2.5.3 ; python_version >= "3.12"
+numpy==2.4.6 ; python_version < "3.12"
+scipy==1.18.1 ; python_version >= "3.12"
+scipy==1.17.1 ; python_version < "3.12"
+mediapipe==1.0.1
+# mediapipe depends on opencv-contrib-python; the spec's opencv-python would clash
+# with it (both install a cv2 module), so contrib is the one OpenCV package here.
+opencv-contrib-python==5.0.0.93
+imageio-ffmpeg==0.6.0
+soundfile==0.14.0

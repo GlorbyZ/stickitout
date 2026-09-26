@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Analyze | Stick It Out</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">SIO</span> Stick It Out</div>
+    <nav class="tabs" aria-label="Analyzer">
+      <a class="tab active" href="#analyze" aria-current="page">Analyze</a>
+    </nav>
+  </header>
+
+  <main id="analyze">
+    <section class="card" id="setup">
+      <h1>Analyze your playing</h1>
+      <p class="muted">Record or upload a 60 fps video of yourself playing. We pull the audio from the video,
+        check your timing and speed, track your arms and hands, and cross-check the two against each other.</p>
+
+      <div class="mode-switch" role="tablist">
+        <button type="button" role="tab" class="mode active" data-mode="record" aria-selected="true">Record</button>
+        <button type="button" role="tab" class="mode" data-mode="upload" aria-selected="false">Upload a video</button>
+      </div>
+
+      <form id="params" class="params" autocomplete="off">
+        <label>Rudiment
+          <input name="rudiment" list="rudiments" value="Single Paradiddle">
+          <datalist id="rudiments">
+            <option value="Single Paradiddle"><option value="Single Stroke Roll"><option value="Double Stroke Roll">
+          </datalist>
+        </label>
+        <label>Target BPM (optional)
+          <input name="target_bpm" type="number" min="40" max="260" step="1" inputmode="numeric" placeholder="e.g. 100">
+        </label>
+        <details class="advanced">
+          <summary>Advanced</summary>
+          <label>A/V offset (ms)
+            <input name="av_offset_ms" type="number" step="1" value="0" inputmode="numeric">
+          </label>
+          <label>Verify window (plus or minus ms)
+            <input name="verify_window_ms" type="number" min="5" max="200" step="1" value="40" inputmode="numeric">
+          </label>
+        </details>
+      </form>
+
+      <!-- Record mode -->
+      <div id="record-pane" class="pane">
+        <div id="secure-warning" class="notice bad" hidden></div>
+        <div class="stage" id="stage">
+          <video id="preview" playsinline muted autoplay></video>
+          <canvas id="overlay"></canvas>
+          <div class="hud">
+            <span id="hud-fps" class="pill">camera: off</span>
+            <span id="hud-res" class="pill"></span>
+            <span id="hud-rec" class="pill rec" hidden>REC 0:00</span>
+          </div>
+          <div id="countdown" class="countdown" hidden></div>
+          <div id="stage-empty" class="stage-empty">
+            <p>Your camera preview shows up here with a live skeleton over your shoulders, elbows, wrists and hands.</p>
+            <button type="button" id="cam-start" class="btn primary">Start camera</button>
+          </div>
+        </div>
+        <div id="framing" class="notice" hidden></div>
+        <div class="controls">
+          <select id="cam-select" aria-label="Camera" hidden></select>
+          <label class="check"><input type="checkbox" id="mirror" checked> Mirror preview</label>
+          <label class="check"><input type="checkbox" id="show-skel" checked> Skeleton</label>
+          <button type="button" id="rec-btn" class="btn primary" disabled>Record</button>
+        </div>
+        <p class="hint muted">The skeleton is drawn only on screen. The recorded file is the plain camera video with sound.
+          Use a tripod, side angle preferred, good light, and keep your full torso, both arms and the pad in view.</p>
+        <div id="take" class="take" hidden>
+          <video id="take-video" controls playsinline></video>
+          <div>
+            <p id="take-info"></p>
+            <div id="take-warning" class="notice warn" hidden></div>
+            <div class="controls">
+              <button type="button" id="take-analyze" class="btn primary">Analyze this take</button>
+              <button type="button" id="take-discard" class="btn">Discard</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload mode -->
+      <div id="upload-pane" class="pane" hidden>
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv">
+          <span id="drop-text"><strong>Choose a video</strong> or drop it here<br>
+            <span class="muted">MP4, MOV or WebM, recorded at 60 fps</span></span>
+        </label>
+        <button type="button" id="upload-btn" class="btn primary" disabled>Analyze</button>
+      </div>
+
+      <div id="progress" class="progress" hidden>
+        <div class="bar"><div id="bar-fill"></div></div>
+        <p id="progress-text" class="muted"></p>
+      </div>
+      <div id="error" class="notice bad" hidden></div>
+    </section>
+
+    <section id="results" hidden>
+      <div class="card verified-card" id="verified-card"></div>
+      <div class="card">
+        <h2>Scores</h2>
+        <div class="dials" id="dials"></div>
+        <div class="stats" id="stats"></div>
+      </div>
+      <div class="grid2">
+        <div class="card" id="sticking-card"></div>
+        <div class="card" id="hands-card"></div>
+      </div>
+      <div class="card">
+        <h2>Waveform and hits</h2>
+        <p class="muted small">Each tick is a detected hit, colored by timing error: <span class="k good">under 10 ms</span>
+          <span class="k mid">10 to 25 ms</span> <span class="k badk">over 25 ms</span>. Solid ticks were verified by video,
+          short ticks were heard but not seen. Click to jump the video.</p>
+        <canvas id="wave" class="chart" height="180"></canvas>
+      </div>
+      <div class="card">
+        <h2>Wrist height (L and R)</h2>
+        <canvas id="traj" class="chart" height="220"></canvas>
+        <p class="muted small" id="traj-note"></p>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Timing error spread</h2><canvas id="hist" class="chart" height="180"></canvas></div>
+        <div class="card"><h2>Tempo over time</h2><canvas id="tempo" class="chart" height="180"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Playback</h2>
+        <div class="stage playback">
+          <video id="playback" controls playsinline preload="metadata"></video>
+          <canvas id="play-overlay"></canvas>
+        </div>
+        <label class="check"><input type="checkbox" id="play-skel"> Draw skeleton on playback (runs in your browser)</label>
+      </div>
+      <div class="card">
+        <h2>Every stroke</h2>
+        <div class="table-wrap"><table id="strokes"></table></div>
+        <button type="button" id="more-strokes" class="btn" hidden>Show all strokes</button>
+      </div>
+      <details class="card how">
+        <summary><h2>How scores work</h2></summary>
+        <div id="how"></div>
+      </details>
+      <p class="center"><button type="button" id="again" class="btn">Analyze another video</button>
+        <a id="json-link" class="btn" target="_blank" rel="noopener">Raw report JSON</a></p>
+    </section>
+  </main>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

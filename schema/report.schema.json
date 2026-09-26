@@ -1,0 +1,1078 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stickitoutdrums.com/schema/analyzer-report.schema.json",
+  "title": "Stick It Out drum analysis report",
+  "type": "object",
+  "required": [
+    "job_id",
+    "created_at",
+    "source",
+    "params",
+    "audio",
+    "video",
+    "strokes",
+    "verification",
+    "sticking",
+    "scores"
+  ],
+  "$defs": {
+    "timing": {
+      "type": "object",
+      "required": [
+        "mean_abs_error_ms",
+        "std_error_ms",
+        "max_abs_error_ms",
+        "histogram"
+      ],
+      "properties": {
+        "mean_abs_error_ms": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "std_error_ms": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max_abs_error_ms": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "histogram": {
+          "type": "object",
+          "required": [
+            "bin_edges_ms",
+            "counts",
+            "below",
+            "above"
+          ],
+          "properties": {
+            "bin_edges_ms": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 21,
+              "maxItems": 21
+            },
+            "counts": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "minItems": 20,
+              "maxItems": 20
+            },
+            "below": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "above": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "filename",
+        "fps",
+        "duration_s"
+      ],
+      "properties": {
+        "filename": {
+          "type": "string"
+        },
+        "fps": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "nominal_fps": {
+          "type": "number"
+        },
+        "duration_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "frame_count": {
+          "type": "integer"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "container": {
+          "type": "string"
+        }
+      }
+    },
+    "params": {
+      "type": "object",
+      "required": [
+        "rudiment",
+        "target_bpm",
+        "av_offset_ms",
+        "verify_window_ms"
+      ],
+      "properties": {
+        "rudiment": {
+          "type": "string"
+        },
+        "target_bpm": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "av_offset_ms": {
+          "type": "number"
+        },
+        "verify_window_ms": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 200
+        }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "required": [
+        "tempo_bpm",
+        "top_sustained_bpm",
+        "onsets",
+        "timing",
+        "dynamics",
+        "pattern_guess",
+        "onset_method",
+        "grid",
+        "rolling_bpm",
+        "ioi",
+        "waveform"
+      ],
+      "properties": {
+        "tempo_bpm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 40,
+          "maximum": 260
+        },
+        "tempo_bpm_beat_track": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "target_bpm": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "top_sustained_bpm": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "onset_method": {
+          "enum": [
+            "specdiff",
+            "hfc"
+          ]
+        },
+        "beat_times": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "grid": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "subdivision",
+            "step_ms",
+            "t0",
+            "anchor_t"
+          ],
+          "properties": {
+            "subdivision": {
+              "enum": [
+                4,
+                6
+              ]
+            },
+            "step_ms": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "t0": {
+              "type": "number"
+            },
+            "anchor_t": {
+              "type": "number"
+            }
+          }
+        },
+        "rolling_bpm": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "t_start",
+              "t_end",
+              "bpm"
+            ],
+            "properties": {
+              "t_start": {
+                "type": "number"
+              },
+              "t_end": {
+                "type": "number"
+              },
+              "bpm": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "onsets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "t",
+              "strength",
+              "velocity",
+              "timing_error_ms",
+              "grid_index"
+            ],
+            "properties": {
+              "t": {
+                "type": "number",
+                "minimum": 0
+              },
+              "strength": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "velocity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "timing_error_ms": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "grid_index": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "onset_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ioi": {
+          "type": "object",
+          "required": [
+            "mean_ms",
+            "std_ms",
+            "cv"
+          ],
+          "properties": {
+            "mean_ms": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "std_ms": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "cv": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "timing": {
+          "$ref": "#/$defs/timing"
+        },
+        "dynamics": {
+          "type": "object",
+          "required": [
+            "dynamics_evenness"
+          ],
+          "properties": {
+            "dynamics_evenness": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "velocity_mean": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "velocity_std": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "pattern_guess": {
+          "type": "string"
+        },
+        "waveform": {
+          "type": "object",
+          "required": [
+            "duration_s",
+            "peaks"
+          ],
+          "properties": {
+            "duration_s": {
+              "type": "number"
+            },
+            "peaks": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "video": {
+      "type": "object",
+      "required": [
+        "landmark_coverage",
+        "degraded",
+        "degraded_reason",
+        "form",
+        "trajectories"
+      ],
+      "properties": {
+        "frames_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "frames_kept": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "landmark_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "degraded": {
+          "type": "boolean"
+        },
+        "degraded_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "normalization": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "form": {
+          "type": "object",
+          "required": [
+            "stroke_height",
+            "arm_vs_wrist_index",
+            "symmetry",
+            "posture_drift_per_min",
+            "shoulder_line_angle_deg",
+            "grip_proxy"
+          ],
+          "properties": {
+            "stroke_height": {
+              "type": "object",
+              "required": [
+                "L",
+                "R"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "L": {
+                  "type": "object",
+                  "required": [
+                    "mean",
+                    "std"
+                  ],
+                  "properties": {
+                    "mean": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "std": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  }
+                },
+                "R": {
+                  "type": "object",
+                  "required": [
+                    "mean",
+                    "std"
+                  ],
+                  "properties": {
+                    "mean": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "std": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "arm_vs_wrist_index": {
+              "type": "object",
+              "required": [
+                "L",
+                "R"
+              ],
+              "properties": {
+                "L": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "R": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "symmetry": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "posture_drift_per_min": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "shoulder_line_angle_deg": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "grip_proxy": {
+              "type": "object",
+              "required": [
+                "experimental",
+                "L",
+                "R"
+              ],
+              "properties": {
+                "experimental": {
+                  "const": true
+                },
+                "L": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "R": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "trajectories": {
+          "type": "object",
+          "required": [
+            "t",
+            "left_wrist_height",
+            "right_wrist_height"
+          ],
+          "properties": {
+            "t": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "left_wrist_height": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "right_wrist_height": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "degraded": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "degraded_reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "strokes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "t",
+          "hand",
+          "timing_error_ms",
+          "velocity",
+          "stroke_height",
+          "arm_vs_wrist_index",
+          "elbow_angle_deg",
+          "verification",
+          "av_delta_ms",
+          "expected_hand"
+        ],
+        "properties": {
+          "t": {
+            "type": "number",
+            "minimum": 0
+          },
+          "hand": {
+            "enum": [
+              "L",
+              "R",
+              null
+            ]
+          },
+          "timing_error_ms": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "velocity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "stroke_height": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "arm_vs_wrist_index": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "elbow_angle_deg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "verification": {
+            "enum": [
+              "verified",
+              "unverified"
+            ]
+          },
+          "av_delta_ms": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "strike_hand": {
+            "enum": [
+              "L",
+              "R",
+              null
+            ]
+          },
+          "expected_hand": {
+            "enum": [
+              "L",
+              "R",
+              null
+            ]
+          }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": [
+        "window_ms",
+        "video_used",
+        "verified_stroke_count",
+        "unverified_onsets",
+        "video_only_strikes",
+        "agreement_pct",
+        "verified_tempo_bpm",
+        "verified_timing",
+        "video_only"
+      ],
+      "properties": {
+        "window_ms": {
+          "type": "number"
+        },
+        "video_used": {
+          "type": "boolean"
+        },
+        "video_strikes_detected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "verified_stroke_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unverified_onsets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "video_only_strikes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "agreement_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "verified_tempo_bpm": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "verified_timing": {
+          "$ref": "#/$defs/timing"
+        },
+        "median_av_delta_ms": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "video_only": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "t",
+              "hand"
+            ],
+            "properties": {
+              "t": {
+                "type": "number"
+              },
+              "hand": {
+                "enum": [
+                  "L",
+                  "R"
+                ]
+              }
+            }
+          }
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "sticking": {
+      "type": "object",
+      "required": [
+        "checked",
+        "pattern",
+        "sticking_accuracy_pct",
+        "breaks",
+        "reason"
+      ],
+      "properties": {
+        "checked": {
+          "type": "boolean"
+        },
+        "rudiment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pattern": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sticking_accuracy_pct": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "strokes_checked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wrong_hand": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resyncs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "leading_hand": {
+          "enum": [
+            "L",
+            "R",
+            null
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "breaks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "stroke_index",
+              "t",
+              "kind"
+            ],
+            "properties": {
+              "stroke_index": {
+                "type": "integer"
+              },
+              "t": {
+                "type": "number"
+              },
+              "kind": {
+                "enum": [
+                  "wrong_hand",
+                  "resync"
+                ]
+              },
+              "expected": {
+                "enum": [
+                  "L",
+                  "R",
+                  null
+                ]
+              },
+              "played": {
+                "enum": [
+                  "L",
+                  "R",
+                  null
+                ]
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "required": [
+        "timing",
+        "consistency",
+        "dynamics",
+        "form",
+        "overall",
+        "verified",
+        "per_hand"
+      ],
+      "properties": {
+        "timing": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "consistency": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "dynamics": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "form": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "overall": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "verified": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "form_null_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "form_components": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "per_hand": {
+          "type": "object",
+          "required": [
+            "L",
+            "R"
+          ],
+          "properties": {
+            "L": {
+              "type": "object",
+              "required": [
+                "timing",
+                "mean_abs_error_ms",
+                "stroke_height_mean",
+                "stroke_height_std"
+              ],
+              "properties": {
+                "strokes": {
+                  "type": "integer"
+                },
+                "timing": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "mean_abs_error_ms": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "stroke_height_mean": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "stroke_height_std": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "stroke_height_consistency": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              }
+            },
+            "R": {
+              "type": "object",
+              "required": [
+                "timing",
+                "mean_abs_error_ms",
+                "stroke_height_mean",
+                "stroke_height_std"
+              ],
+              "properties": {
+                "strokes": {
+                  "type": "integer"
+                },
+                "timing": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "mean_abs_error_ms": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "stroke_height_mean": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "stroke_height_std": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "stroke_height_consistency": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              }
+            }
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "form": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "form_null_reason"
+        ],
+        "properties": {
+          "form_null_reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "engine": {
+      "type": "object"
+    }
+  }
+}
