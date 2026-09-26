@@ -16,17 +16,20 @@ dataset and writes reports; it never restarts the server or touches the tunnel.
 #>
 param(
     [switch]$Open,
-    [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
+    [Parameter(ValueFromRemainingArguments = $true)][object[]]$Rest
 )
 $ErrorActionPreference = 'Stop'
+# PowerShell turns an unquoted list such as onset_threshold=0.2,0.3 into an array; join it back.
+$pass = @(foreach ($a in $Rest) { if ($a -is [array]) { ($a | ForEach-Object { "$_" }) -join ',' } else { "$a" } })
 $root = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $root '.venv\Scripts\python.exe'
 if (-not (Test-Path $python)) { $python = 'python' }
 $env:PYTHONIOENCODING = 'utf-8'
 $before = @(Get-ChildItem (Join-Path $root 'reports') -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
 Push-Location $root
+$ErrorActionPreference = 'Continue'   # MediaPipe logs to stderr; that is not a failure
 try {
-    & $python (Join-Path $root 'scripts\evaluate.py') @Rest
+    & $python (Join-Path $root 'scripts\evaluate.py') @pass
     $code = $LASTEXITCODE
 } finally {
     Pop-Location

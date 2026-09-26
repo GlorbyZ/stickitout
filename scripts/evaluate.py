@@ -37,6 +37,7 @@ import html
 import itertools
 import json
 import math
+import re
 import sys
 import time
 from datetime import datetime
@@ -300,11 +301,12 @@ def render_html(summary: dict, extra_md: str = "") -> str:
     extra = f"<h2>Comparison</h2><pre>{e(extra_md)}</pre>" if extra_md else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Analyzer accuracy report</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"><style>
-body{{font:15px/1.5 system-ui,sans-serif;background:#faf8f2;color:#111;margin:0;padding:24px}}main{{max-width:1180px;margin:auto}}
+body{{font:15px/1.5 system-ui,sans-serif;background:#faf8f2;color:#111;margin:0;padding:24px}}main{{max-width:1320px;margin:auto}}
 h1{{margin:0 0 4px}}.muted{{color:#6b6b6b}}.tiles{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0}}
 .tile{{background:#fff;border:1px solid #e7e2d4;border-radius:12px;padding:12px}}.tile b{{display:block;font-size:1.5rem}}
 .tile span{{font-size:.82rem;color:#6b6b6b}}table{{border-collapse:collapse;width:100%;background:#fff;border:1px solid #e7e2d4;border-radius:12px;margin:10px 0 18px}}
-th,td{{padding:6px 9px;border-bottom:1px solid #eee;text-align:left;font-size:.9rem;white-space:nowrap}}th{{background:#111;color:#f5c518}}
+th,td{{padding:6px 8px;border-bottom:1px solid #eee;text-align:left;font-size:.86rem;white-space:nowrap}}
+.clips td:first-child,.clips td:nth-child(13){{white-space:normal;overflow-wrap:anywhere;min-width:110px}}th{{background:#111;color:#f5c518}}
 .good{{color:#1f9d55;font-weight:700}}.mid{{color:#a87a00;font-weight:700}}.bad{{color:#d64545;font-weight:700}}
 .tile .good,.tile .mid,.tile .bad{{font-weight:800}}code{{background:#f1ede1;padding:1px 5px;border-radius:4px}}
 .logo{{background:#f5c518;border-radius:6px;padding:2px 7px;font-weight:800;margin-right:6px}}.wrap{{overflow-x:auto}}</style></head>
@@ -314,7 +316,7 @@ match tolerance plus or minus {run['tolerance_ms']:g} ms. Settings: {settings}.<
 <div class="tiles">{''.join(f"<div class='tile'><b class='{c}'>{e(v)}</b><span>{e(n)}</span></div>" for n, v, c in tiles)}</div>
 <h2>Overall</h2><table>{rows}</table>
 <p class="muted">Strokes: {o['tp']} matched, {o['fp']} extra, {o['fn']} missed. {e(o['form']['note'] or '')}</p>
-<h2>Per clip</h2><div class="wrap"><table><tr><th>Clip</th><th>Player</th><th>Rudiment</th><th>Labeled</th><th>Detected</th><th>P</th>
+<h2>Per clip</h2><div class="wrap"><table class="clips"><tr><th>Clip</th><th>Player</th><th>Rudiment</th><th>Labeled</th><th>Detected</th><th>P</th>
 <th>R</th><th>F1</th><th>Count err</th><th>Hands</th><th>Tempo err</th><th>Timing MAE</th><th>Sticking</th><th>Form / grade</th></tr>{crow}</table></div>
 {f'<h2>Notes</h2><ul>{notes}</ul>' if notes else ''}{extra}</main></body></html>"""
 
@@ -357,7 +359,7 @@ def parse_grid(specs: list[str]) -> dict:
     for spec in specs:
         name, _, values = spec.partition("=")
         name = name.strip()
-        vals = [v.strip() for v in values.split(",") if v.strip()]
+        vals = [v for v in re.split(r"[,\s]+", values.strip()) if v]
         if not name or not vals:
             raise SystemExit(f"--grid needs name=v1,v2,... got {spec!r}")
         grid[name] = [tuning._coerce(name, v) for v in vals]

@@ -579,7 +579,9 @@ document.addEventListener("keydown", (e) => {
 
 // ---------- start ----------
 setZoom(window.innerWidth < 640 ? 2 : 4, 0, 0);
-loadClips().then(() => {
+function openFromHash() {
   const m = location.hash.match(/clip=([a-z0-9-]+)/);
-  if (m) openClip(m[1]);
-});
+  if (m && m[1] !== clip?.labels.clip_id) openClip(m[1]);
+}
+loadClips().then(openFromHash);
+window.addEventListener("hashchange", openFromHash);
