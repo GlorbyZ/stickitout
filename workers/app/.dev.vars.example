@@ -1,0 +1,5 @@
+# Copy to .dev.vars (gitignored)
+RESEND_API_KEY=
+LEAD_INGEST_SECRET=
+# Set to 1 to print magic-link URLs in local wrangler logs
+DEV_LOG_LINKS=1

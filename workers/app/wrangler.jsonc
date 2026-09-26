@@ -1,0 +1,47 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "stickitout-portals",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-16",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "MEMBER_ORIGIN": "https://member.stickitoutdrums.com",
+    "ADMIN_ORIGIN": "https://admin.stickitoutdrums.com",
+    "MAIL_FROM": "Stick It Out <noreply@stickitoutdrums.com>",
+    "ADMIN_EMAILS": "zaylynbyoung@gmail.com,mikestaus@gmail.com",
+    "STRIPE_PORTAL_URL": ""
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "stickitout",
+      "database_id": "e8a16e44-3604-48ce-ae59-d5f4ccb750a9",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "stream": {
+    "binding": "STREAM",
+    "remote": true
+  },
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "stickitout-media"
+    }
+  ],
+  "assets": {
+    "directory": "./static",
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "not_found_handling": "none",
+    "run_worker_first": true
+  },
+  "routes": [
+    { "pattern": "member.stickitoutdrums.com", "custom_domain": true },
+    { "pattern": "admin.stickitoutdrums.com", "custom_domain": true }
+  ]
+}
