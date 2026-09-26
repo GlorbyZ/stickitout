@@ -5,6 +5,9 @@
   MAX_UPLOAD_MB   upload size cap in MB (default 1024; keep it under 100 behind Cloudflare)
   ACCESS_TOKEN    if set, the UI and API require this key (see app/access.py)
   JOB_TTL_HOURS   jobs older than this are deleted, uploads included (default 72; 0 keeps them)
+  MIN_FPS         lowest measured frame rate accepted for analysis (default 23.5, so 24 fps and
+                  23.976 fps film rate pass). Clips under 50 fps are analysed with a low
+                  frame rate flag and a disclaimer in the report.
 """
 from __future__ import annotations
 
@@ -27,3 +30,4 @@ DATA_DIR = Path(os.environ.get("DATA_DIR") or os.environ.get("ANALYZER_DATA_DIR"
 MAX_UPLOAD_MB = _float("MAX_UPLOAD_MB", 1024)
 ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN", "").strip()
 JOB_TTL_HOURS = _float("JOB_TTL_HOURS", 72)
+MIN_FPS = _float("MIN_FPS", 23.5)

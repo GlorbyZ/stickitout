@@ -9,7 +9,8 @@ Two picture modes:
               carrying one arm, dips on that hand's strokes of a single paradiddle
               (RLRR LRLL) in time with the clicks. This exercises MediaPipe, the
               audio/video cross-check and the sticking check end to end.
-Use --fps 30 to produce a clip the API must reject.
+Use --fps 30 for a low frame rate clip (accepted, flagged quality.low_fps) and
+--fps 15 for one the API must reject (below MIN_FPS).
 
 Usage:
   python scripts/make_test_video.py out.mp4 [--drummer] [--fps 60] [--seconds 20]

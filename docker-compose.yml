@@ -13,6 +13,7 @@ services:
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-1024}
       ACCESS_TOKEN: ${ACCESS_TOKEN:-}
       JOB_TTL_HOURS: ${JOB_TTL_HOURS:-72}
+      MIN_FPS: ${MIN_FPS:-23.5}
     volumes:
       - analyzer-data:/data
 

@@ -8,6 +8,9 @@
   6. scoring        -> 0-100 scores
   7. write report.json and mark the job done
 
+Clips from MIN_FPS (about 24) up to 50 fps are analysed with quality.low_fps set,
+a disclaimer message, and a widened audio/video verify window.
+
 A video-stage failure never sinks the run: the form section is marked degraded
 with the reason and the audio results are still returned.
 """
@@ -20,7 +23,7 @@ from pathlib import Path
 from . import jobs
 from .audio import analyze_audio
 from .fusion import fuse
-from .media import MediaError, VideoInfo, extract_audio, probe_video
+from .media import LOW_FPS_BELOW, MediaError, VideoInfo, extract_audio, is_low_fps, low_fps_message, min_fps, probe_video
 from .scoring import score_report
 from .sticking import check_sticking
 from .video import build_tracks, extract_landmarks, session_metrics
@@ -56,10 +59,13 @@ def run_video_stage(video_path: Path, progress) -> tuple[object | None, dict]:
         }
 
 
-def analyse(audio: dict, tracks, video: dict, params: dict) -> dict:
-    """Fusion, sticking check, per-hand form and scores for already-computed audio and video."""
+def analyse(audio: dict, tracks, video: dict, params: dict, fps: float | None = None) -> dict:
+    """Fusion, sticking check, per-hand form and scores for already-computed audio and video.
+
+    fps is the measured source frame rate (widens the verify window under 50 fps).
+    """
     strokes, verification, hand_form = fuse(audio, tracks, video["degraded"],
-                                            params.get("av_offset_ms", 0.0), params.get("verify_window_ms", 40.0))
+                                            params.get("av_offset_ms", 0.0), params.get("verify_window_ms", 40.0), fps)
     sticking = check_sticking(strokes, params.get("rudiment"))
     for s in strokes:
         s.setdefault("expected_hand", None)
@@ -73,6 +79,20 @@ def analyse(audio: dict, tracks, video: dict, params: dict) -> dict:
     return {"video": video, "strokes": strokes, "verification": verification, "sticking": sticking, "scores": scores}
 
 
+def quality_section(info: VideoInfo, verification: dict) -> dict:
+    """Frame rate quality flag: low_fps under 50 fps, with the disclaimer and the window used."""
+    low = is_low_fps(info.fps)
+    return {
+        "low_fps": low,
+        "measured_fps": info.fps,
+        "min_fps": min_fps(),
+        "full_accuracy_fps": LOW_FPS_BELOW,
+        "verify_window_ms": verification["window_ms"],
+        "verify_window_widened": bool(verification.get("window_widened", False)),
+        "message": low_fps_message(info.fps) if low else None,
+    }
+
+
 def build_report(job_id: str, created_at: str, filename: str, info: VideoInfo, params: dict,
                  audio: dict, analysed: dict) -> dict:
     """Assemble the report in the shape of schema/report.schema.json."""
@@ -82,6 +102,7 @@ def build_report(job_id: str, created_at: str, filename: str, info: VideoInfo, p
         "source": {"filename": filename, "fps": info.fps, "nominal_fps": info.nominal_fps,
                    "duration_s": info.duration_s, "frame_count": info.frame_count, "width": info.width,
                    "height": info.height, "container": info.container},
+        "quality": quality_section(info, analysed["verification"]),
         "params": params,
         "audio": audio,
         **analysed,
@@ -106,7 +127,7 @@ def run(job_id: str, video_path: Path, params: dict) -> None:
         stage("tracking pose and hands", 0.30)
         tracks, video = run_video_stage(video_path, lambda f: stage("tracking pose and hands", 0.30 + 0.55 * f))
         stage("fusing audio and video", 0.90)
-        analysed = analyse(audio, tracks, video, params)
+        analysed = analyse(audio, tracks, video, params, info.fps)
         job = jobs.read(job_id)
         jobs.write_report(job_id, build_report(job_id, job["created_at"], job["filename"], info, params, audio, analysed))
         jobs.update(job_id, status="done", stage="done", progress=1.0)

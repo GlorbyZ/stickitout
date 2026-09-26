@@ -8,7 +8,10 @@ each audio onset:
   * verification: the onset is "verified" when a video strike (a wrist low
     point) lands within +/- verify_window_ms, matched one-to-one, closest pairs
     first. Onsets without a strike are "unverified"; strikes without an onset
-    are reported as "video_only".
+    are reported as "video_only". For clips under 50 fps the window is widened
+    to at least +/-60 ms and 1.75 frame intervals (effective_verify_window), so
+    a real hit is not marked unverified only because the low point fell
+    between frames. 50 fps and up keeps the requested window (default 40 ms).
   * per-stroke form: stroke height and arm vs wrist index over the stroke
     cycle, i.e. from the same hand's previous onset (max 1 s back) to this one.
 """
@@ -17,6 +20,7 @@ from __future__ import annotations
 import numpy as np
 
 from .audio import fit_grid, timing_stats
+from .media import LOW_FPS_BELOW
 from .video import Tracks, detect_strikes
 
 HAND_WINDOW_S = 0.040
@@ -24,7 +28,24 @@ CYCLE_MAX_S = 1.0
 FIRST_CYCLE_S = 0.3
 ELBOW_MATCH_S = 0.05
 DEFAULT_VERIFY_WINDOW_MS = 40.0
+LOW_FPS_MIN_WINDOW_MS = 60.0      # floor for the verify window on clips under 50 fps
+LOW_FPS_WINDOW_FRAMES = 1.75      # ... and at least this many frame intervals
+MAX_VERIFY_WINDOW_MS = 200.0
 EPS = 1e-3
+
+
+def effective_verify_window(requested_ms: float, fps: float | None) -> float:
+    """Verify window actually used. Unchanged at 50 fps and up; widened under 50 fps.
+
+    At 30 fps frames are 33 ms apart, so a strike low point can land up to half a
+    frame from the true impact and the 3 frame smoothing spreads it further. The
+    window becomes max(requested, 60 ms, 1.75 frame intervals): 60 ms at 30 fps,
+    about 73 ms at 24 fps. A larger requested window is kept.
+    """
+    if not fps or fps <= 0 or fps >= LOW_FPS_BELOW:
+        return float(requested_ms)
+    widened = max(float(requested_ms), LOW_FPS_MIN_WINDOW_MS, LOW_FPS_WINDOW_FRAMES * 1000.0 / fps)
+    return round(min(widened, MAX_VERIFY_WINDOW_MS), 1)
 
 
 class _Motion:
@@ -77,8 +98,13 @@ def match_strikes(onset_times: list[float], strikes: list[dict], window_ms: floa
 
 
 def fuse(audio: dict, tracks: Tracks | None, degraded: bool, av_offset_ms: float = 0.0,
-         verify_window_ms: float = DEFAULT_VERIFY_WINDOW_MS) -> tuple[list[dict], dict, dict]:
-    """Returns (strokes, verification, per-hand form aggregates)."""
+         verify_window_ms: float = DEFAULT_VERIFY_WINDOW_MS, fps: float | None = None) -> tuple[list[dict], dict, dict]:
+    """Returns (strokes, verification, per-hand form aggregates).
+
+    fps is the measured source frame rate; under 50 fps the verify window is widened.
+    """
+    requested_ms = float(verify_window_ms)
+    verify_window_ms = effective_verify_window(requested_ms, fps)
     onsets = audio["onsets"]
     times = [o["t"] for o in onsets]
     use_video = tracks is not None and not degraded and len(tracks.t) > 1
@@ -109,6 +135,8 @@ def fuse(audio: dict, tracks: Tracks | None, degraded: bool, av_offset_ms: float
 
     video_only = [{"t": round(strikes[j]["t"], 4), "hand": strikes[j]["hand"]} for j in sorted(unmatched)]
     verification = summarize_verification(audio, strokes, video_only, verify_window_ms, use_video, len(strikes))
+    verification["window_requested_ms"] = requested_ms
+    verification["window_widened"] = verify_window_ms != requested_ms
     return strokes, verification, per_hand_form(strokes)
 
 

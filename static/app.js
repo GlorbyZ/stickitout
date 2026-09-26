@@ -7,8 +7,12 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmt = (v, d = 1, unit = "") => (v === null || v === undefined ? "n/a" : `${Number(v).toFixed(d)}${unit}`);
 const errColor = (e) => (e === null ? "#999" : Math.abs(e) < 10 ? "#1f9d55" : Math.abs(e) < 25 ? "#d69e00" : "#d64545");
-let recorder = null, report = null, maxUploadMb = null;
-fetch("/api/config").then((r) => r.json()).then((c) => { maxUploadMb = c.max_upload_mb; }).catch(() => {});
+let recorder = null, report = null, maxUploadMb = null, minFps = 23.5, fullFps = 50;
+fetch("/api/config").then((r) => r.json()).then((c) => {
+  maxUploadMb = c.max_upload_mb;
+  if (c.min_fps) minFps = c.min_fps;
+  if (c.full_accuracy_fps) fullFps = c.full_accuracy_fps;
+}).catch(() => {});
 
 // ---------- modes ----------
 function setMode(mode) {
@@ -21,7 +25,11 @@ function setMode(mode) {
   if (mode !== "record") recorder?.stop();
 }
 document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
-recorder = initRecord({ onTake: (blob, name) => submit(blob, name), maxBytes: () => (maxUploadMb ? maxUploadMb * 1048576 : null) });
+recorder = initRecord({
+  onTake: (blob, name) => submit(blob, name),
+  maxBytes: () => (maxUploadMb ? maxUploadMb * 1048576 : null),
+  fpsLimits: () => ({ min: minFps, full: fullFps }),
+});
 
 // ---------- upload ----------
 let chosen = null;
@@ -104,16 +112,29 @@ function dial(name, value, why, cls = "") {
 }
 const stat = (label, value) => `<div class="stat"><b>${value}</b><span>${label}</span></div>`;
 
+// Low frame rate disclaimer (quality.low_fps). Reports made before the flag existed
+// fall back to the measured fps so an old 30 fps report still gets the warning.
+function lowFpsNotice(r) {
+  const q = r.quality;
+  const low = q ? q.low_fps : r.source.fps < 50;
+  if (!low) return "";
+  const msg = q?.message || `Recorded at ${Math.round(r.source.fps)} fps. Fast strokes can fall between frames, ` +
+    "so Verified, sticking and form scores are estimates. For the most accurate results, record at 60 fps.";
+  return `<div class="lowfps-notice" id="lowfps-notice" role="note"><b>Low frame rate</b><span>${esc(msg)}</span></div>`;
+}
+
 function render(r) {
   report = r;
   const { audio, video, verification: v, sticking: st, scores: s } = r;
   $("results").hidden = false;
   $("json-link").href = `/api/results/${r.job_id}`;
 
-  $("verified-card").innerHTML = `<div><div class="label">Verified</div><div class="big">${fmt(s.verified, 0, "%")}</div></div>
+  const widened = v.window_widened ? ` <span class="small">(widened for ${Math.round(r.source.fps)} fps)</span>` : "";
+  $("verified-card").innerHTML = `${lowFpsNotice(r)}<div><div class="label">Verified</div><div class="big">${fmt(s.verified, 0, "%")}</div>
+    ${r.quality?.low_fps ? '<div class="est">estimate</div>' : ""}</div>
     <div><div class="vcounts"><span><b>${v.verified_stroke_count}</b> verified hits</span>
       <span><b>${v.unverified_onsets}</b> heard, not seen</span><span><b>${v.video_only_strikes}</b> seen, not heard</span>
-      <span>window plus or minus <b>${v.window_ms}</b> ms</span></div>
+      <span>window plus or minus <b>${v.window_ms}</b> ms${widened}</span></div>
       <div>Verified-only tempo <b>${fmt(v.verified_tempo_bpm, 1, " BPM")}</b>, timing error <b>${fmt(v.verified_timing.mean_abs_error_ms, 1, " ms")}</b>${v.median_av_delta_ms !== null ? `, median audio-to-video gap <b>${fmt(v.median_av_delta_ms, 1, " ms")}</b>` : ""}</div>
       <div class="small" style="color:#bbb;margin-top:6px">A hit counts as verified when a wrist strike in the video lands within the window of the sound.
       ${esc(v.note || "")}</div></div>`;
@@ -289,7 +310,8 @@ function renderHow() {
       Heights use shoulder width as the unit (upper-arm length from a side view). Form is n/a when fewer than half the frames show both wrists.</li>
     <li><b>Overall</b> = mean of the scores above that are not n/a.</li>
     <li><b>Verified</b> = <code>verified / (verified + heard_not_seen + seen_not_heard) * 100</code>. A hit is verified when the video shows a wrist
-      strike (a low point of the wrist) within plus or minus the verify window of the sound. It is shown on its own and is not part of Overall.</li>
+      strike (a low point of the wrist) within plus or minus the verify window of the sound. It is shown on its own and is not part of Overall.
+      For videos under 50 fps the window is widened to at least 60 ms (and 1.75 frame intervals), because the wrist low point can fall between frames.</li>
     <li><b>Sticking accuracy</b> = share of strokes whose hand matches single paradiddle sticking <code>RLRR LRLL</code> (either hand leading),
       lining up with your playing even if you drop or add a stroke. Each break lists where it happened.</li>
     <li><b>Top sustained</b> = the highest tempo you held across 10 seconds of 4 second windows.</li></ul>`;

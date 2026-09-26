@@ -1,7 +1,7 @@
 # Stick It Out Analyzer
 
 Drum form and speed analysis from one phone video. The member records (or uploads) a
-60 fps video of themselves playing. The analyzer pulls the audio out of that video,
+video of themselves playing, ideally at 60 fps (30 fps is accepted with a disclaimer). The analyzer pulls the audio out of that video,
 finds every hit, measures tempo and timing, tracks shoulders, elbows, wrists and hands
 with MediaPipe, and cross-checks the two: a hit only counts as **verified** when the
 video shows a wrist strike at the same moment. For single paradiddles it also checks the
@@ -68,6 +68,7 @@ All settings are environment variables, the same everywhere (local, Docker, clou
 | `MAX_UPLOAD_MB` | `1024` | upload cap; keep it under 100 behind Cloudflare |
 | `ACCESS_TOKEN` | empty | if set, the UI and API need this key (see below) |
 | `JOB_TTL_HOURS` | `72` | jobs older than this are deleted, uploads included; `0` keeps everything |
+| `MIN_FPS` | `23.5` | lowest measured frame rate accepted (24 fps and the 23.976 film rate pass); slower clips get a `422` |
 
 **Access gate.** With `ACCESS_TOKEN` set, open `https://host/?key=<token>` once: the server
 sets an HttpOnly cookie (30 days) and redirects to the clean URL. Scripts can send
@@ -121,6 +122,7 @@ From the Windows PC, one command gives a private HTTPS link without any account:
 .\start-remote.ps1          # prints https://<random>.trycloudflare.com/?key=<key>
 .\stop-remote.ps1           # stops the server and the tunnel
 .\start-remote.ps1 -NewKey  # restart with a fresh key (old links stop working)
+.\restart-server.ps1       # restart only the server (after a code change); tunnel, link and key stay
 ```
 
 - It installs `cloudflared` with winget if it is missing, starts the server with a random
@@ -128,7 +130,9 @@ From the Windows PC, one command gives a private HTTPS link without any account:
   tunnel, and saves the link to `remote-url.txt`.
 - Both processes run detached and survive closing the window. The server keeps the PC from
   sleeping while it runs, but **the PC must stay on and online** for the link to work.
-- Every restart gives a new `trycloudflare.com` address (the key stays the same).
+- Every `start-remote.ps1` restart gives a new `trycloudflare.com` address (the key stays
+  the same). `restart-server.ps1` restarts only the analyzer server and leaves the running
+  tunnel alone, so the link keeps working.
 - Cloudflare caps uploads at 100 MB. Record mode records at about 8 Mbps and stops itself at
   the cap (about 90 seconds); phone camera files are bigger, so keep uploads to 30 to 45 seconds.
 - Quick tunnels are for testing. For something permanent use a named Cloudflare tunnel or
@@ -136,14 +140,20 @@ From the Windows PC, one command gives a private HTTPS link without any account:
 
 ## Camera guide
 
-- **60 fps minimum, 1080p.** 30 fps footage is rejected with a clear message.
-  iPhone: Settings > Camera > Record Video > 1080p at 60 fps. Android: pick 60 fps in the
-  camera's video settings. The analyzer measures the real frame rate from the file's
-  timestamps, so variable frame rate phone and browser recordings are judged by what they
-  actually delivered (anything from about 50 fps up passes).
+- **60 fps is best, 30 fps works, 1080p.** iPhone: Settings > Camera > Record Video >
+  1080p at 60 fps. Android: pick 60 fps in the camera's video settings. The analyzer
+  measures the real frame rate from the file's timestamps, so variable frame rate phone and
+  browser recordings are judged by what they actually delivered.
+  - **50 fps and up** (60 fps class): full accuracy, verify window as requested (default 40 ms).
+  - **About 24 to 50 fps** (ordinary 30 fps phone video, including uneven frame timing):
+    analysed, but the report sets `quality.low_fps: true` with a message, the results page
+    shows a disclaimer next to the Verified score ("Recorded at 30 fps. Fast strokes can
+    fall between frames, so Verified, sticking and form scores are estimates. For the most
+    accurate results, record at 60 fps."), and the verify window is widened (see below).
+  - **Under `MIN_FPS`** (default 23.5, so about 24 fps): rejected with a clear message.
 - **Tripod.** Side (profile) view is preferred because it shows stroke height; front view works.
 - **Frame:** full torso, both arms and the pad or drum visible the whole time.
-- **Good light and a plain background.** Many cameras quietly drop to 30 fps in dim rooms.
+- **Good light and a plain background.** Many cameras quietly drop from 60 to 30 fps in dim rooms.
 - Keep the phone's microphone uncovered; the hits are found from the video's own audio.
 
 ## Record mode
@@ -161,8 +171,10 @@ closer", and so on).
 MediaRecorder records the **raw camera and microphone stream**, not the canvas, so the
 skeleton is never baked into the file. The browser picks MP4 (H.264/AAC) where supported
 and WebM (VP9 or VP8/Opus) otherwise; the server accepts both. The page shows the camera's
-delivered frame rate live and the measured frame rate of each take, and warns before upload
-when a take is under 60 fps. If skeleton detection is too slow on a device (no GPU), it
+delivered frame rate live and the measured frame rate of each take. Before upload it notes
+when a take is under 50 fps (it will be analysed with the low frame rate disclaimer) and
+warns when it is under the minimum (it will be rejected). Upload and Record mode both show
+the tip "60 fps is best. 30 fps works too". If skeleton detection is too slow on a device (no GPU), it
 pauses during recording so the recording keeps its full frame rate.
 
 On the results page, "Draw skeleton on playback" runs the same browser models over the
@@ -186,7 +198,12 @@ Every score is 0 to 100 and the exact formulas are in the "How scores work" pane
 
 **Cross-verification.** Each audio onset is matched one-to-one (closest pairs first) with
 video wrist strikes (low points of a wrist) within plus or minus `verify_window_ms`
-(default 40). Matched onsets are `verified`; onsets with no strike are `unverified`
+(default 40). For clips under 50 fps the window is widened automatically to
+`max(requested, 60 ms, 1.75 frame intervals)`, which is 60 ms at 30 fps and about 73 ms at
+24 fps, because a wrist low point can only be seen on a frame and may fall up to half a
+frame from the real impact. `params.verify_window_ms` keeps the requested value;
+`verification.window_ms` (and `quality.verify_window_ms`) is the window actually used,
+with `verification.window_requested_ms` and `window_widened`. 60 fps behaviour is unchanged. Matched onsets are `verified`; onsets with no strike are `unverified`
 (heard, not seen); strikes with no onset are `video_only` (seen, not heard). The report
 gives the counts, `agreement_pct`, and verified-only tempo and timing. A low Verified
 score means the camera could not confirm the hits: framing, light, or a sync offset
@@ -204,11 +221,11 @@ All JSON. Errors are `{"error": "message"}` with a proper status code. With
 
 | Method and path | Result |
 |---|---|
-| `POST /api/analyze` | multipart: `video` (required; mp4, mov, m4v, webm, mkv, avi), `rudiment` (default "Single Paradiddle"), `target_bpm`, `av_offset_ms` (default 0), `verify_window_ms` (5 to 200, default 40). `202 {"job_id"}`. `415` bad type, `413` over the cap, `422` bad field or under 60 fps (message says the measured rate and how to fix it). |
+| `POST /api/analyze` | multipart: `video` (required; mp4, mov, m4v, webm, mkv, avi), `rudiment` (default "Single Paradiddle"), `target_bpm`, `av_offset_ms` (default 0), `verify_window_ms` (5 to 200, default 40; widened automatically under 50 fps). `202 {"job_id"}`. `415` bad type, `413` over the cap, `422` bad field or under `MIN_FPS` (about 24 fps; message says the measured rate and how to fix it). |
 | `GET /api/jobs/{id}` | `{status: queued, processing, done or error, progress: 0 to 1, stage, error}` |
 | `GET /api/results/{id}` | full report (`schema/report.schema.json`); `409` not ready, `422` failed, `404` unknown |
 | `GET /api/jobs/{id}/video` | the uploaded video (for playback) |
-| `GET /api/config` | `{max_upload_mb, access_gate}` |
+| `GET /api/config` | `{max_upload_mb, access_gate, min_fps, full_accuracy_fps}` |
 | `GET /healthz` | `{"ok": true}`, never gated |
 
 ```powershell
@@ -216,6 +233,8 @@ curl.exe -H "X-Access-Token: $env:KEY" -F "video=@take.mp4" -F "rudiment=Single 
 ```
 
 Report sections: `source` (fps measured and declared, duration, size, container),
+`quality` (`low_fps`, `measured_fps`, `min_fps`, `full_accuracy_fps`, `verify_window_ms`,
+`verify_window_widened`, `message`: the disclaimer when `low_fps` is true, otherwise null),
 `params`, `audio` (onsets with timing error and velocity, tempo, grid, rolling and top
 sustained BPM, IOIs, timing histogram, dynamics, pattern guess, waveform), `video`
 (coverage, degraded flag and reason, form metrics, wrist trajectories), `strokes`
@@ -236,14 +255,15 @@ Redis (and job.json for a database row); the pipeline does not change.
 | File | Covers |
 |---|---|
 | `test_audio_synthetic.py` | spec 10.1: 60 s click at 120 BPM, tempo 120 plus or minus 1, mean error under 5 ms, 720 onsets within 2% |
-| `test_api.py` | spec 10.3: end-to-end upload of a synthetic 60 fps video, report validated against the schema; 30 fps rejected; error contracts |
-| `test_fusion_sticking.py` | cross-verification counts (a hidden strike gives 1 unverified, an extra strike gives 1 video_only), hand assignment, sticking breaks and resync, schema of a non-degraded report |
-| `test_video_mediapipe.py` | real MediaPipe on the synthetic paradiddle drummer: coverage, Verified, sticking, schema (skips if MediaPipe cannot run) |
-| `test_media.py` | frame-rate measurement for WebM, variable frame rate, the 30 fps message |
+| `test_api.py` | spec 10.3: end-to-end upload of a synthetic 60 fps video, report validated against the schema (no low fps flag, 40 ms window); 30 fps accepted with `quality.low_fps`, the disclaimer and a 60 ms window; 15 fps rejected; schema check of the `quality` rules; `/api/config` fps limits; error contracts |
+| `test_fusion_sticking.py` | cross-verification counts (a hidden strike gives 1 unverified, an extra strike gives 1 video_only), hand assignment, sticking breaks and resync, schema of a non-degraded report; verify window widening (only under 50 fps) and 30 fps strikes between frames still verified |
+| `test_video_mediapipe.py` | real MediaPipe on the synthetic paradiddle drummer at 60 fps (coverage, Verified, sticking, schema) and at 30 fps (low fps flag, 60 ms window, still verified); skips if MediaPipe cannot run |
+| `test_media.py` | frame-rate measurement for WebM, variable frame rate, 30 fps and uneven 30 fps accepted and flagged, below-minimum rejection message, `MIN_FPS` configurable |
 | `test_access.py` | access gate, upload cap, old-job cleanup |
 
 Synthetic inputs: `python scripts/make_click_test.py` writes the 120 BPM fixture;
-`python scripts/make_test_video.py out.mp4 [--drummer] [--fps 30]` makes test videos.
+`python scripts/make_test_video.py out.mp4 [--drummer] [--fps 30]` makes test videos
+(`--fps 30` gives a low frame rate clip, `--fps 15` one the API rejects).
 `--drummer` animates MediaPipe's public pose sample photo so each arm dips on its
 paradiddle strokes in time with a click track.
 
@@ -280,7 +300,10 @@ Spec 10.2, still to be done with a real recording:
   the report says so.
 - **Hands matched by position.** MediaPipe's handedness labels assume a mirrored selfie
   image, so each detected hand is assigned to the nearest pose wrist instead.
-- **Frame-rate threshold 50 fps** so 60 fps-class variable-rate footage passes and 30 fps fails.
+- **Frame-rate thresholds.** 50 fps and up is analysed at full accuracy (60 fps-class
+  variable-rate footage passes). From `MIN_FPS` (about 24) up to 50 fps, clips are accepted
+  for now with `quality.low_fps`, a disclaimer and a widened verify window; below that they
+  are rejected.
 - **Scope additions requested during the build:** cross-verification and the Verified score,
   paradiddle sticking check, Record mode with the live skeleton, access gate, Docker, and
   the remote tunnel script.
@@ -325,5 +348,5 @@ schema/       report.schema.json
 scripts/      make_click_test.py, make_test_video.py, fetch_models.py, serve-remote.ps1
 tests/        pytest suite
 samples/      real-sample report (pending)
-Dockerfile, docker-compose.yml, start-local.ps1, start-remote.ps1, stop-remote.ps1
+Dockerfile, docker-compose.yml, start-local.ps1, start-remote.ps1, stop-remote.ps1, restart-server.ps1
 ```

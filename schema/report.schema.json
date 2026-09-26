@@ -7,6 +7,7 @@
     "job_id",
     "created_at",
     "source",
+    "quality",
     "params",
     "audio",
     "video",
@@ -126,6 +127,88 @@
           "type": "string"
         }
       }
+    },
+    "quality": {
+      "type": "object",
+      "description": "Frame rate quality. low_fps is true for accepted clips under full_accuracy_fps (50); message is then the disclaimer shown next to the Verified score.",
+      "required": [
+        "low_fps",
+        "measured_fps",
+        "min_fps",
+        "full_accuracy_fps",
+        "verify_window_ms",
+        "verify_window_widened",
+        "message"
+      ],
+      "properties": {
+        "low_fps": {
+          "type": "boolean"
+        },
+        "measured_fps": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "min_fps": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "full_accuracy_fps": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "verify_window_ms": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 200
+        },
+        "verify_window_widened": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "low_fps": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "low_fps": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "type": "null"
+              },
+              "verify_window_widened": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
     },
     "params": {
       "type": "object",
@@ -705,6 +788,13 @@
       "properties": {
         "window_ms": {
           "type": "number"
+        },
+        "window_requested_ms": {
+          "type": "number",
+          "description": "verify_window_ms as requested; window_ms is the value used (widened under 50 fps)"
+        },
+        "window_widened": {
+          "type": "boolean"
         },
         "video_used": {
           "type": "boolean"

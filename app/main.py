@@ -6,7 +6,7 @@ Endpoints (all JSON; errors are {"error": message} with a proper status code):
   GET  /api/jobs/{id}        {status, progress, error, stage}
   GET  /api/results/{id}     full report JSON (schema/report.schema.json)
   GET  /api/jobs/{id}/video  the uploaded video, for playback on the results page
-  GET  /api/config           {max_upload_mb, access_gate} for the frontend
+  GET  /api/config           {max_upload_mb, access_gate, min_fps, full_accuracy_fps} for the frontend
   GET  /healthz              {"ok": true}, never gated (for host health checks)
   GET  /                     Analyze page (upload, record, results)
 
@@ -14,8 +14,9 @@ Settings come from environment variables (app/config.py). If ACCESS_TOKEN is set
 everything except /healthz is behind the access gate (app/access.py). Jobs older
 than JOB_TTL_HOURS are deleted at startup and then at most every 10 minutes.
 
-Frame rate is checked at upload time so a 30 fps clip is rejected immediately
-(422) instead of failing later in the background job.
+Frame rate is checked at upload time so a clip under MIN_FPS (about 24 fps) is
+rejected immediately (422) instead of failing later in the background job.
+30 fps clips are accepted; their report carries quality.low_fps and a disclaimer.
 """
 from __future__ import annotations
 
@@ -34,7 +35,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from . import config, jobs, pipeline
 from .access import AccessGate
 from .fusion import DEFAULT_VERIFY_WINDOW_MS
-from .media import MediaError, check_frame_rate, probe_video
+from .media import LOW_FPS_BELOW, MediaError, check_frame_rate, min_fps, probe_video
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 MAX_UPLOAD_BYTES = int(config.MAX_UPLOAD_MB * 1024 * 1024)
@@ -190,7 +191,8 @@ async def reject_oversized(request: Request, call_next):
 
 @app.get("/api/config")
 def client_config():
-    return {"max_upload_mb": config.MAX_UPLOAD_MB, "access_gate": bool(config.ACCESS_TOKEN)}
+    return {"max_upload_mb": config.MAX_UPLOAD_MB, "access_gate": bool(config.ACCESS_TOKEN),
+            "min_fps": min_fps(), "full_accuracy_fps": LOW_FPS_BELOW}
 
 
 @app.get("/healthz")

@@ -17,9 +17,15 @@ from pathlib import Path
 
 import imageio_ffmpeg
 
-# 60 fps class footage passes (59.94, and variable rate phone or browser
-# recordings that average a little under 60). 30 fps footage is rejected.
-MIN_FPS = 50.0
+from . import config
+
+# Anything from about 24 fps up is analysed (MIN_FPS env var, default 23.5 so the
+# 23.976 fps film rate passes). Ordinary 30 fps phone video, including uneven
+# frame timing, passes. Below LOW_FPS_BELOW the report carries quality.low_fps
+# and a disclaimer, and the audio/video verify window is widened (fusion.py).
+# 60 fps class footage (59.94, or variable rate recordings averaging a little
+# under 60) is analysed at full accuracy, exactly as before.
+LOW_FPS_BELOW = 50.0
 AUDIO_SR = 44100
 
 
@@ -99,17 +105,35 @@ def probe_video(path: Path) -> VideoInfo:
                      width, height, has_audio, container)
 
 
+def min_fps() -> float:
+    """Lowest accepted measured frame rate (config.MIN_FPS, read at call time)."""
+    return float(config.MIN_FPS)
+
+
 def check_frame_rate(info: VideoInfo) -> None:
-    """Reject footage below the 60 fps class with an actionable message."""
-    if info.fps < MIN_FPS:
+    """Reject footage below MIN_FPS (about 24 fps) with an actionable message."""
+    limit = min_fps()
+    if info.fps < limit:
         declared = f", header says {info.nominal_fps:g} fps" if info.nominal_fps else ""
         raise MediaError(
             f"This video is about {round(info.fps)} fps (measured {info.fps:.1f} fps over "
-            f"{info.duration_s:.1f} s{declared}). Form analysis needs 60 fps. On iPhone use "
+            f"{info.duration_s:.1f} s{declared}). The analyzer needs at least {round(limit)} fps. "
+            "60 fps gives the most accurate results and 30 fps also works. On iPhone use "
             "Settings > Camera > Record Video > 1080p at 60 fps. On Android pick 60 fps in the "
-            "camera video settings. In Record mode, use good light: many cameras drop to 30 fps "
-            "when the room is dark."
+            "camera video settings. In Record mode, use good light: many cameras lower the frame "
+            "rate when the room is dark."
         )
+
+
+def is_low_fps(fps: float) -> bool:
+    """True for accepted clips under the 60 fps class (roughly 24 to 49 fps)."""
+    return fps < LOW_FPS_BELOW
+
+
+def low_fps_message(fps: float) -> str:
+    """Plain language disclaimer shown next to the Verified score for low frame rate clips."""
+    return (f"Recorded at {round(fps)} fps. Fast strokes can fall between frames, so Verified, "
+            "sticking and form scores are estimates. For the most accurate results, record at 60 fps.")
 
 
 def extract_audio(video: Path, wav_out: Path, info: VideoInfo) -> Path:

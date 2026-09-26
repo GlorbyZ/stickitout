@@ -4,7 +4,9 @@
 // separate canvas, so it is never baked into the recorded file.
 import { loadLandmarkers, drawSkeleton, framingAdvice } from "./skeleton.js";
 
-export const MIN_FPS = 50; // must match app/media.py MIN_FPS
+// Defaults until /api/config answers (server values: MIN_FPS env var and media.LOW_FPS_BELOW).
+export const DEFAULT_MIN_FPS = 23.5;   // below this the server rejects the take
+export const FULL_ACCURACY_FPS = 50;   // below this the take is analysed with a low frame rate disclaimer
 const MAX_SECONDS = 300;
 const MIME_TYPES = [
   "video/mp4;codecs=avc1.640028,mp4a.40.2", "video/mp4;codecs=avc1,mp4a", "video/mp4",
@@ -13,7 +15,8 @@ const MIME_TYPES = [
 
 const $ = (id) => document.getElementById(id);
 
-export function initRecord({ onTake, maxBytes = () => null }) {
+export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({}) }) {
+  const limits = () => ({ min: DEFAULT_MIN_FPS, full: FULL_ACCURACY_FPS, ...fpsLimits() });
   const stage = $("stage"), video = $("preview"), canvas = $("overlay"), ctx = canvas.getContext("2d");
   const hudFps = $("hud-fps"), hudRes = $("hud-res"), hudRec = $("hud-rec"), framing = $("framing");
   const recBtn = $("rec-btn"), camSelect = $("cam-select"), mirror = $("mirror"), showSkel = $("show-skel");
@@ -110,9 +113,10 @@ export function initRecord({ onTake, maxBytes = () => null }) {
     while (fpsWindow.length > 2 && mediaTime - fpsWindow[0].t > 1.5) fpsWindow.shift();
     if (recorder?.state === "recording") { recFrames[0] ??= sample; recFrames[1] = sample; }
     if (fpsWindow.length > 2 && fpsWindow.at(-1).t - fpsWindow[0].t > 0.5) {
-      const fps = rate(fpsWindow[0], fpsWindow.at(-1));
-      hudFps.textContent = `camera ${fps.toFixed(1)} fps${fps < MIN_FPS ? ": needs 60" : ""}`;
-      hudFps.className = `pill ${fps < MIN_FPS ? "warn" : "good"}`;
+      const fps = rate(fpsWindow[0], fpsWindow.at(-1)), { min, full } = limits();
+      const note = fps < min ? ": too low, add light" : fps < full ? ": works, 60 is best" : "";
+      hudFps.textContent = `camera ${fps.toFixed(1)} fps${note}`;
+      hudFps.className = `pill ${fps < full ? "warn" : "good"}`;
     }
     if (canvas.width !== video.videoWidth) { canvas.width = video.videoWidth; canvas.height = video.videoHeight; }
     // Throttle detection (about 30 Hz preview, 10 Hz while recording). If detection
@@ -204,10 +208,18 @@ export function initRecord({ onTake, maxBytes = () => null }) {
     $("take-video").src = URL.createObjectURL(blob);
     $("take-info").innerHTML = `<b>${seconds.toFixed(1)} s</b> recorded, about <b>${fps ? fps.toFixed(1) : "?"} fps</b> measured, ` +
       `${ext.toUpperCase()} (${type.split(";")[0]}), ${(blob.size / 1e6).toFixed(1)} MB.`;
-    const warn = $("take-warning");
-    warn.hidden = !(fps && fps < MIN_FPS);
-    warn.textContent = `This take came out at about ${Math.round(fps)} fps. Form analysis needs 60 fps, so the analyzer will ` +
-      "reject it. Add light (cameras drop to 30 fps in dim rooms), close other apps, or pick another camera, then record again.";
+    const warn = $("take-warning"), { min, full } = limits();
+    warn.hidden = !(fps && fps < full);
+    if (fps && fps < min) {
+      warn.className = "notice bad";
+      warn.textContent = `This take came out at about ${Math.round(fps)} fps. The analyzer needs at least ${Math.round(min)} fps, ` +
+        "so it will reject it. Add light (cameras lower the frame rate in dim rooms), close other apps, or pick another camera, then record again.";
+    } else {
+      warn.className = "notice warn";
+      warn.textContent = `This take came out at about ${Math.round(fps)} fps. It will be analysed, but fast strokes can fall between ` +
+        "frames, so Verified, sticking and form scores will be estimates. For the most accurate results, record at 60 fps " +
+        "(more light and closing other apps help).";
+    }
     if (capped) $("take-info").innerHTML += " Recording stopped automatically at the upload size limit.";
     $("take").hidden = false;
     recBtn.disabled = false;

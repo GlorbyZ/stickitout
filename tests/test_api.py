@@ -3,7 +3,8 @@
 A synthetic 60 fps video (test pattern + click) goes through POST /api/analyze;
 form degrades because there is no drummer in the picture, audio results must
 still come back, and the report must validate against the schema. A 30 fps clip
-must be rejected with a clear error.
+is accepted with the low frame rate flag and a widened verify window; a clip
+below MIN_FPS is rejected with a clear error.
 """
 import jsonschema
 import pytest
@@ -42,13 +43,58 @@ def test_60fps_end_to_end_report_validates(client, tmp_path, report_schema):
     assert report["verification"]["verified_stroke_count"] == 0
     assert report["sticking"]["checked"] is False
 
+    # 60 fps behaviour is unchanged: no flag, the requested 40 ms window is used as is.
+    assert report["quality"]["low_fps"] is False and report["quality"]["message"] is None
+    assert report["verification"]["window_ms"] == 40.0 and report["verification"]["window_widened"] is False
 
-def test_30fps_rejected_with_clear_error(client, tmp_path):
-    video = make_video(tmp_path / "synthetic30.mp4", fps=30, seconds=3.0)
+
+def test_30fps_accepted_with_low_fps_flag(client, tmp_path, report_schema):
+    video = make_video(tmp_path / "synthetic30.mp4", fps=30, seconds=4.0, bpm=100.0)
+    res = post_video(client, video, verify_window_ms="40")
+    assert res.status_code == 202, res.text
+    job_id = res.json()["job_id"]
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "done"
+    report = client.get(f"/api/results/{job_id}").json()
+    jsonschema.Draft202012Validator(report_schema).validate(report)
+
+    assert 29 <= report["source"]["fps"] <= 31
+    q = report["quality"]
+    assert q["low_fps"] is True and q["full_accuracy_fps"] == 50
+    assert q["message"].startswith("Recorded at 30 fps.") and "record at 60 fps" in q["message"]
+    assert "\u2014" not in q["message"]
+    assert report["params"]["verify_window_ms"] == 40.0                 # what was asked for
+    assert report["verification"]["window_ms"] == 60.0                  # what was used
+    assert report["verification"]["window_requested_ms"] == 40.0
+    assert report["verification"]["window_widened"] is True and q["verify_window_ms"] == 60.0
+    assert report["audio"]["onset_count"] > 0
+
+
+def test_below_min_fps_rejected_with_clear_error(client, tmp_path, job_store):
+    video = make_video(tmp_path / "synthetic15.mp4", fps=15, seconds=3.0)
     res = post_video(client, video)
     assert res.status_code == 422
     msg = res.json()["error"]
-    assert "30 fps" in msg and "60 fps" in msg
+    assert "15 fps" in msg and "at least 24 fps" in msg and "60 fps" in msg
+    assert not job_store.exists() or not any(job_store.iterdir())      # rejected upload is not kept
+
+
+def test_low_fps_report_needs_message(report_schema):
+    """Schema check: a low_fps report must carry the disclaimer; a normal one must not be widened."""
+    quality = jsonschema.Draft202012Validator(report_schema["properties"]["quality"])
+    good = {"low_fps": True, "measured_fps": 30.0, "min_fps": 23.5, "full_accuracy_fps": 50.0,
+            "verify_window_ms": 60.0, "verify_window_widened": True, "message": "Recorded at 30 fps."}
+    assert quality.is_valid(good)
+    assert not quality.is_valid({**good, "message": None})
+    assert not quality.is_valid({k: v for k, v in good.items() if k != "low_fps"})
+    assert not quality.is_valid({**good, "low_fps": False})              # widened window without the flag
+    assert quality.is_valid({**good, "low_fps": False, "verify_window_widened": False, "message": None,
+                             "measured_fps": 60.0, "verify_window_ms": 40.0})
+    assert "quality" in report_schema["required"]
+
+
+def test_config_exposes_fps_limits(client):
+    cfg = client.get("/api/config").json()
+    assert cfg["min_fps"] == 23.5 and cfg["full_accuracy_fps"] == 50
 
 
 def test_error_contracts(client, tmp_path):

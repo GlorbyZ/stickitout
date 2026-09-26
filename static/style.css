@@ -59,6 +59,11 @@ input, select { font: inherit; padding: 9px 10px; border: 1px solid #d6d0bf; bor
 .verified-card { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; background: var(--ink); color: #fff; }
 .verified-card .big { font-size: 3.4rem; font-weight: 800; color: var(--gold); line-height: 1; }
 .verified-card .label { text-transform: uppercase; letter-spacing: .12em; font-size: .8rem; color: #ccc; }
+.lowfps-notice { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline;
+  background: #fff5d6; color: var(--ink); border-left: 6px solid var(--gold); border-radius: 10px; padding: 10px 14px; font-size: .98rem; }
+.lowfps-notice b { text-transform: uppercase; letter-spacing: .06em; font-size: .82rem; color: #8a6400; }
+.verified-card .est { margin-top: 4px; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--gold); }
+.tip { font-size: .88rem; margin: 8px 0 0; padding: 6px 10px; border-radius: 8px; background: #f3f0e6; }
 .vcounts { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .vcounts span { background: #222; border: 1px solid #333; border-radius: 8px; padding: 4px 10px; font-size: .9rem; }
 .vcounts b { color: var(--gold); }
