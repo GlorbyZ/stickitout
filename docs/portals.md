@@ -93,7 +93,18 @@ Challenges: one live prompt. Founding/active members submit notes. Mike scores 0
 
 ## Portal chrome
 
-Under 840px the member portal uses a bottom SVG dock (Home, Library, Challenges, Profile). Admin uses a hamburger drawer. Desktop keeps the top link row. Marketing home is unchanged. Brand marks are served by the Worker at `/img/brand/glyph.png` and `/img/brand/wordmark.png` so they load on login and every inner page.
+Under 840px the member portal uses a bottom SVG dock (Home, Practice, Library, Analyze, Profile). Challenges left the nav on 2026-09-26 (`SHOW_CHALLENGES_IN_NAV` in `src/ui.ts`); `/challenges` still works. Admin uses a hamburger drawer. Desktop keeps the top link row. Marketing home is unchanged. Brand marks are served by the Worker at `/img/brand/glyph.png` and `/img/brand/wordmark.png` so they load on login and every inner page.
+
+## Analyze tab
+
+`/analyze` proxies to the Stick It Out analyzer on the studio PC through the named tunnel `analyzer-origin.stickitoutdrums.com` (see `src/analyze.ts` and `docs/source-of-truth.md` mem-analyze). Secrets:
+
+```bash
+echo https://analyzer-origin.stickitoutdrums.com | npx wrangler secret put ANALYZER_ORIGIN --config workers/app/wrangler.jsonc
+Get-Content -Raw ..\Stickitout-analyzer\.remote-token | npx wrangler secret put ANALYZER_TOKEN --config workers/app/wrangler.jsonc
+```
+
+Local dev: `.dev.vars` points `ANALYZER_ORIGIN` at `http://127.0.0.1:8800`.
 
 ## Marketing (admin)
 

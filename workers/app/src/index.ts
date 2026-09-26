@@ -73,6 +73,7 @@ import {
   upsertAttempt,
 } from './challenges';
 import { parseProfile, profileComplete, saveProfile } from './profile';
+import { ANALYZE_PREFIX, analyzePage, analyzeProxy } from './analyze';
 import {
   canWatch,
   ingestFromUrl,
@@ -180,6 +181,17 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
   if (path === '/login') {
     if (user) return redirect(`${base}/`);
     return html(loginPage(base, 'member'));
+  }
+
+  // Analyze tab proxy (/analyze/static/*, /analyze/api/*). Members only, and no D1 write per job poll.
+  if (path.startsWith(`${ANALYZE_PREFIX}/`) && path !== `${ANALYZE_PREFIX}/`) {
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Log in to use Analyze.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+      });
+    }
+    return analyzeProxy(request, env, path.slice(ANALYZE_PREFIX.length));
   }
 
   if (!user) return redirect(`${base}/login`);
@@ -407,6 +419,10 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
       player = { src: '', ready: false, error: 'Membership required.' };
     }
     return html(memberWatch(base, user, lesson, player, ctx.url.searchParams.get('n') || ''));
+  }
+
+  if (path === ANALYZE_PREFIX || path === `${ANALYZE_PREFIX}/`) {
+    return analyzePage(env, base, user, ANALYZE_PREFIX);
   }
 
   if (path === '/challenges' && request.method === 'POST') {

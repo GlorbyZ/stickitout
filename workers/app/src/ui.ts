@@ -667,10 +667,19 @@ export const icons = {
   profile: icon(
     '<circle cx="12" cy="8.2" r="3.1"/><path d="M5.6 19.2c.8-3.2 3.3-5 6.4-5s5.6 1.8 6.4 5"/><path d="M18.4 7.2 20.6 5"/>',
   ),
+  analyze: icon(
+    '<path d="M3 12.5h2.6l2.2-5.6 3.2 11 3-8.2 1.9 4.4 1.3-1.6H21"/><circle cx="19.2" cy="5.2" r="1.6"/>',
+  ),
   rudiments: icon(
     '<path d="M4 7.4h16"/><path d="M4 12h16"/><path d="M4 16.6h16"/><path d="M8.4 4.6v6.2"/><path d="M15.6 13.2v6.2"/><circle cx="8.4" cy="12" r="1.6"/><circle cx="15.6" cy="16.6" r="1.6"/>',
   ),
 };
+
+/**
+ * Member nav flag: Analyze replaced Challenges in the member nav on 2026-09-26. The /challenges
+ * route, its code, and its D1 data are untouched and still reachable. Flip to true to bring the tab back.
+ */
+export const SHOW_CHALLENGES_IN_NAV = false;
 
 export type ShellOpts = {
   title: string;
@@ -702,7 +711,7 @@ export function shell(opts: ShellOpts): string {
     ['/', 'Home', 'home'],
     ['/rudiments', 'Practice', 'rudiments'],
     ['/library', 'Library', 'library'],
-    ['/challenges', 'Challenges', 'challenges'],
+    SHOW_CHALLENGES_IN_NAV ? ['/challenges', 'Challenges', 'challenges'] : ['/analyze', 'Analyze', 'analyze'],
     ['/profile', 'Profile', 'profile'],
   ];
   const desk =

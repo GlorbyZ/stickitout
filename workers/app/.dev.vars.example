@@ -3,3 +3,6 @@ RESEND_API_KEY=
 LEAD_INGEST_SECRET=
 # Set to 1 to print magic-link URLs in local wrangler logs
 DEV_LOG_LINKS=1
+# Analyze tab proxy. Production values are Worker secrets (wrangler secret put ANALYZER_ORIGIN / ANALYZER_TOKEN)
+ANALYZER_ORIGIN=http://127.0.0.1:8800
+ANALYZER_TOKEN=
