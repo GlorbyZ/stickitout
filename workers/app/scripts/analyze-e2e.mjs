@@ -59,7 +59,7 @@ r = await req('/challenges');
 check('/challenges route still reachable', r.status === 200, String(r.status));
 
 // Static JS through proxy
-for (const f of ['app.js', 'record.js', 'skeleton.js']) {
+for (const f of ['app.js', 'record.js', 'skeleton.js', 'camera.js', 'overlay.js', 'pose-engine.js', 'pose-worker.js']) {
   r = await req(`/analyze/static/${f}`);
   const js = await r.text();
   check(`static ${f} 200`, r.status === 200, `${r.status} ${js.length}b`);
@@ -109,6 +109,10 @@ if (video) {
     r = await req(`/analyze/api/jobs/${up.job_id}/video`);
     const full = await r.arrayBuffer();
     check('video full via proxy', r.status === 200 && full.byteLength === buf.length, `${r.status} ${full.byteLength}`);
+    r = await req(`/analyze/api/jobs/${up.job_id}/landmarks`);
+    const lm = r.status === 200 ? await r.json() : null;
+    check('per-frame landmarks via proxy', lm && lm.t.length === lm.pose.length && lm.t.length > 0 && lm.pts_source === 'packets',
+      lm ? `${lm.t.length} frames, first pts ${lm.t[0]}, pose ${lm.stats.pose_rate}, two hands ${lm.stats.two_hands_rate}` : String(r.status));
     out.push({ name: 'job', ok: true, extra: `${up.job_id} in ${((Date.now() - t0) / 1000).toFixed(1)} s` });
   }
 }

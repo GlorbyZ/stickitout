@@ -33,6 +33,7 @@ function upstreamPath(method: string, sub: string): string | null {
   if (method === 'POST' && sub === '/api/analyze') return sub;
   if (read && new RegExp(`^/api/jobs/${JOB}$`).test(sub)) return sub;
   if (read && new RegExp(`^/api/jobs/${JOB}/video$`).test(sub)) return sub;
+  if (read && new RegExp(`^/api/jobs/${JOB}/landmarks$`).test(sub)) return sub;
   if (read && new RegExp(`^/api/results/${JOB}$`).test(sub)) return sub;
   return null;
 }
@@ -269,6 +270,12 @@ export const ANALYZE_CSS = `
    costs phone GPUs frames. Solid bars look the same on this dark page. */
 header.bar, body.kind-member .dock { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: #0c0b0a !important; }
 .az .stage { contain: paint; }
+/* Skeleton debug stats (Stats box or ?debug=1) and the honest skeleton rate note */
+.az .hud .pill.debug { flex-basis: 100%; min-height: 0; padding: 0.3rem 0.6rem; border-radius: 8px; font: 600 0.72rem/1.35 ui-monospace, Menlo, Consolas, monospace;
+  background: rgba(12, 11, 10, 0.82); color: var(--cue); white-space: normal; }
+.az .hud .pill.debug[hidden] { display: none; }
+.az .skel-note { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--gel); }
+.az .play-debug { margin: 0.4rem 0 0; font: 0.72rem/1.4 ui-monospace, Menlo, Consolas, monospace; color: var(--chrome); overflow-wrap: anywhere; }
 .az .countdown { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font-family: "Bebas Neue", system-ui, sans-serif; font-size: 8rem; color: var(--gel); text-shadow: 0 4px 24px #000; }
 @media (orientation: portrait) and (max-width: 640px) { .az #stage { aspect-ratio: 3 / 4; max-height: 64svh; margin-inline: auto; } }
