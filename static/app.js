@@ -137,7 +137,8 @@ function render(r) {
   const widened = v.window_widened ? ` <span class="small">(widened for ${Math.round(r.source.fps)} fps)</span>` : "";
   $("verified-card").innerHTML = `${lowFpsNotice(r)}<div><div class="label">Verified</div><div class="big">${fmt(s.verified, 0, "%")}</div>
     ${r.quality?.low_fps ? '<div class="est">estimate</div>' : ""}</div>
-    <div><div class="vcounts"><span><b>${v.verified_stroke_count}</b> verified hits</span>
+    <div><div class="saved-fps ${r.source.fps >= fullFps ? "good" : "warn"}" id="saved-fps">Saved video: <b>${fmt(r.source.fps, 1)} fps</b>, measured by the server from the file</div>
+      <div class="vcounts"><span><b>${v.verified_stroke_count}</b> verified hits</span>
       <span><b>${v.unverified_onsets}</b> heard, not seen</span><span><b>${v.video_only_strikes}</b> seen, not heard</span>
       <span>window plus or minus <b>${v.window_ms}</b> ms${widened}</span></div>
       <div>Verified-only tempo <b>${fmt(v.verified_tempo_bpm, 1, " BPM")}</b>, timing error <b>${fmt(v.verified_timing.mean_abs_error_ms, 1, " ms")}</b>${v.median_av_delta_ms !== null ? `, median audio-to-video gap <b>${fmt(v.median_av_delta_ms, 1, " ms")}</b>` : ""}</div>
@@ -153,7 +154,7 @@ function render(r) {
     stat(`Tempo${target}`, fmt(audio.tempo_bpm, 1, " BPM")), stat("Top sustained (10 s)", fmt(audio.top_sustained_bpm, 0, " BPM")),
     stat("Hits detected", audio.onset_count), stat("Mean timing error", fmt(audio.timing.mean_abs_error_ms, 1, " ms")),
     stat("Pattern guess", esc(audio.pattern_guess)), stat("Grid", `1/${audio.grid.subdivision} beat, ${fmt(audio.grid.step_ms, 0, " ms")}`),
-    stat("Tracked frames", fmt(video.landmark_coverage * 100, 0, "%")), stat("Video", `${fmt(r.source.fps, 1)} fps, ${r.source.width}x${r.source.height}`),
+    stat("Tracked frames", fmt(video.landmark_coverage * 100, 0, "%")), stat("Video (server measured)", `${fmt(r.source.fps, 1)} fps, ${r.source.width}x${r.source.height}`),
   ].join("");
 
   const breaks = st.breaks.slice(0, 40).map((b) => `<li>${fmt(b.t, 2)} s, stroke ${b.stroke_index + 1}: ${esc(b.note)}</li>`).join("");

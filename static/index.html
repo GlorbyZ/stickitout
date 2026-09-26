@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Analyze | Stick It Out</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/style.css?v=2">
+  <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body>
   <header class="topbar">
@@ -51,11 +51,16 @@
       <!-- Record mode -->
       <div id="record-pane" class="pane">
         <div id="secure-warning" class="notice bad" hidden></div>
+        <div class="cam-bar" id="cam-bar" hidden>
+          <label for="cam-select">Camera</label>
+          <select id="cam-select"></select>
+          <button type="button" id="cam-flip" class="btn" title="Switch camera" hidden>Switch</button>
+        </div>
         <div class="stage" id="stage">
           <video id="preview" playsinline muted autoplay></video>
           <canvas id="overlay"></canvas>
           <div class="hud">
-            <span id="hud-fps" class="pill">camera: off</span>
+            <span id="hud-fps" class="pill fps-badge idle">camera off</span>
             <span id="hud-res" class="pill"></span>
             <span id="hud-rec" class="pill rec" hidden>REC 0:00</span>
           </div>
@@ -65,9 +70,9 @@
             <button type="button" id="cam-start" class="btn primary">Start camera</button>
           </div>
         </div>
+        <div id="fps-tip" class="notice warn" role="status" hidden></div>
         <div id="framing" class="notice" hidden></div>
         <div class="controls">
-          <select id="cam-select" aria-label="Camera" hidden></select>
           <label class="check"><input type="checkbox" id="mirror" checked> Mirror preview</label>
           <label class="check"><input type="checkbox" id="show-skel" checked> Skeleton</label>
           <button type="button" id="rec-btn" class="btn primary" disabled>Record</button>
@@ -169,6 +174,6 @@
       <p class="center small" id="add-training-msg" hidden></p>
     </section>
   </main>
-  <script type="module" src="/static/app.js?v=2"></script>
+  <script type="module" src="/static/app.js?v=3"></script>
 </body>
 </html>

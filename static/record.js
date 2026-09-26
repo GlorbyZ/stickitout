@@ -1,17 +1,20 @@
-// Record mode: opens the camera (preferring 1080p at 60 fps), draws the MediaPipe
-// skeleton live over the preview, gives framing guidance, and records the raw
-// camera stream plus microphone with MediaRecorder. The overlay lives on a
-// separate canvas, so it is never baked into the recorded file.
+// Record mode: opens the camera at 60 fps (camera.js constraint ladder, then
+// applyConstraints when the camera can do 60), shows the live fps in a badge, draws the
+// MediaPipe skeleton over the preview, gives framing guidance, and records the raw camera
+// stream plus microphone with MediaRecorder. The overlay lives on a separate canvas, so it
+// is never baked into the recorded file.
 import { loadLandmarkers, drawSkeleton, framingAdvice } from "./skeleton.js";
+import {
+  constraintLadder, retryable, boostConstraints, fpsBadge, liveFps, lowFpsTip, isPhone,
+  friendlyCameras, bestCamera, pickMimeType, videoBitrate, detectPlan,
+} from "./camera.js";
 
 // Defaults until /api/config answers (server values: MIN_FPS env var and media.LOW_FPS_BELOW).
 export const DEFAULT_MIN_FPS = 23.5;   // below this the server rejects the take
 export const FULL_ACCURACY_FPS = 50;   // below this the take is analysed with a low frame rate disclaimer
 const MAX_SECONDS = 300;
-const MIME_TYPES = [
-  "video/mp4;codecs=avc1.640028,mp4a.40.2", "video/mp4;codecs=avc1,mp4a", "video/mp4",
-  "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm",
-];
+const CAM_KEY = "sio.camera";   // label of the camera the member picked last (deviceIds can rotate)
+const TIP_AFTER_S = 2;          // seconds of measurement before the low fps tip shows
 
 const $ = (id) => document.getElementById(id);
 
@@ -19,11 +22,12 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
   const limits = () => ({ min: DEFAULT_MIN_FPS, full: FULL_ACCURACY_FPS, ...fpsLimits() });
   const stage = $("stage"), video = $("preview"), canvas = $("overlay"), ctx = canvas.getContext("2d");
   const hudFps = $("hud-fps"), hudRes = $("hud-res"), hudRec = $("hud-rec"), framing = $("framing");
-  const recBtn = $("rec-btn"), camSelect = $("cam-select"), mirror = $("mirror"), showSkel = $("show-skel");
-  let stream = null, landmarkers = null, lastResult = null, running = false;
-  let recorder = null, chunks = [], recBytes = 0, recFrames = [], recStart = 0, recTimer = null, take = null, capped = false;
-  let fpsWindow = [], adviceAt = 0, detectAt = 0, detectCost = 0, paused = false;
-  const CHEAP_DETECT_MS = 12;
+  const recBtn = $("rec-btn"), camSelect = $("cam-select"), camFlip = $("cam-flip"), mirror = $("mirror"), showSkel = $("show-skel");
+  const fpsTip = $("fps-tip"), camBar = $("cam-bar"), phone = isPhone(navigator.userAgent, navigator.maxTouchPoints || 0);
+  let stream = null, landmarkers = null, lastResult = null, running = false, cameras = [], autoPicked = false, startSeq = 0;
+  let settingsFps = 0, measuredFps = 0, measureSince = 0, badgeAt = 0;
+  let recorder = null, chunks = [], recBytes = 0, recFrames = [], recStart = 0, recTimer = null, take = null, capped = false, recBitrate = 0;
+  let fpsWindow = [], adviceAt = 0, detectCost = 0, paused = false, heldForTake = false, lastDetectFrame = -1e9;
 
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
     const w = $("secure-warning");
@@ -34,37 +38,78 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
     $("cam-start").disabled = true;
   }
 
-  async function startCamera(deviceId) {
-    stopCamera();
-    const video_c = {
-      width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60, min: 24 },
-      ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" }),
-    };
+  // Try the constraint ladder: 60 fps with a 50 fps floor at 720p then 1080p, then 60 ideal
+  // with no floor, then whatever the camera gives. Permission errors stop at once.
+  async function openStream(deviceId) {
     // Drum hits are transients: turn off voice processing so they are not squashed.
-    const audio_c = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 };
+    const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 };
+    let lastErr = null;
+    for (const video of constraintLadder({ deviceId, facingMode: "environment" })) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({ video, audio });
+      } catch (err) {
+        lastErr = err;
+        if (!retryable(err)) break;
+      }
+    }
+    throw lastErr;
+  }
+
+  // Ask a running track for 60 fps when its capabilities say it can.
+  async function boost60(track) {
+    const want = boostConstraints(track.getCapabilities?.(), track.getSettings());
+    if (!want) return;
+    try { await track.applyConstraints(want); } catch { /* keep what we have */ }
+  }
+
+  async function startCamera(deviceId, { auto = false } = {}) {
+    const seq = ++startSeq;
+    stopCamera();
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: video_c, audio: audio_c });
+      stream = await openStream(deviceId);
     } catch (err) {
+      if (deviceId && err?.name !== "NotAllowedError") return startCamera(null, { auto: true });
       showFraming("bad", cameraError(err));
       return;
     }
+    if (seq !== startSeq) { stream.getTracks().forEach((t) => t.stop()); return; }
+    const track = stream.getVideoTracks()[0];
+    await boost60(track);
     video.srcObject = stream;
     await video.play().catch(() => {});
     $("stage-empty").hidden = true;
-    const s = stream.getVideoTracks()[0].getSettings();
-    hudRes.textContent = `${s.width}x${s.height}${s.frameRate ? ` @ ${Math.round(s.frameRate)} fps asked` : ""}`;
-    mirror.checked = s.facingMode ? s.facingMode === "user" : !deviceId || mirror.checked;
+    const s = track.getSettings();
+    settingsFps = s.frameRate || 0;
+    measuredFps = 0; measureSince = performance.now(); fpsTip.hidden = true;
+    showFps();
+    hudRes.textContent = `${s.width}x${s.height}${s.frameRate ? `, camera set to ${Math.round(s.frameRate)} fps` : ""}`;
+    // Mirror only a camera that faces the member (front camera or webcam), never the back camera.
+    const facing = s.facingMode || cameras.find((c) => c.deviceId === s.deviceId)?.kind;
+    mirror.checked = facing === "user" || facing === "front" || (!facing && !phone);
+    // Labels are only readable after permission, so the list is refreshed now.
+    await listCameras(s.deviceId, s.facingMode);
     applyMirror();
-    await listCameras(s.deviceId);
+    // First start: switch once to the camera the member picked before, or else to the best
+    // camera for drumming (the main back camera on phones) when the browser opened another.
+    if (!autoPicked) {
+      autoPicked = true;
+      const active = cameras.find((c) => c.deviceId === s.deviceId);
+      const target = cameras.find((c) => c.deviceId === rememberedCamera()) || bestCamera(cameras);
+      const better = target && active && target.deviceId !== active.deviceId &&
+        (target.deviceId === rememberedCamera() || target.rank < active.rank);
+      if (better) return startCamera(target.deviceId, { auto: true });
+    }
     recBtn.disabled = false;
     running = true;
     fpsWindow = [];
     loop();
-    showFraming("warn", "Loading the skeleton model...");
-    try {
-      landmarkers = await loadLandmarkers();
-    } catch (err) {
-      showFraming("warn", "Could not load the live skeleton (needs internet for the MediaPipe files). You can still record.");
+    if (!landmarkers) {
+      showFraming("warn", "Loading the skeleton model...");
+      try {
+        landmarkers = await loadLandmarkers();
+      } catch (err) {
+        showFraming("warn", "Could not load the live skeleton (needs internet for the MediaPipe files). You can still record.");
+      }
     }
   }
 
@@ -74,17 +119,67 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
     stream = null;
   }
 
-  async function listCameras(activeId) {
-    const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
-    camSelect.hidden = cams.length < 2;
-    camSelect.innerHTML = cams.map((c, i) =>
-      `<option value="${c.deviceId}" ${c.deviceId === activeId ? "selected" : ""}>${c.label || `Camera ${i + 1}`}</option>`).join("");
+  function rememberedCamera() {
+    const label = localStorage.getItem(CAM_KEY);
+    return label ? cameras.find((c) => c.title === label)?.deviceId || null : null;
+  }
+
+  async function listCameras(activeId, activeFacing) {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    cameras = friendlyCameras(devices, activeId && activeFacing ? { [activeId]: activeFacing } : {});
+    camBar.hidden = cameras.length === 0;
+    camSelect.disabled = cameras.length < 2;
+    camFlip.hidden = cameras.length < 2;
+    camSelect.replaceChildren(...cameras.map((c) => {
+      const o = document.createElement("option");
+      o.value = c.deviceId;
+      o.textContent = c.name;
+      o.title = c.title;            // raw device label for the curious
+      o.selected = c.deviceId === activeId;
+      return o;
+    }));
+    const active = cameras.find((c) => c.deviceId === activeId);
+    camSelect.title = active ? active.title : "";
+  }
+
+  function pickCamera(deviceId) {
+    const cam = cameras.find((c) => c.deviceId === deviceId);
+    if (cam) localStorage.setItem(CAM_KEY, cam.title);
+    startCamera(deviceId);
+  }
+
+  // Switch camera: front and back on phones, next camera elsewhere.
+  function flipCamera() {
+    if (cameras.length < 2) return;
+    const i = cameras.findIndex((c) => c.deviceId === camSelect.value);
+    const cur = cameras[i];
+    const other = cur && (cur.kind === "back" || cur.kind === "front")
+      ? bestCamera(cameras.filter((c) => c.kind === (cur.kind === "back" ? "front" : "back")))
+      : null;
+    pickCamera((other || cameras[(i + 1) % cameras.length]).deviceId);
+  }
+
+  // The badge shows the measured rate once there is one, else what the camera reports.
+  function showFps() {
+    const fps = liveFps(measuredFps, settingsFps);
+    const { min, full } = limits();
+    const b = fpsBadge(fps, { min, full });
+    hudFps.textContent = b.text;
+    hudFps.className = `pill fps-badge ${b.level}`;
+    hudFps.title = `Camera set to ${settingsFps ? Math.round(settingsFps) : "?"} fps, measured ${measuredFps ? measuredFps.toFixed(1) : "?"} fps`;
+    if (fps && fps < full && measuredFps && performance.now() - measureSince > TIP_AFTER_S * 1000) {
+      fpsTip.textContent = lowFpsTip(fps, phone);
+      fpsTip.hidden = false;
+    } else if (fps >= full) {
+      fpsTip.hidden = true;
+    }
   }
 
   function cameraError(err) {
     if (err.name === "NotAllowedError") return "Camera or microphone permission was blocked. Allow both in your browser settings and try again.";
     if (err.name === "NotFoundError") return "No camera or microphone found on this device.";
     if (err.name === "OverconstrainedError") return "This camera cannot do the requested format. Try another camera.";
+    if (err.name === "NotReadableError") return "The camera is busy in another app or tab. Close it there and try again.";
     return `Could not open the camera: ${err.message || err.name}`;
   }
 
@@ -113,23 +208,33 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
     while (fpsWindow.length > 2 && mediaTime - fpsWindow[0].t > 1.5) fpsWindow.shift();
     if (recorder?.state === "recording") { recFrames[0] ??= sample; recFrames[1] = sample; }
     if (fpsWindow.length > 2 && fpsWindow.at(-1).t - fpsWindow[0].t > 0.5) {
-      const fps = rate(fpsWindow[0], fpsWindow.at(-1)), { min, full } = limits();
-      const note = fps < min ? ": too low, add light" : fps < full ? ": works, 60 is best" : "";
-      hudFps.textContent = `camera ${fps.toFixed(1)} fps${note}`;
-      hudFps.className = `pill ${fps < full ? "warn" : "good"}`;
+      const fps = rate(fpsWindow[0], fpsWindow.at(-1));
+      if (fps > 0 && (!measuredFps || now - badgeAt > 500)) {
+        measuredFps = fps; badgeAt = now; showFps();
+      }
     }
     if (canvas.width !== video.videoWidth) { canvas.width = video.videoWidth; canvas.height = video.videoHeight; }
-    // Throttle detection (about 30 Hz preview, 10 Hz while recording). If detection
-    // is expensive on this device (no GPU), pause it while recording so the encoder
-    // keeps the CPU it needs for a full 60 fps file.
+    // Pose tracking runs on the main thread (MediaPipe), so it is scheduled by presented
+    // camera frames (camera.js detectPlan): every 2nd frame in preview at 60 fps, about 10 Hz
+    // while recording, and paused for the rest of the take when the skeleton is off, detection
+    // is slow on this device, or a 60 fps camera drops under 55 fps. The recording itself is
+    // the raw camera track, so the overlay never touches the file.
     const recording = recorder?.state === "recording";
-    const pause = recording && detectCost > CHEAP_DETECT_MS;
-    if (pause !== paused) {
-      paused = pause;
-      if (pause) { ctx.clearRect(0, 0, canvas.width, canvas.height); showFraming("warn", "Skeleton paused while recording so this device can keep 60 fps. Keep playing."); }
+    const plan = detectPlan({ recording, skeletonOn: showSkel.checked, detectCost, fps: measuredFps, cameraFps: settingsFps, held: heldForTake });
+    if (recording && plan.pause) heldForTake = true;
+    if (plan.pause !== paused) {
+      paused = plan.pause;
+      if (paused) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (plan.reason === "slow" || plan.reason === "fps") {
+          showFraming("warn", "Skeleton paused while recording so this device can keep 60 fps. Keep playing.");
+        } else if (plan.reason === "off") {
+          framing.hidden = true;
+        }
+      }
     }
-    if (landmarkers && !pause && video.readyState >= 2 && now - detectAt >= (recording ? 100 : 33)) {
-      detectAt = now;
+    if (landmarkers && !plan.pause && video.readyState >= 2 && presented - lastDetectFrame >= plan.every) {
+      lastDetectFrame = presented;
       const t0 = performance.now();
       try { lastResult = landmarkers.detect(video); } catch { lastResult = null; }
       detectCost = detectCost ? 0.8 * detectCost + 0.2 * (performance.now() - t0) : performance.now() - t0;
@@ -160,14 +265,23 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
 
   async function startRecording() {
     if (!stream) return;
-    const mimeType = MIME_TYPES.find((m) => window.MediaRecorder?.isTypeSupported?.(m));
     if (!window.MediaRecorder) { showFraming("bad", "This browser cannot record video. Record with your camera app and use Upload."); return; }
     $("take").hidden = true;
     recBtn.disabled = true;
     await countdown(3);
-    chunks = []; recFrames = []; recBytes = 0; capped = false;
+    chunks = []; recFrames = []; recBytes = 0; capped = false; heldForTake = false;
     // Record the raw camera + mic stream (not the canvas), so the skeleton is not in the file.
-    recorder = new MediaRecorder(stream, { ...(mimeType ? { mimeType } : {}), videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 192_000 });
+    // H.264 MP4 first (hardware encoders keep 60 fps), bitrate sized for the capture so fast
+    // stick motion is not smeared into dropped frames.
+    const s = stream.getVideoTracks()[0].getSettings();
+    const mimeType = pickMimeType((m) => MediaRecorder.isTypeSupported(m));
+    const videoBitsPerSecond = videoBitrate(s.width, s.height, Math.max(s.frameRate || 0, measuredFps || 0) || 60);
+    recBitrate = videoBitsPerSecond;
+    try {
+      recorder = new MediaRecorder(stream, { ...(mimeType ? { mimeType } : {}), videoBitsPerSecond, audioBitsPerSecond: 192_000 });
+    } catch {
+      recorder = new MediaRecorder(stream, { videoBitsPerSecond });
+    }
     recorder.ondataavailable = (e) => {
       if (!e.data.size) return;
       chunks.push(e.data);
@@ -190,6 +304,7 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
 
   function stopRecording() {
     if (recorder?.state === "recording") recorder.stop();
+    heldForTake = false;
     clearInterval(recTimer);
     hudRec.hidden = true;
     recBtn.textContent = "Record"; recBtn.classList.replace("danger", "primary");
@@ -207,7 +322,8 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
     take = { blob, filename: `take-${stamp}.${ext}`, fps, seconds };
     $("take-video").src = URL.createObjectURL(blob);
     $("take-info").innerHTML = `<b>${seconds.toFixed(1)} s</b> recorded, about <b>${fps ? fps.toFixed(1) : "?"} fps</b> measured, ` +
-      `${ext.toUpperCase()} (${type.split(";")[0]}), ${(blob.size / 1e6).toFixed(1)} MB.`;
+      `${ext.toUpperCase()} (${type.split(";")[0]}), ${(blob.size / 1e6).toFixed(1)} MB, encoder asked for ${(recBitrate / 1e6).toFixed(1)} Mbps. ` +
+      "The server measures the saved file again after upload.";
     const warn = $("take-warning"), { min, full } = limits();
     warn.hidden = !(fps && fps < full);
     if (fps && fps < min) {
@@ -226,7 +342,8 @@ export function initRecord({ onTake, maxBytes = () => null, fpsLimits = () => ({
   }
 
   $("cam-start").addEventListener("click", () => startCamera());
-  camSelect.addEventListener("change", () => startCamera(camSelect.value));
+  camSelect.addEventListener("change", () => pickCamera(camSelect.value));
+  camFlip.addEventListener("click", flipCamera);
   mirror.addEventListener("change", applyMirror);
   recBtn.addEventListener("click", () => (recorder?.state === "recording" ? stopRecording() : startRecording()));
   $("take-discard").addEventListener("click", () => { $("take").hidden = true; take = null; });

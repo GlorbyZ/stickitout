@@ -124,3 +124,16 @@ tr.wrong td { background: #fdecec; }
 .training-guide { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #fffaf0; border: 1px solid var(--line); font-size: .9rem; }
 .training-guide summary { cursor: pointer; }
 .training-guide ul { margin: 6px 0 2px; padding-left: 18px; } .training-guide li { margin-bottom: 3px; }
+
+/* Record mode: camera picker and live fps badge */
+.cam-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cam-bar label { font-weight: 600; }
+.cam-bar select { flex: 1; min-width: 0; }
+.cam-bar .btn { flex: none; }
+.pill.fps-badge { font-size: .95rem; font-weight: 700; padding: 5px 12px; }
+.pill.fps-badge.good { background: var(--good); color: #fff; }
+.pill.fps-badge.warn { background: var(--gold); color: #111; }
+.pill.fps-badge.bad { background: var(--bad); color: #fff; }
+.pill.fps-badge.idle { background: rgba(0,0,0,.65); color: #fff; }
+.saved-fps { font-size: .9rem; margin-bottom: 4px; } .saved-fps.good b { color: var(--good); } .saved-fps.warn b { color: #8a6400; }
+.cam-bar[hidden], #cam-flip[hidden] { display: none; }
