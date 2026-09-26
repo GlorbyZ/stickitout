@@ -1,6 +1,7 @@
 <#
 Restart only the analyzer server started by start-remote.ps1 (for example after a code
-change). The Cloudflare quick tunnel keeps running, so the trycloudflare.com link and the
+change). The Cloudflare tunnel (named analyzer-origin.stickitoutdrums.com, or a quick tunnel)
+keeps running, so the link and the
 key in remote-url.txt stay the same.
 
   .\restart-server.ps1

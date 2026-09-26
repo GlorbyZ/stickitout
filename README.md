@@ -28,7 +28,7 @@ analysis runs on the server; the live skeleton in Record mode is only a framing 
 - [Tests](#tests)
 - [Real-sample test (manual)](#real-sample-test-manual)
 - [Deviations from the build spec](#deviations-from-the-build-spec)
-- [Member portal integration (later)](#member-portal-integration-later)
+- [Member portal integration](#member-portal-integration-live-since-2026-09-26)
 - [Layout](#layout)
 
 ## Quick start (Windows)
@@ -123,27 +123,42 @@ None of these were set up; each needs your own account and may cost money beyond
 ## Remote access over HTTPS
 
 Phone browsers only allow the camera on HTTPS pages (or `localhost` on the same device).
-From the Windows PC, one command gives a private HTTPS link without any account:
+From the Windows PC:
 
 ```powershell
-.\start-remote.ps1          # prints https://<random>.trycloudflare.com/?key=<key>
-.\stop-remote.ps1           # stops the server and the tunnel
-.\start-remote.ps1 -NewKey  # restart with a fresh key (old links stop working)
-.\restart-server.ps1       # restart only the server (after a code change); tunnel, link and key stay
+.\start-remote.ps1          # server + named tunnel: https://analyzer-origin.stickitoutdrums.com/?key=<key>
+.\stop-remote.ps1           # stops the server and the tunnel (only this analyzer's processes)
+.\start-remote.ps1 -NewKey  # restart with a fresh key (old links stop working, see below)
+.\start-remote.ps1 -Quick   # use a temporary trycloudflare.com quick tunnel instead
+.\restart-server.ps1        # restart only the server (after a code change); tunnel, link and key stay
 ```
 
+- **Stable address.** When `.tunnel-token` exists (gitignored), `start-remote.ps1` runs the
+  separate named Cloudflare Tunnel `sio-analyzer-origin` (id `4a6ec999-62d3-4426-b7ca-4b0ee23e011b`,
+  created 2026-09-26 on the Stick It Out Cloudflare account, free). It is always
+  `https://analyzer-origin.stickitoutdrums.com`, so the address no longer changes on restart.
+  Its ingress is set in Cloudflare and forwards to `http://127.0.0.1:8800`, so the server must
+  use port 8800 (the script refuses another `-Port` in named mode). cloudflared reads the token
+  with `--token-file`, so it never appears on a command line.
+- **Access.** Every path except `/healthz` still needs the key (`?key=` link, cookie, or
+  `X-Access-Token` header), so the public hostname is useless without it. The member portal adds
+  the header server-side.
+- **Quick tunnel fallback.** `-Quick` (or no `.tunnel-token`) gives the old behavior: a new
+  `trycloudflare.com` address on every start, no account needed. The portal does not follow it.
+- **Other tunnels are never touched.** This PC also runs a separate, pre-existing cloudflared
+  tunnel service. `stop-remote.ps1` only stops processes whose command line proves they are this
+  analyzer's: `scripts\serve-remote.ps1` and its uvicorn on the port, cloudflared reading this
+  folder's `.tunnel-token`, or a quick tunnel to the port that logs into this folder's `logs\`.
 - It installs `cloudflared` with winget if it is missing, starts the server with a random
-  `ACCESS_TOKEN` (kept in `.remote-token`) and `MAX_UPLOAD_MB=95`, opens a Cloudflare quick
-  tunnel, and saves the link to `remote-url.txt`.
+  `ACCESS_TOKEN` (kept in `.remote-token`) and `MAX_UPLOAD_MB=95`, and saves the link to
+  `remote-url.txt`.
 - Both processes run detached and survive closing the window. The server keeps the PC from
-  sleeping while it runs, but **the PC must stay on and online** for the link to work.
-- Every `start-remote.ps1` restart gives a new `trycloudflare.com` address (the key stays
-  the same). `restart-server.ps1` restarts only the analyzer server and leaves the running
-  tunnel alone, so the link keeps working.
+  sleeping while it runs, but **the PC must stay on and online** for the link (and the portal
+  Analyze tab) to work.
 - Cloudflare caps uploads at 100 MB. Record mode records at about 8 Mbps and stops itself at
   the cap (about 90 seconds); phone camera files are bigger, so keep uploads to 30 to 45 seconds.
-- Quick tunnels are for testing. For something permanent use a named Cloudflare tunnel or
-  one of the hosts above.
+- To recreate the tunnel token file: Cloudflare dashboard, Zero Trust, Networks, Tunnels,
+  `sio-analyzer-origin`, copy the connector token into `.tunnel-token` (one line, no spaces).
 
 ## Camera guide
 
@@ -473,25 +488,37 @@ Spec 10.2, still to be done with a real recording:
   paradiddle sticking check, Record mode with the live skeleton, access gate, Docker, and
   the remote tunnel script.
 
-## Member portal integration (later)
+## Member portal integration (live since 2026-09-26)
 
-The Python pipeline (aubio, librosa, MediaPipe, ffmpeg) cannot run inside a Cloudflare
-Worker. Recommended shape:
+The member portal (`Stickitout\workers\app`, Worker `stickitout-portals`) has an **Analyze**
+tab at `https://member.stickitoutdrums.com/analyze` that replaced Challenges in the member nav.
 
-1. Host this container on a small VM or container host (Fly, Render, Railway, or any Docker
-   VM) on its own subdomain (for example `analyzer.<portal domain>`).
-2. The portal's Analyze tab records or picks the video in the browser (reuse `record.js`
-   and `skeleton.js`) and asks the Worker for an upload slot. The Worker checks the member
-   session and returns a presigned R2 upload URL plus a short-lived signed job token (HMAC
-   with a secret shared with the analyzer).
-3. The browser uploads straight to R2 (large files never pass through the Worker), then the
-   Worker calls `POST /api/analyze` on the analyzer with the R2 object key and the signed
-   token (a small addition: accept an R2 key instead of a multipart file).
-4. The analyzer writes the report back (R2 object or a callback to the Worker, which stores
-   the summary in D1 against the member). The portal polls the Worker or receives the callback.
-5. Keep the analyzer private: only the Worker calls it (the shared-secret header already
-   exists as `X-Access-Token`; Cloudflare Access or a tunnel adds network isolation).
-6. Scale out with a queue (Cloudflare Queues or Redis) and more analyzer workers when needed.
+- **Design: Worker proxy.** The Worker checks the member session, then proxies an allowlist of
+  analyzer routes under `/analyze/`: `/analyze/static/*` (not `label.*`), `GET /api/config`,
+  `POST /api/analyze` (the upload body is streamed), `GET /api/jobs/<id>`, `/api/jobs/<id>/video`
+  (Range requests pass through for playback) and `/api/results/<id>`. The label page, dataset
+  intake and everything else are not reachable from the portal.
+- **The key never reaches the browser.** The Worker adds `X-Access-Token` from its
+  `ANALYZER_TOKEN` secret. The origin URL is the `ANALYZER_ORIGIN` secret
+  (`https://analyzer-origin.stickitoutdrums.com`). Portal cookies are not forwarded, and analyzer
+  `Set-Cookie` headers are dropped.
+- **UI.** The Worker fetches this app's `index.html` on each page view, takes the `<main>`
+  markup, and renders it inside the portal header and dock with the portal's own dark theme
+  (the portal does not load `static/style.css`). The JS is served through the proxy with its
+  `"/api/"` URLs rewritten to `"/analyze/api/"`, so **keep API calls in `static/*.js` as absolute
+  `/api/...` strings** and keep element ids stable. Buttons with ids `add-training`,
+  `add-training-msg`, `json-link` and the `.training-guide` block are hidden in the portal.
+  Record mode runs top level on the portal page (no iframe), which sends
+  `Permissions-Policy: camera=(self), microphone=(self)`.
+- **Offline.** If the tunnel or server is down, the tab shows "Analyzer is offline right now, try
+  again later." and API calls get a 503 JSON error with the same text.
+- **New key.** After `.\start-remote.ps1 -NewKey`, update the portal secret from the
+  `Stickitout` folder or the tab shows offline:
+  `Get-Content -Raw ..\Stickitout-analyzer\.remote-token | npx wrangler secret put ANALYZER_TOKEN --config workers/app/wrangler.jsonc`
+- **Limits.** Uploads over 95 MB are refused by the analyzer and over 100 MB by Cloudflare. Jobs
+  are not tied to a member account (ids are random), and they are deleted after `JOB_TTL_HOURS`.
+- **Later**, for hosting off the PC: move this container to a VM or container host and point
+  `ANALYZER_ORIGIN` at it; nothing in the portal changes.
 
 ## Layout
 
