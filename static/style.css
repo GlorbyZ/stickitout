@@ -77,6 +77,17 @@ input, select { font: inherit; padding: 9px 10px; border: 1px solid #d6d0bf; bor
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
 .grid2 .card { margin-bottom: 0; } .grid2 { margin-bottom: 16px; }
 .chart { width: 100%; display: block; }
+/* Charts are hidden while SHOW_CHARTS is false in app.js (it sets .no-charts on #results). */
+#results.no-charts .chart-card { display: none; }
+/* Playback: large video near the top of the results. */
+.playback-card { padding: 14px; }
+.stage.playback { aspect-ratio: auto; min-height: 240px; }
+.stage.playback video { display: block; max-height: 78vh; background: #000; }
+/* Compact score rings and stat tiles so the playback video shows without much scrolling. */
+.dials { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+.dial svg { width: 92px; height: 92px; } .dial.overall svg { width: 104px; height: 104px; }
+#stats { grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px; margin-top: 10px; }
+#stats .stat { padding: 7px 9px; } #stats .stat b { font-size: 1rem; } #stats .stat span { font-size: .76rem; }
 .k { padding: 1px 6px; border-radius: 5px; color: #fff; } .k.good { background: var(--good); } .k.mid { background: var(--mid); }
 .k.badk { background: var(--bad); }
 .table-wrap { overflow-x: auto; }
@@ -94,4 +105,18 @@ tr.wrong td { background: #fdecec; }
   .take, .verified-card { grid-template-columns: 1fr; }
   .verified-card .big { font-size: 2.8rem; }
   .params label { flex-basis: 100%; }
+  main { padding-left: 8px; padding-right: 8px; padding-top: 10px; }
+  .card { padding: 12px; margin-bottom: 10px; }
+  .verified-card { gap: 6px; }
+  .verified-card .big { font-size: 2.3rem; }
+  .vcounts { gap: 5px; margin: 4px 0; } .vcounts span { font-size: .78rem; padding: 2px 7px; }
+  .dials { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  .dial svg, .dial.overall svg { width: 100%; max-width: 64px; height: auto; }
+  .dial .name { font-size: .72rem; } .dial .why { font-size: .64rem; }
+  .verified-card > div:last-child { font-size: .88rem; line-height: 1.4; }
+  #stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  #stats .stat { padding: 5px 6px; } #stats .stat b { font-size: .8rem; line-height: 1.25; overflow-wrap: anywhere; } #stats .stat span { font-size: .68rem; line-height: 1.2; display: block; }
+  .playback-card { padding: 10px 8px; } .playback-card h2 { margin-bottom: 6px; }
+  .stage.playback { border-radius: 8px; min-height: 200px; }
+  .stage.playback video { max-height: 70vh; }
 }

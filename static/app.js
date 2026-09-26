@@ -3,6 +3,10 @@
 import { initRecord } from "./record.js";
 import { loadLandmarkers, drawSkeleton } from "./skeleton.js";
 
+// Charts (audio waveform, wrist height, timing error spread, tempo over time) are hidden for now
+// so the playback video sits near the top. Set SHOW_CHARTS = true to bring them back.
+const SHOW_CHARTS = false;
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmt = (v, d = 1, unit = "") => (v === null || v === undefined ? "n/a" : `${Number(v).toFixed(d)}${unit}`);
@@ -172,11 +176,16 @@ function render(r) {
     shoulder tilt ${fmt(f.shoulder_line_angle_deg, 1)} deg. Heights are in ${esc((video.normalization || "body").replace(/_/g, " "))} units.
     Arm vs wrist: higher means more arm.</p>`;
 
-  drawWave(r); drawTraj(r); drawHist(audio.timing.histogram); drawTempo(audio.rolling_bpm, audio.target_bpm);
+  $("results").classList.toggle("no-charts", !SHOW_CHARTS);
+  if (SHOW_CHARTS) drawCharts(r);
   renderStrokes(r.strokes, 60);
   setupPlayback(r);
   renderHow();
   $("results").scrollIntoView({ behavior: "smooth" });
+}
+
+function drawCharts(r) {
+  drawWave(r); drawTraj(r); drawHist(r.audio.timing.histogram); drawTempo(r.audio.rolling_bpm, r.audio.target_bpm);
 }
 
 function sizeCanvas(cv) {
@@ -318,7 +327,7 @@ function renderHow() {
 }
 
 $("again").addEventListener("click", () => { $("results").hidden = true; window.scrollTo({ top: 0, behavior: "smooth" }); });
-window.addEventListener("resize", () => { if (report && !$("results").hidden) { drawWave(report); drawTraj(report); drawHist(report.audio.timing.histogram); drawTempo(report.audio.rolling_bpm, report.audio.target_bpm); } });
+window.addEventListener("resize", () => { if (SHOW_CHARTS && report && !$("results").hidden) drawCharts(report); });
 // Deep link for reviewing a finished job: /#job=<id> (set automatically when a job finishes).
 function openFromHash() {
   const m = location.hash.match(/job=([0-9a-f]{32})/);

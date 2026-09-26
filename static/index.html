@@ -107,40 +107,41 @@
       <div id="error" class="notice bad" hidden></div>
     </section>
 
-    <section id="results" hidden>
+    <section id="results" class="no-charts" hidden>
       <div class="card verified-card" id="verified-card"></div>
       <div class="card">
         <h2>Scores</h2>
         <div class="dials" id="dials"></div>
         <div class="stats" id="stats"></div>
       </div>
-      <div class="grid2">
-        <div class="card" id="sticking-card"></div>
-        <div class="card" id="hands-card"></div>
-      </div>
-      <div class="card">
-        <h2>Waveform and hits</h2>
-        <p class="muted small">Each tick is a detected hit, colored by timing error: <span class="k good">under 10 ms</span>
-          <span class="k mid">10 to 25 ms</span> <span class="k badk">over 25 ms</span>. Solid ticks were verified by video,
-          short ticks were heard but not seen. Click to jump the video.</p>
-        <canvas id="wave" class="chart" height="180"></canvas>
-      </div>
-      <div class="card">
-        <h2>Wrist height (L and R)</h2>
-        <canvas id="traj" class="chart" height="220"></canvas>
-        <p class="muted small" id="traj-note"></p>
-      </div>
-      <div class="grid2">
-        <div class="card"><h2>Timing error spread</h2><canvas id="hist" class="chart" height="180"></canvas></div>
-        <div class="card"><h2>Tempo over time</h2><canvas id="tempo" class="chart" height="180"></canvas></div>
-      </div>
-      <div class="card">
+      <div class="card playback-card" id="playback-card">
         <h2>Playback</h2>
         <div class="stage playback">
           <video id="playback" controls playsinline preload="metadata"></video>
           <canvas id="play-overlay"></canvas>
         </div>
         <label class="check"><input type="checkbox" id="play-skel"> Draw skeleton on playback (runs in your browser)</label>
+      </div>
+      <div class="grid2">
+        <div class="card" id="sticking-card"></div>
+        <div class="card" id="hands-card"></div>
+      </div>
+      <!-- Charts (waveform, wrist height, timing spread, tempo). Hidden while SHOW_CHARTS is false in app.js. -->
+      <div class="card chart-card">
+        <h2>Waveform and hits</h2>
+        <p class="muted small">Each tick is a detected hit, colored by timing error: <span class="k good">under 10 ms</span>
+          <span class="k mid">10 to 25 ms</span> <span class="k badk">over 25 ms</span>. Solid ticks were verified by video,
+          short ticks were heard but not seen. Click to jump the video.</p>
+        <canvas id="wave" class="chart" height="180"></canvas>
+      </div>
+      <div class="card chart-card">
+        <h2>Wrist height (L and R)</h2>
+        <canvas id="traj" class="chart" height="220"></canvas>
+        <p class="muted small" id="traj-note"></p>
+      </div>
+      <div class="grid2 chart-card">
+        <div class="card"><h2>Timing error spread</h2><canvas id="hist" class="chart" height="180"></canvas></div>
+        <div class="card"><h2>Tempo over time</h2><canvas id="tempo" class="chart" height="180"></canvas></div>
       </div>
       <div class="card">
         <h2>Every stroke</h2>
