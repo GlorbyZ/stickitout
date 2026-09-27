@@ -41,7 +41,8 @@ recorder = initRecord({
 let chosen = null;
 function choose(file) {
   chosen = file;
-  $("drop-text").innerHTML = file ? `<strong>${esc(file.name)}</strong><br><span class="muted">${(file.size / 1e6).toFixed(1)} MB</span>` : "";
+  const resume = file && localStorage.getItem(fingerprint(file, file.name)) ? "<br><span class=\"muted\">Unfinished upload found. It will continue where it stopped.</span>" : "";
+  $("drop-text").innerHTML = file ? `<strong>${esc(file.name)}</strong><br><span class="muted">${(file.size / 1e6).toFixed(1)} MB</span>${resume}` : "";
   $("upload-btn").disabled = !file;
 }
 $("file").addEventListener("change", (e) => choose(e.target.files[0]));
@@ -63,58 +64,128 @@ function showError(msg) {
   if (msg) $("progress").hidden = true;
 }
 
-// Files over CHUNKED_OVER (slow motion is often 200 to 300 MB) go up in pieces: Cloudflare in
-// front of the analyzer refuses a single request body over 100 MB.
-const CHUNKED_OVER = 80 * 1048576;
+// ---------- resumable upload ----------
+// Every upload goes up in pieces (the server says how big, 8 MB), each with its index and SHA-256.
+// A failed piece is retried with backoff (1, 2, 4 ... 30 s) for as long as the device is online;
+// going offline pauses the upload and coming back online resumes it. The upload id is kept in
+// localStorage under the file's name, size and date, so picking the same file again after a
+// reload continues with only the missing pieces.
 const ANALYZING_SLOW = "Analyzing, this can take a few minutes for slow motion";
+const MSG_LOST = "Connection lost, retrying...";
+const MSG_BACK = "Back online, resuming upload";
+const PIECE_TIMEOUT_MS = 120000;
+const STORE = "sio-upload:";
+const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
+const mb = (n) => (n / 1048576).toFixed(n < 10 * 1048576 ? 1 : 0);
+const fingerprint = (blob, name) => `${STORE}${name}|${blob.size}|${blob.lastModified || 0}`;
 
-function uploadProgress(loaded, total) {
-  const pct = Math.round((100 * loaded) / total);
-  const mb = total > CHUNKED_OVER ? ` (${(loaded / 1048576).toFixed(0)} of ${(total / 1048576).toFixed(0)} MB)` : "";
-  setProgress((0.1 * loaded) / total, `Uploading ${pct}%${mb}`);
+function uploadProgress(loaded, total, note = "") {
+  const pct = Math.min(100, Math.floor((100 * loaded) / total));
+  setProgress((0.1 * loaded) / total, note || `Uploading ${pct}% (${mb(loaded)} of ${mb(total)} MB)`);
 }
 
-function send(method, url, body, onProgress) {
+function send(method, url, body, onProgress, timeoutMs = 0) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(method, url);
+    if (timeoutMs) xhr.timeout = timeoutMs;
     if (onProgress) xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded, e.total);
     xhr.onload = () => {
       let b = {};
       try { b = JSON.parse(xhr.responseText); } catch { /* non-JSON error page */ }
       resolve({ status: xhr.status, body: b });
     };
-    xhr.onerror = () => reject(new Error("Upload failed. Check your connection and try again."));
+    xhr.onerror = () => reject(new Error("network"));
+    xhr.ontimeout = () => reject(new Error("timeout"));
     xhr.send(body);
   });
 }
 
-async function sendChunked(blob, filename, params) {
-  const start = new FormData();
-  start.append("filename", filename);
-  start.append("size", String(blob.size));
-  if (blob.type) start.append("content_type", blob.type);
-  let r = await send("POST", "/api/uploads", start);
-  if (r.status !== 201 || !r.body.upload_id) throw new Error(r.body.error || `Upload failed (HTTP ${r.status}).`);
-  const id = r.body.upload_id, step = r.body.chunk_bytes || 64 * 1048576;
-  let off = 0, tries = 0;
-  while (off < blob.size) {
-    const from = off;
-    try {
-      r = await send("PUT", `/api/uploads/${id}?offset=${from}`, blob.slice(from, from + step), (n) => uploadProgress(from + n, blob.size));
-    } catch (e) {
-      r = { status: 0, body: { error: e.message } };
+// Screen wake lock while uploading (where supported), taken again when the page comes back.
+let wakeLock = null, uploading = false;
+async function keepAwake(on) {
+  uploading = on;
+  try {
+    if (on && "wakeLock" in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    } else if (!on && wakeLock) {
+      await wakeLock.release();
+      wakeLock = null;
     }
-    if (r.status === 200 || (r.status === 409 && typeof r.body.received === "number")) {
-      off = r.body.received;                    // 409: the server already has more or less; carry on from there
-      tries = 0;
-      continue;
-    }
-    if (++tries >= 4 || (r.status >= 400 && r.status < 500)) throw new Error(r.body.error || `Upload failed (HTTP ${r.status}).`);
-    await new Promise((ok) => setTimeout(ok, 2000 * tries));
+  } catch { /* not allowed right now (battery saver, hidden tab) */ }
+}
+document.addEventListener("visibilitychange", () => { if (uploading && document.visibilityState === "visible") keepAwake(true); });
+
+function waitOnline() {
+  return navigator.onLine ? Promise.resolve(false) : new Promise((ok) => window.addEventListener("online", () => ok(true), { once: true }));
+}
+
+// Retry fn until it gives a final answer. fn returns {status, body}; network errors, timeouts,
+// 5xx, 408 and 429 are retried, everything else is final.
+async function withRetry(fn, onRetryNote) {
+  let delay = 1000;
+  for (;;) {
+    let r;
+    try { r = await fn(); } catch { r = { status: 0, body: {} }; }
+    const transient = r.status === 0 || r.status >= 500 || r.status === 408 || r.status === 429;
+    if (!transient) return r;
+    onRetryNote(MSG_LOST);
+    if (await waitOnline()) { onRetryNote(MSG_BACK); delay = 1000; continue; }
+    await sleep(delay);
+    delay = Math.min(30000, delay * 2);
   }
-  r = await send("POST", `/api/uploads/${id}/finish`, params);
+}
+
+async function sha256Hex(blob) {
+  const buf = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function resumableUpload(blob, filename, params, depth = 0) {
+  const key = fingerprint(blob, filename);
+  const note = (m) => { $("progress-text").textContent = m; };
+  let st = null, id = null;
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch { return null; } })();
+  if (saved?.id) {
+    const r = await withRetry(() => send("GET", `/api/uploads/${saved.id}`, null, null, 30000), note);
+    if (r.status === 200 && r.body.size === blob.size) { st = r.body; id = saved.id; }
+    else localStorage.removeItem(key);
+  }
+  if (!st) {
+    const start = new FormData();
+    start.append("filename", filename);
+    start.append("size", String(blob.size));
+    if (blob.type) start.append("content_type", blob.type);
+    const r = await withRetry(() => send("POST", "/api/uploads", start, null, 30000), note);
+    if (r.status !== 201 || !r.body.upload_id) throw new Error(r.body.error || `Upload failed (HTTP ${r.status}).`);
+    id = r.body.upload_id;
+    st = { ...r.body, have: [], job_id: null };
+    try { localStorage.setItem(key, JSON.stringify({ id, t: Date.now() })); } catch { /* storage full or blocked */ }
+  }
+  if (!st.job_id) {
+    const size = st.piece_bytes, have = new Set(st.have);
+    const pieceLen = (i) => Math.min(size, blob.size - i * size);
+    let done = [...have].reduce((n, i) => n + pieceLen(i), 0), damaged = 0;
+    for (let i = 0; i < st.pieces; i++) {
+      if (have.has(i)) continue;
+      const piece = blob.slice(i * size, i * size + pieceLen(i));
+      const sum = await sha256Hex(piece);
+      const r = await withRetry(() => send("PUT", `/api/uploads/${id}/pieces/${i}?sha256=${sum}`, piece,
+        (n) => uploadProgress(done + n, blob.size), PIECE_TIMEOUT_MS), note);
+      if (r.status === 400 && ++damaged <= 5) { i--; await sleep(1000); continue; }   // damaged in transit: send it again
+      if (r.status !== 200) throw new Error(r.body.error || `Upload failed (HTTP ${r.status}).`);
+      done += pieceLen(i);
+      damaged = 0;
+      uploadProgress(done, blob.size);
+    }
+  }
+  const r = await withRetry(() => send("POST", `/api/uploads/${id}/finish`, params, null, 120000), note);
+  if (r.status === 409 && Array.isArray(r.body.missing) && depth < 3) {   // a piece went missing: fill the gaps
+    return resumableUpload(blob, filename, params, depth + 1);
+  }
   if (r.status !== 202 || !r.body.job_id) throw new Error(r.body.error || `Upload failed (HTTP ${r.status}).`);
+  localStorage.removeItem(key);
   return r.body;
 }
 
@@ -128,18 +199,16 @@ async function submit(blob, filename) {
   const fd = new FormData($("params"));
   for (const [k, v] of [...fd.entries()]) if (v === "") fd.delete(k);
   setProgress(0, "Uploading...");
+  $("upload-keep").hidden = false;
+  keepAwake(true);
   let started;
   try {
-    if (blob.size > CHUNKED_OVER) {
-      started = await sendChunked(blob, filename, fd);
-    } else {
-      fd.append("video", blob, filename);
-      const r = await send("POST", "/api/analyze", fd, (n, t) => uploadProgress(n, t));
-      if (r.status !== 202 || !r.body.job_id) return showError(r.body.error || `Upload failed (HTTP ${r.status}).`);
-      started = r.body;
-    }
+    started = await resumableUpload(blob, filename, fd);
   } catch (e) {
     return showError(e.message || "Upload failed. Check your connection and try again.");
+  } finally {
+    $("upload-keep").hidden = true;
+    keepAwake(false);
   }
   poll(started.job_id, Boolean(started.slow_motion) || (started.fps || 0) >= slowFps);
 }

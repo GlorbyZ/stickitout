@@ -108,31 +108,62 @@ def test_error_contracts(client, tmp_path):
     assert res.status_code == 422 and "verify_window_ms" in res.json()["error"]
 
 
-def test_slow_motion_120fps_chunked_upload(client, tmp_path, report_schema):
-    """A 120 fps clip sent in pieces through /api/uploads (the path big slow motion files take)."""
+def _sha(b):
+    import hashlib
+    return hashlib.sha256(b).hexdigest()
+
+
+def start_upload(client, name, data):
+    res = client.post("/api/uploads", data={"filename": name, "size": str(len(data))})
+    assert res.status_code == 201, res.text
+    return res.json()
+
+
+def put_piece(client, uid, data, i, step, sha=None, body=None):
+    piece = data[i * step:(i + 1) * step]
+    return client.put(f"/api/uploads/{uid}/pieces/{i}?sha256={sha or _sha(piece)}", content=piece if body is None else body)
+
+
+def test_slow_motion_120fps_resumable_upload(client, tmp_path, report_schema, monkeypatch):
+    """A 120 fps clip in pieces, out of order, with a duplicate, a damaged and a cut-off piece."""
+    import app.main as m
+    monkeypatch.setattr(m, "PIECE_BYTES", 256 * 1024)
     video = make_video(tmp_path / "slowmo120.mp4", fps=120, seconds=4.0, bpm=100.0)
     data = video.read_bytes()
-    res = client.post("/api/uploads", data={"filename": video.name, "size": str(len(data))})
-    assert res.status_code == 201, res.text
-    uid = res.json()["upload_id"]
-    step = max(1, len(data) // 3)
-    off = 0
-    while off < len(data):
-        r = client.put(f"/api/uploads/{uid}?offset={off}", content=data[off:off + step])
-        assert r.status_code == 200, r.text
-        off = r.json()["received"]
-    assert off == len(data)
-    bad = client.put(f"/api/uploads/{uid}?offset=0", content=b"x")          # out of order piece
-    assert bad.status_code == 409 and bad.json()["received"] == len(data)
+    st = start_upload(client, video.name, data)
+    uid, step, n = st["upload_id"], st["piece_bytes"], st["pieces"]
+    assert step == 256 * 1024 and n == -(-len(data) // step) and n >= 3
+    order = list(range(n))[::-1]
+    for i in order[: n // 2]:
+        assert put_piece(client, uid, data, i, step).status_code == 200
+    # the connection drops: a cut-off piece and a damaged one are refused and not stored
+    cut = put_piece(client, uid, data, 0, step, body=data[:1000])
+    assert cut.status_code == 400 and "expected" in cut.json()["error"]
+    bad = put_piece(client, uid, data, 0, step, sha="0" * 64)
+    assert bad.status_code == 400 and "checksum" in bad.json()["error"]
+    # "reload": the status says which pieces are there, only the rest are sent
+    status = client.get(f"/api/uploads/{uid}").json()
+    assert status["have"] == sorted(order[: n // 2]) and status["complete"] is False and status["size"] == len(data)
+    early = client.post(f"/api/uploads/{uid}/finish", data={"rudiment": "Single Paradiddle"})
+    assert early.status_code == 409 and early.json()["missing"] == sorted(order[n // 2:])
+    for i in order[n // 2:]:
+        assert put_piece(client, uid, data, i, step).status_code == 200
+    assert put_piece(client, uid, data, 1, step).status_code == 200            # duplicate piece is fine
+    assert client.get(f"/api/uploads/{uid}").json()["complete"] is True
     res = client.post(f"/api/uploads/{uid}/finish", data={"rudiment": "Single Paradiddle"})
     assert res.status_code == 202, res.text
     body = res.json()
     assert body["job_id"] == uid and body["slow_motion"] is True and abs(body["fps"] - 120) < 1
+    again = client.post(f"/api/uploads/{uid}/finish", data={"rudiment": "Single Paradiddle"})
+    assert again.status_code == 202 and again.json()["job_id"] == uid                 # finish is idempotent
     assert client.get(f"/api/jobs/{uid}").json()["status"] == "done"
     report = client.get(f"/api/results/{uid}").json()
     jsonschema.Draft202012Validator(report_schema).validate(report)
     assert abs(report["source"]["fps"] - 120) < 1 and report["quality"]["low_fps"] is False
     assert abs(report["audio"]["tempo_bpm"] - 100.0) <= 1.0
+    video_file = next(p for p in (m.jobs.job_dir(uid)).iterdir() if p.name.startswith("video."))
+    assert video_file.read_bytes() == data                                        # joined exactly
+    assert not list(m.jobs.job_dir(uid).glob("piece-*"))
 
 
 def test_slow_motion_240fps_pose_sampled_audio_full(client, tmp_path):
@@ -147,12 +178,26 @@ def test_slow_motion_240fps_pose_sampled_audio_full(client, tmp_path):
     assert abs(report["audio"]["tempo_bpm"] - 100.0) <= 1.0
 
 
-def test_chunked_upload_errors(client):
-    assert client.put("/api/uploads/" + "0" * 32 + "?offset=0", content=b"x").status_code == 404
-    assert client.post("/api/uploads/not-an-id/finish").status_code == 404
-    assert client.post("/api/uploads", data={"filename": "a.txt"}).status_code == 415
+def test_upload_errors_and_abandoned_cleanup(client, monkeypatch):
+    import os
+    import time
+    import app.main as m
+    assert client.put("/api/uploads/" + "0" * 32 + "/pieces/0?sha256=" + "0" * 64, content=b"x").status_code == 404
+    assert client.get("/api/uploads/not-an-id").status_code == 404
+    assert client.post("/api/uploads", data={"filename": "a.txt", "size": "10"}).status_code == 415
     assert client.post("/api/uploads", data={"filename": "a.mp4", "size": str(10 ** 13)}).status_code == 413
-    res = client.post("/api/uploads", data={"filename": "a.mp4"})
-    assert client.post(f"/api/uploads/{res.json()['upload_id']}/finish").status_code == 422   # nothing sent
+    st = start_upload(client, "a.mp4", b"x" * 10)
+    uid = st["upload_id"]
+    assert client.put(f"/api/uploads/{uid}/pieces/5?sha256={_sha(b'x' * 10)}", content=b"x" * 10).status_code == 422
+    assert client.put(f"/api/uploads/{uid}/pieces/0?sha256=nothex", content=b"x" * 10).status_code == 422
+    assert client.post(f"/api/uploads/{uid}/finish").status_code == 409
     cfg = client.get("/api/config").json()
-    assert cfg["slow_motion_fps"] == 100 and cfg["chunk_bytes"] <= 95 * 1024 * 1024
+    assert cfg["slow_motion_fps"] == 100 and cfg["piece_bytes"] == 8 * 1024 * 1024
+    # abandoned for more than 24 h: removed; a fresh one stays
+    fresh = start_upload(client, "b.mp4", b"y" * 10)["upload_id"]
+    old = time.time() - 25 * 3600
+    for f in m.jobs.job_dir(uid).iterdir():
+        os.utime(f, (old, old))
+    assert m.cleanup_abandoned_uploads() == 1
+    assert client.get(f"/api/uploads/{uid}").status_code == 404
+    assert client.get(f"/api/uploads/{fresh}").status_code == 200
