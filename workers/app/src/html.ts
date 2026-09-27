@@ -2808,6 +2808,6 @@ export function forbidden(base: string): string {
     base,
     kind: 'admin',
     path: '/login',
-    body: `<h1 class="display" style="font-size:3rem;">No access</h1><p class="muted" style="margin-top:1rem;">This admin is locked to an allowlist.</p>`,
+    body: `<h1 class="display" style="font-size:3rem;">No access</h1><p class="muted" style="margin-top:1rem;">This admin is locked to an allowlist.</p><p style="margin-top:1.2rem;"><a class="btn" href="${base}/login">Log in</a></p>`,
   });
 }

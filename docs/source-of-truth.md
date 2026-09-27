@@ -1,6 +1,6 @@
 # Stick It Out source of truth
 
-Last updated: 2026-09-26 (Analyze Coaching section at the top of results, deployed 8:37 PM MT. Earlier: Analyze skeleton on every frame and per-frame results playback skeleton, deployed 4:24 PM MT. Earlier: Analyze tab replaces Challenges in the member nav: Worker proxy to the analyzer over the named tunnel `analyzer-origin.stickitoutdrums.com`, deployed 3:32 PM MT. Earlier: all tempos and tier thresholds rounded up to a 10, D1 migration 0011 applied. Earlier today: tiers through Insanity, 30 s rule, badge drawer, `/api/health`, readForm fix, migration 0010)
+Last updated: 2026-09-27 (Admin no-access page keeps the allowlist message and adds a Log in button. Earlier: Analyze Coaching section at the top of results, deployed 8:37 PM MT. Earlier: Analyze skeleton on every frame and per-frame results playback skeleton, deployed 4:24 PM MT. Earlier: Analyze tab replaces Challenges in the member nav: Worker proxy to the analyzer over the named tunnel `analyzer-origin.stickitoutdrums.com`, deployed 3:32 PM MT. Earlier: all tempos and tier thresholds rounded up to a 10, D1 migration 0011 applied. Earlier today: tiers through Insanity, 30 s rule, badge drawer, `/api/health`, readForm fix, migration 0010)
 
 Agents must update this file in the same turn as any behavior change. Status must match production, not intent.
 
@@ -73,7 +73,7 @@ Signup path: marketing form → `/api/capture.php` → `leads.json` **and** `POS
 
 | ID | Feature | Status | Notes |
 | --- | --- | --- | --- |
-| adm-login | Magic-link + `ADMIN_EMAILS` | live | zaylyn + Mike. Cloudflare Access not attached yet |
+| adm-login | Magic-link + `ADMIN_EMAILS` | live | zaylyn + Mike. Cloudflare Access not attached yet. A visitor who is not on the allowlist still sees "locked to an allowlist", with a Log in button to the magic-link form |
 | adm-dash | Dashboard | live | Interactive ops board. Pending challenge scores KPI. Newest people open CRM |
 | adm-members | Member list | live | Subscribed filter (founding+active), plan chips, KPI counts, one-tap Promote / Activate / Cancel. Full edit stays in CRM |
 | adm-crm | Member CRM `/members/:id` | live | Sticky Promote / Activate / Cancel / change plan. Profile, notes, tags, login link, Resend, lessons, practice, rudiment medals + streak, challenges, audit |
