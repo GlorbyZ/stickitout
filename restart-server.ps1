@@ -12,7 +12,7 @@ stopped; cloudflared processes are never touched.
 #>
 param(
     [int]$Port = 8800,
-    [int]$MaxUploadMB = 95   # same default as start-remote.ps1 (Cloudflare caps bodies at 100 MB)
+    [int]$MaxUploadMB = 1024   # same default as start-remote.ps1 (files over 80 MB go up in 64 MB pieces: Cloudflare caps one request at 100 MB)
 )
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot

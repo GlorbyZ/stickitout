@@ -24,7 +24,7 @@ tunnel service): it only starts and stops processes whose command line is provab
 #>
 param(
     [int]$Port = 8800,
-    [int]$MaxUploadMB = 95,   # Cloudflare rejects request bodies over 100 MB
+    [int]$MaxUploadMB = 1024,   # slow motion is 200 to 300 MB; files over 80 MB go up in 64 MB pieces (Cloudflare caps one request at 100 MB)
     [switch]$NewKey,
     [switch]$Quick,
     [string]$StableHost = 'analyzer-origin.stickitoutdrums.com'

@@ -2,7 +2,7 @@
 
   PORT            HTTP port (read by the start scripts and the Docker CMD; default 8800)
   DATA_DIR        job storage folder (default ./data/jobs; ANALYZER_DATA_DIR also accepted)
-  MAX_UPLOAD_MB   upload size cap in MB (default 1024; keep it under 100 behind Cloudflare)
+  MAX_UPLOAD_MB   upload size cap in MB (default 1024; behind Cloudflare the page sends files over 80 MB in 64 MB pieces)
   ACCESS_TOKEN    if set, the UI and API require this key (see app/access.py)
   JOB_TTL_HOURS   jobs older than this are deleted, uploads included (default 72; 0 keeps them)
   DATASET_DIR     training clips and their labels (default DATA_DIR/dataset). Never cleaned up.
