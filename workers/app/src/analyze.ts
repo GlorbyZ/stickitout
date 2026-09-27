@@ -390,6 +390,68 @@ header.bar, body.kind-member .dock { backdrop-filter: none !important; -webkit-b
 .az p.center { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; }
 @media (max-width: 560px) { .az #again { width: 100%; } }
 
+/* Coaching: focus line, ranked finding cards, strengths. Mobile first, 44 px+ tap targets. */
+.az .coach-focus { border-left: 5px solid var(--gel);
+  background: radial-gradient(120% 140% at 90% 0%, rgba(232, 163, 23, 0.16) 0%, transparent 60%), var(--wings); }
+.az .coach-kicker { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gel); }
+.az .coach-focus-text { margin: 0.35rem 0 0; font-size: 1.18rem; font-weight: 700; line-height: 1.35; color: var(--cue); }
+.az .coach-meta { margin-top: 0.4rem; font-size: 0.82rem; color: var(--chrome); }
+.az .coach-card { border-left: 5px solid var(--chrome); }
+.az .coach-card.sev-fix_first { border-left-color: var(--bad); }
+.az .coach-card.sev-work_on { border-left-color: var(--gel); }
+.az .coach-card.sev-polish { border-left-color: var(--ok); }
+.az .coach-top { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.az .sev-chip, .az .hand-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 0.65rem; border-radius: 99px;
+  font-size: 0.72rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
+.az .sev-chip.fix_first { background: var(--bad); color: #1a0d0a; }
+.az .sev-chip.work_on { background: var(--gel); color: var(--on-gel); }
+.az .sev-chip.polish { background: var(--ok); color: #06210f; }
+.az .hand-chip { background: var(--blackout); border: 1px solid var(--line); color: var(--cue); }
+.az .coach-title { margin: 0.55rem 0 0.2rem; font-size: 1.2rem; line-height: 1.25; color: var(--cue); font-family: inherit; letter-spacing: 0; text-transform: none; }
+.az .coach-saw, .az .coach-why { margin: 0.45rem 0 0; font-size: 0.95rem; line-height: 1.45; color: var(--cue); }
+.az .coach-why { color: var(--chrome); }
+.az .coach-saw b, .az .coach-why b { color: var(--gel); }
+.az .coach-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.8rem; }
+.az .ex-label { width: 100%; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--chrome); }
+.az .ts-chip { display: inline-flex; align-items: center; gap: 0.4rem; min-height: var(--touch, 44px); min-width: 44px; padding: 0 0.9rem;
+  border-radius: 99px; border: 1px solid rgba(232, 163, 23, 0.5); background: rgba(232, 163, 23, 0.1); color: var(--cue);
+  font: inherit; font-size: 0.9rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.az .ts-chip svg { width: 14px; height: 14px; color: var(--gel); flex: 0 0 auto; }
+.az .ts-chip:hover, .az .ts-chip:active { background: rgba(232, 163, 23, 0.24); }
+.az .coach-fix { margin-top: 0.8rem; border-top: 1px solid var(--line); }
+.az .coach-fix summary { min-height: var(--touch, 44px); display: flex; align-items: center; cursor: pointer; list-style: none;
+  font-weight: 700; color: var(--gel); }
+.az .coach-fix summary::-webkit-details-marker { display: none; }
+.az .coach-fix summary::after { content: "+"; margin-left: auto; font-size: 1.35rem; line-height: 1; }
+.az .coach-fix[open] summary::after { content: "\\2212"; }
+.az .coach-fix ol { margin: 0.2rem 0 0; padding-left: 1.3rem; color: var(--cue); }
+.az .coach-fix li { margin-bottom: 0.45rem; line-height: 1.45; }
+.az .drill { margin-top: 0.7rem; padding: 0.75rem 0.85rem; border-radius: 10px; background: var(--blackout); border: 1px solid var(--line); }
+.az .drill-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem; }
+.az .drill-name { font-weight: 700; color: var(--cue); }
+.az .drill-tempo { padding: 0.1rem 0.65rem; border-radius: 99px; background: var(--gel); color: var(--on-gel); font-weight: 800; font-size: 0.85rem; }
+.az .drill p { margin: 0.4rem 0 0; font-size: 0.92rem; color: var(--cue); }
+.az .coach-caveat { margin: 0.7rem 0 0; font-size: 0.82rem; font-style: italic; color: var(--chrome); }
+.az .coach-strengths { border-left: 5px solid var(--ok); }
+.az .coach-strengths ul { margin: 0.4rem 0 0; padding-left: 1.2rem; color: var(--cue); }
+.az .coach-strengths li { margin-bottom: 0.45rem; line-height: 1.45; }
+.az .coach-strengths b { color: var(--ok); }
+.az .card.coach-notes { padding-top: 0.2rem; padding-bottom: 0.2rem; }
+.az .card.coach-notes[open] { padding-bottom: 0.9rem; }
+.az .coach-notes summary { min-height: var(--touch, 44px); display: flex; align-items: center; cursor: pointer; color: var(--chrome);
+  font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.az .coach-notes ul { margin: 0; padding-left: 1.2rem; font-size: 0.88rem; color: var(--chrome); }
+/* With coaching on top, the scores shrink. */
+.az #results.has-coaching .verified-card .big { font-size: clamp(2.4rem, 11vw, 3.2rem); }
+.az #results.has-coaching .dial svg { max-width: 72px; }
+.az #results.has-coaching .dial.overall svg { max-width: 88px; }
+.az #results.has-coaching .dial .why { display: none; }
+@media (max-width: 560px) {
+  .az #results.has-coaching .dial svg { max-width: 58px; }
+  .az #results.has-coaching .dial.overall svg { max-width: 84px; }
+  .az .coach-focus-text { font-size: 1.08rem; }
+}
+
 /* Offline */
 .az-offline { text-align: center; padding: 2.2rem 1.2rem; border-color: rgba(232, 163, 23, 0.35); }
 .az-offline-icon { width: 56px; height: 56px; color: var(--gel); margin: 0 auto 0.6rem; display: block; }

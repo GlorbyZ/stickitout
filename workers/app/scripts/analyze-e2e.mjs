@@ -52,6 +52,7 @@ check('page loads proxied app.js', /\/analyze\/static\/app\.js/.test(page));
 check('Permissions-Policy camera self', /camera=\(self\)/.test(r.headers.get('permissions-policy') || ''), r.headers.get('permissions-policy'));
 check('page has no key', !leaks(page));
 check('page has no em dash', !page.includes('\u2014'));
+check('page has coaching section above scores', /id="coaching"/.test(page) && page.indexOf('id="coaching"') < page.indexOf('id="dials"'));
 r = await req('/');
 const home = await r.text();
 check('home nav shows Analyze, no Challenges tab', /<span>Analyze<\/span>/.test(home) && !/<span>Challenges<\/span>/.test(home));
@@ -103,6 +104,10 @@ if (video) {
     const rep = await r.json();
     check('results via proxy', r.status === 200 && rep.scores, `verified=${rep.scores?.verified} overall=${rep.scores?.overall} fps=${rep.source?.fps} low_fps=${rep.quality?.low_fps}`);
     check('results no key', !leaks(JSON.stringify(rep)));
+    const co = rep.coaching || {};
+    check('results include coaching', co.version >= 1 && ['ok', 'not_enough_data'].includes(co.status) && Array.isArray(co.findings) && Array.isArray(co.strengths) && typeof (co.focus || co.message) === 'string',
+      `status=${co.status} findings=${(co.findings || []).map((f) => f.severity + ':' + f.id).join(',')} strengths=${(co.strengths || []).map((x) => x.id).join(',')}`);
+    check('coaching has no em dash', !JSON.stringify(co).includes('\u2014'));
     r = await req(`/analyze/api/jobs/${up.job_id}/video`, { headers: { range: 'bytes=0-1023' } });
     const vb = await r.arrayBuffer();
     check('video range 206 via proxy', r.status === 206 && vb.byteLength === 1024, `${r.status} ${r.headers.get('content-range')} ${r.headers.get('content-type')}`);
