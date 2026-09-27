@@ -1,6 +1,6 @@
 // End-to-end check of the portal Analyze tab. Usage:
 //   node analyze-e2e.mjs <base> <video> [--cookie sio_member=...] [--local-login email] [--token-file path]
-//        [--chunk-mb N]  upload through the chunked /api/uploads route in N MB pieces (slow motion path)
+//        [--resumable N]  resumable piece upload in N MB pieces, with a dropped piece, reload-resume and duplicate
 //        [--expect-fps N] check the measured fps of the saved video
 import fs from 'node:fs';
 const args = process.argv.slice(2);
@@ -90,28 +90,62 @@ if (video) {
   const t0 = Date.now();
   const origin = { origin: opt('--origin') || base };
   let up = {};
-  if (opt('--chunk-mb')) {
-    const step = Math.round(Number(opt('--chunk-mb')) * 1048576);
+  if (opt('--resumable')) {
+    // Resumable piece upload: a dropped connection mid-piece, a damaged piece, a reload that
+    // resumes from the server's list, a duplicate piece, and finish sent twice.
+    const { createHash } = await import('node:crypto');
+    const sha = (b) => createHash('sha256').update(b).digest('hex');
     const sf = new FormData();
     sf.append('filename', video.split(/[\\/]/).pop());
     sf.append('size', String(buf.length));
+    sf.append('piece_bytes', String(Math.round(Number(opt('--resumable')) * 1048576)));
     r = await req('/analyze/api/uploads', { method: 'POST', body: sf, headers: origin });
     const st = await r.json().catch(() => ({}));
-    check('chunked upload start 201 via proxy', r.status === 201 && st.upload_id, `${r.status} ${JSON.stringify(st)}`);
-    let off = 0, pieces = 0;
-    while (st.upload_id && off < buf.length) {
-      r = await req(`/analyze/api/uploads/${st.upload_id}?offset=${off}`, { method: 'PUT', body: buf.subarray(off, off + step), headers: origin });
-      const pr = await r.json().catch(() => ({}));
-      if (r.status !== 200) { check('chunk PUT 200 via proxy', false, `${r.status} ${JSON.stringify(pr)}`); break; }
-      off = pr.received; pieces++;
-    }
-    check('all pieces received', off === buf.length, `${off} of ${buf.length} bytes in ${pieces} pieces`);
+    check('upload start 201 via proxy', r.status === 201 && st.upload_id && st.pieces >= 3, `${r.status} ${JSON.stringify(st)}`);
+    const id = st.upload_id, step = st.piece_bytes, n = st.pieces || 0;
+    const piece = (i) => buf.subarray(i * step, Math.min(buf.length, (i + 1) * step));
+    const put = (i, body, sum) => req(`/analyze/api/uploads/${id}/pieces/${i}?sha256=${sum || sha(piece(i))}`, { method: 'PUT', body: body ?? piece(i), headers: origin });
+    const half = Math.floor(n / 2);
+    let okCount = 0;
+    for (let i = 0; i < half; i++) if ((await put(i)).status === 200) okCount++;
+    check('first half of pieces 200', okCount === half, `${okCount}/${half}`);
+    // connection killed halfway through a piece
+    let dropped = 'no error';
+    try {
+      const part = piece(half);
+      const stream = new ReadableStream({ start(c) { c.enqueue(part.subarray(0, part.length >> 1)); setTimeout(() => c.error(new Error('drop')), 300); } });
+      const dr = await fetch(`${base}/analyze/api/uploads/${id}/pieces/${half}?sha256=${sha(part)}`, { method: 'PUT', body: stream, duplex: 'half', headers: { cookie: cookieHeader(), ...origin } });
+      dropped = `status ${dr.status}`;
+    } catch (e) { dropped = `fetch failed (${e.cause?.message || e.message})`; }
+    r = await put(half, piece(half).subarray(0, 1000));
+    const cut = r.status;
+    r = await put(half, undefined, '0'.repeat(64));
+    const bad = r.status;
+    // "reload": ask the server which pieces it has
+    r = await req(`/analyze/api/uploads/${id}`);
+    const s1 = await r.json().catch(() => ({}));
+    check('dropped, cut-off and damaged pieces not stored', r.status === 200 && Array.isArray(s1.have) && s1.have.length === half && !s1.have.includes(half) && cut === 400 && bad === 400,
+      `drop: ${dropped}; cut ${cut}; bad checksum ${bad}; have ${JSON.stringify(s1.have)}`);
+    r = await req(`/analyze/api/uploads/${id}/finish`, { method: 'POST', body: new FormData(), headers: origin });
+    const early = await r.json().catch(() => ({}));
+    check('finish with missing pieces is 409', r.status === 409 && early.missing?.length === n - half, `${r.status} missing ${early.missing?.length}`);
+    let resumed = 0;
+    for (let i = 0; i < n; i++) if (!s1.have.includes(i) && (await put(i)).status === 200) resumed++;
+    check('resume sends only the missing pieces', resumed === n - half, `${resumed} of ${n} pieces after reload`);
+    r = await put(0);
+    check('duplicate piece accepted', r.status === 200, String(r.status));
+    r = await req(`/analyze/api/uploads/${id}`);
+    const s2 = await r.json().catch(() => ({}));
+    check('status complete', s2.complete === true && s2.have.length === n, JSON.stringify(s2).slice(0, 160));
     const ff = new FormData();
     ff.append('rudiment', 'Single Paradiddle');
     ff.append('target_bpm', '100');
-    r = await req(`/analyze/api/uploads/${st.upload_id}/finish`, { method: 'POST', body: ff, headers: origin });
+    r = await req(`/analyze/api/uploads/${id}/finish`, { method: 'POST', body: ff, headers: origin });
     up = await r.json().catch(() => ({}));
-    check('chunked finish 202 via proxy', r.status === 202 && up.job_id, `${r.status} ${JSON.stringify(up)}`);
+    check('finish 202 via proxy', r.status === 202 && up.job_id === id, `${r.status} ${JSON.stringify(up)}`);
+    r = await req(`/analyze/api/uploads/${id}/finish`, { method: 'POST', body: ff, headers: origin });
+    const again = await r.json().catch(() => ({}));
+    check('finish again returns the same job', r.status === 202 && again.job_id === id, `${r.status} ${JSON.stringify(again)}`);
   } else {
     r = await req('/analyze/api/analyze', { method: 'POST', body: fd, headers: origin });
     const upText = await r.text();
