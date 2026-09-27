@@ -106,3 +106,53 @@ def test_error_contracts(client, tmp_path):
     video = make_video(tmp_path / "v.mp4", fps=60, seconds=2.0)
     res = post_video(client, video, verify_window_ms="900")
     assert res.status_code == 422 and "verify_window_ms" in res.json()["error"]
+
+
+def test_slow_motion_120fps_chunked_upload(client, tmp_path, report_schema):
+    """A 120 fps clip sent in pieces through /api/uploads (the path big slow motion files take)."""
+    video = make_video(tmp_path / "slowmo120.mp4", fps=120, seconds=4.0, bpm=100.0)
+    data = video.read_bytes()
+    res = client.post("/api/uploads", data={"filename": video.name, "size": str(len(data))})
+    assert res.status_code == 201, res.text
+    uid = res.json()["upload_id"]
+    step = max(1, len(data) // 3)
+    off = 0
+    while off < len(data):
+        r = client.put(f"/api/uploads/{uid}?offset={off}", content=data[off:off + step])
+        assert r.status_code == 200, r.text
+        off = r.json()["received"]
+    assert off == len(data)
+    bad = client.put(f"/api/uploads/{uid}?offset=0", content=b"x")          # out of order piece
+    assert bad.status_code == 409 and bad.json()["received"] == len(data)
+    res = client.post(f"/api/uploads/{uid}/finish", data={"rudiment": "Single Paradiddle"})
+    assert res.status_code == 202, res.text
+    body = res.json()
+    assert body["job_id"] == uid and body["slow_motion"] is True and abs(body["fps"] - 120) < 1
+    assert client.get(f"/api/jobs/{uid}").json()["status"] == "done"
+    report = client.get(f"/api/results/{uid}").json()
+    jsonschema.Draft202012Validator(report_schema).validate(report)
+    assert abs(report["source"]["fps"] - 120) < 1 and report["quality"]["low_fps"] is False
+    assert abs(report["audio"]["tempo_bpm"] - 100.0) <= 1.0
+
+
+def test_slow_motion_240fps_pose_sampled_audio_full(client, tmp_path):
+    video = make_video(tmp_path / "slowmo240.mp4", fps=240, seconds=4.0, bpm=100.0)
+    res = post_video(client, video, rudiment="Single Paradiddle")
+    assert res.status_code == 202, res.text
+    assert res.json()["slow_motion"] is True and abs(res.json()["fps"] - 240) < 2
+    job_id = res.json()["job_id"]
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "done"
+    report = client.get(f"/api/results/{job_id}").json()
+    assert abs(report["source"]["fps"] - 240) < 2
+    assert abs(report["audio"]["tempo_bpm"] - 100.0) <= 1.0
+
+
+def test_chunked_upload_errors(client):
+    assert client.put("/api/uploads/" + "0" * 32 + "?offset=0", content=b"x").status_code == 404
+    assert client.post("/api/uploads/not-an-id/finish").status_code == 404
+    assert client.post("/api/uploads", data={"filename": "a.txt"}).status_code == 415
+    assert client.post("/api/uploads", data={"filename": "a.mp4", "size": str(10 ** 13)}).status_code == 413
+    res = client.post("/api/uploads", data={"filename": "a.mp4"})
+    assert client.post(f"/api/uploads/{res.json()['upload_id']}/finish").status_code == 422   # nothing sent
+    cfg = client.get("/api/config").json()
+    assert cfg["slow_motion_fps"] == 100 and cfg["chunk_bytes"] <= 95 * 1024 * 1024

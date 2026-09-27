@@ -12,11 +12,12 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmt = (v, d = 1, unit = "") => (v === null || v === undefined ? "n/a" : `${Number(v).toFixed(d)}${unit}`);
 const errColor = (e) => (e === null ? "#999" : Math.abs(e) < 10 ? "#1f9d55" : Math.abs(e) < 25 ? "#d69e00" : "#d64545");
-let recorder = null, report = null, maxUploadMb = null, minFps = 23.5, fullFps = 50;
+let recorder = null, report = null, maxUploadMb = null, minFps = 23.5, fullFps = 50, slowFps = 100;
 fetch("/api/config").then((r) => r.json()).then((c) => {
   maxUploadMb = c.max_upload_mb;
   if (c.min_fps) minFps = c.min_fps;
   if (c.full_accuracy_fps) fullFps = c.full_accuracy_fps;
+  if (c.slow_motion_fps) slowFps = c.slow_motion_fps;
 }).catch(() => {});
 
 // ---------- modes ----------
@@ -62,7 +63,62 @@ function showError(msg) {
   if (msg) $("progress").hidden = true;
 }
 
-function submit(blob, filename) {
+// Files over CHUNKED_OVER (slow motion is often 200 to 300 MB) go up in pieces: Cloudflare in
+// front of the analyzer refuses a single request body over 100 MB.
+const CHUNKED_OVER = 80 * 1048576;
+const ANALYZING_SLOW = "Analyzing, this can take a few minutes for slow motion";
+
+function uploadProgress(loaded, total) {
+  const pct = Math.round((100 * loaded) / total);
+  const mb = total > CHUNKED_OVER ? ` (${(loaded / 1048576).toFixed(0)} of ${(total / 1048576).toFixed(0)} MB)` : "";
+  setProgress((0.1 * loaded) / total, `Uploading ${pct}%${mb}`);
+}
+
+function send(method, url, body, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    if (onProgress) xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded, e.total);
+    xhr.onload = () => {
+      let b = {};
+      try { b = JSON.parse(xhr.responseText); } catch { /* non-JSON error page */ }
+      resolve({ status: xhr.status, body: b });
+    };
+    xhr.onerror = () => reject(new Error("Upload failed. Check your connection and try again."));
+    xhr.send(body);
+  });
+}
+
+async function sendChunked(blob, filename, params) {
+  const start = new FormData();
+  start.append("filename", filename);
+  start.append("size", String(blob.size));
+  if (blob.type) start.append("content_type", blob.type);
+  let r = await send("POST", "/api/uploads", start);
+  if (r.status !== 201 || !r.body.upload_id) throw new Error(r.body.error || `Upload failed (HTTP ${r.status}).`);
+  const id = r.body.upload_id, step = r.body.chunk_bytes || 64 * 1048576;
+  let off = 0, tries = 0;
+  while (off < blob.size) {
+    const from = off;
+    try {
+      r = await send("PUT", `/api/uploads/${id}?offset=${from}`, blob.slice(from, from + step), (n) => uploadProgress(from + n, blob.size));
+    } catch (e) {
+      r = { status: 0, body: { error: e.message } };
+    }
+    if (r.status === 200 || (r.status === 409 && typeof r.body.received === "number")) {
+      off = r.body.received;                    // 409: the server already has more or less; carry on from there
+      tries = 0;
+      continue;
+    }
+    if (++tries >= 4 || (r.status >= 400 && r.status < 500)) throw new Error(r.body.error || `Upload failed (HTTP ${r.status}).`);
+    await new Promise((ok) => setTimeout(ok, 2000 * tries));
+  }
+  r = await send("POST", `/api/uploads/${id}/finish`, params);
+  if (r.status !== 202 || !r.body.job_id) throw new Error(r.body.error || `Upload failed (HTTP ${r.status}).`);
+  return r.body;
+}
+
+async function submit(blob, filename) {
   showError(null);
   if (maxUploadMb && blob.size > maxUploadMb * 1024 * 1024) {
     return showError(`This video is ${(blob.size / 1048576).toFixed(0)} MB and this analyzer accepts up to ${maxUploadMb} MB. ` +
@@ -71,28 +127,32 @@ function submit(blob, filename) {
   $("results").hidden = true;
   const fd = new FormData($("params"));
   for (const [k, v] of [...fd.entries()]) if (v === "") fd.delete(k);
-  fd.append("video", blob, filename);
-  const xhr = new XMLHttpRequest();
-  xhr.open("POST", "/api/analyze");
-  xhr.upload.onprogress = (e) => e.lengthComputable && setProgress(0.1 * e.loaded / e.total, `Uploading ${Math.round(100 * e.loaded / e.total)}%`);
-  xhr.onload = () => {
-    let body = {};
-    try { body = JSON.parse(xhr.responseText); } catch { /* non-JSON error page */ }
-    if (xhr.status === 202 && body.job_id) poll(body.job_id);
-    else showError(body.error || `Upload failed (HTTP ${xhr.status}).`);
-  };
-  xhr.onerror = () => showError("Upload failed. Check your connection and try again.");
   setProgress(0, "Uploading...");
-  xhr.send(fd);
+  let started;
+  try {
+    if (blob.size > CHUNKED_OVER) {
+      started = await sendChunked(blob, filename, fd);
+    } else {
+      fd.append("video", blob, filename);
+      const r = await send("POST", "/api/analyze", fd, (n, t) => uploadProgress(n, t));
+      if (r.status !== 202 || !r.body.job_id) return showError(r.body.error || `Upload failed (HTTP ${r.status}).`);
+      started = r.body;
+    }
+  } catch (e) {
+    return showError(e.message || "Upload failed. Check your connection and try again.");
+  }
+  poll(started.job_id, Boolean(started.slow_motion) || (started.fps || 0) >= slowFps);
 }
 
-async function poll(jobId) {
+async function poll(jobId, slow = false) {
+  if (slow) setProgress(0.1, `${ANALYZING_SLOW}...`);
   for (;;) {
     const res = await fetch(`/api/jobs/${jobId}`);
     const job = await res.json();
     if (!res.ok) return showError(job.error || "Job lookup failed.");
     if (job.status === "error") return showError(job.error);
-    setProgress(0.1 + 0.9 * (job.progress || 0), `${job.stage || job.status}... ${Math.round((job.progress || 0) * 100)}%`);
+    const pct = Math.round((job.progress || 0) * 100);
+    setProgress(0.1 + 0.9 * (job.progress || 0), slow ? `${ANALYZING_SLOW}. ${job.stage || job.status}, ${pct}%` : `${job.stage || job.status}... ${pct}%`);
     if (job.status === "done") break;
     await new Promise((r) => setTimeout(r, 1000));
   }
@@ -139,7 +199,7 @@ function render(r) {
   const widened = v.window_widened ? ` <span class="small">(widened for ${Math.round(r.source.fps)} fps)</span>` : "";
   $("verified-card").innerHTML = `${lowFpsNotice(r)}<div><div class="label">Verified</div><div class="big">${fmt(s.verified, 0, "%")}</div>
     ${r.quality?.low_fps ? '<div class="est">estimate</div>' : ""}</div>
-    <div><div class="saved-fps ${r.source.fps >= fullFps ? "good" : "warn"}" id="saved-fps">Saved video: <b>${fmt(r.source.fps, 1)} fps</b>, measured by the server from the file</div>
+    <div><div class="saved-fps ${r.source.fps >= fullFps ? "good" : "warn"}" id="saved-fps">Saved video: <b>${r.source.fps >= slowFps ? `${fmt(r.source.fps, 0)} fps (slow motion)` : `${fmt(r.source.fps, 1)} fps`}</b>, measured by the server from the file</div>
       <div class="vcounts"><span><b>${v.verified_stroke_count}</b> verified hits</span>
       <span><b>${v.unverified_onsets}</b> heard, not seen</span><span><b>${v.video_only_strikes}</b> seen, not heard</span>
       <span>window plus or minus <b>${v.window_ms}</b> ms${widened}</span></div>

@@ -7,7 +7,7 @@ import imageio_ffmpeg
 import pytest
 
 from app import config
-from app.media import MediaError, check_frame_rate, is_low_fps, low_fps_message, probe_video
+from app.media import MediaError, check_frame_rate, is_low_fps, is_slow_motion, looks_slowed, low_fps_message, probe_video
 
 
 def encode(out, *args):
@@ -86,3 +86,26 @@ def test_min_fps_env_var(monkeypatch):
         monkeypatch.delenv("MIN_FPS")
         importlib.reload(config)
     assert config.MIN_FPS == 23.5
+
+
+def test_slow_motion_original_keeps_real_timestamps(tmp_path):
+    """A 240 fps capture whose header claims 30 fps is measured from packet times (240)."""
+    out = tmp_path / "slowmo.mov"
+    encode(out, "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=240", "-t", "2", "-c:v", "libx264",
+           "-pix_fmt", "yuv420p", "-metadata", "com.apple.quicktime.full-frame-rate-playback-intent=0",
+           "-movflags", "use_metadata_tags")
+    info = probe_video(out)
+    assert abs(info.fps - 240) < 2 and info.slowmo_tag == "playback-intent-0"
+    check_frame_rate(info)                        # real-time original: accepted
+    assert is_slow_motion(info.fps)
+
+
+def test_slowed_slow_motion_export_refused(tmp_path):
+    out = tmp_path / "slowed.mov"
+    encode(out, "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=30", "-t", "2", "-c:v", "libx264",
+           "-pix_fmt", "yuv420p", "-metadata", "com.apple.quicktime.full-frame-rate-playback-intent=0",
+           "-movflags", "use_metadata_tags")
+    info = probe_video(out)
+    assert looks_slowed(info)
+    with pytest.raises(MediaError, match="slow motion"):
+        check_frame_rate(info)

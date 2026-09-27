@@ -43,6 +43,9 @@ MODELS = {
 MIN_DETECTION_CONFIDENCE = 0.3
 MIN_PRESENCE_CONFIDENCE = 0.3
 MIN_TRACKING_CONFIDENCE = 0.3
+# Slow motion: pose and hands run on at most this many frames per second (a 240 fps clip uses
+# every other frame, 120 fps and below use every frame). Audio is never downsampled.
+MAX_POSE_FPS = float(os.environ.get("MAX_POSE_FPS", "120") or 0)
 POSE_IDS = {"ls": 11, "rs": 12, "le": 13, "re": 14, "lw": 15, "rw": 16}
 # Extra points kept only for drawing the playback skeleton (nose and hips).
 BODY_IDS = {"nose": 0, "lh": 23, "rh": 24}
@@ -103,13 +106,24 @@ def extract_landmarks(video_path: Path, progress: Callable[[float], None] | None
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
     scale = min(1.0, MAX_PROCESS_WIDTH / max(width, 1))
     frames, last_ms, index = [], -1, 0
+    decoded_index = []                           # source frame number of every processed frame
+    next_due = -1.0e9
+    min_gap_ms = (1000.0 / MAX_POSE_FPS - 1.0) if MAX_POSE_FPS > 0 else 0.0
     try:
         while True:
-            ok, bgr = cap.read()
-            if not ok:
+            if not cap.grab():
                 break
             pos = cap.get(cv2.CAP_PROP_POS_MSEC)
-            t_ms = int(round(pos)) if pos > 0 else int(round(index * 1000.0 / nominal_fps))
+            t_raw = pos if pos > 0 else index * 1000.0 / nominal_fps
+            if t_raw < next_due:                 # above MAX_POSE_FPS: skip this frame for pose
+                index += 1
+                continue
+            ok, bgr = cap.retrieve()
+            if not ok:
+                break
+            next_due = t_raw + min_gap_ms
+            decoded_index.append(index)
+            t_ms = int(round(t_raw))
             t_ms = max(t_ms, last_ms + 1)            # Tasks VIDEO mode needs strictly increasing timestamps
             last_ms = t_ms
             if scale < 1.0:
@@ -135,9 +149,9 @@ def extract_landmarks(video_path: Path, progress: Callable[[float], None] | None
         pose.close()
         hands.close()
     pts_source = "packets"
-    if pts and len(pts) == len(frames):
-        for frame, p in zip(frames, pts):
-            frame["pts"] = p
+    if pts and len(pts) == index:                # every decoded frame has a packet time
+        for frame, i in zip(frames, decoded_index):
+            frame["pts"] = pts[i]
     elif frames:
         pts_source = "decoder"
         offset = (pts[0] - frames[0]["t"]) if pts else 0.0

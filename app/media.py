@@ -43,6 +43,7 @@ class VideoInfo:
     height: int
     has_audio: bool
     container: str
+    slowmo_tag: str = ""  # Apple slow motion metadata seen in the header ("" when none)
 
 
 def ffmpeg_exe() -> str:
@@ -77,6 +78,12 @@ def probe_video(path: Path) -> VideoInfo:
     fps_m = re.search(r"([\d.]+) fps", video_line) or re.search(r"([\d.]+) tbr", video_line)
     nominal = float(fps_m.group(1)) if fps_m else 0.0
     has_audio = any("Audio:" in ln for ln in header.splitlines())
+    # iPhone slow motion: the original .MOV keeps real 120/240 fps timestamps (measured below from
+    # the packets, whatever the header says). A slowed export is re-timed to about 30 fps with the
+    # sound stretched, which would wreck tempo and timing: check_frame_rate() refuses that case.
+    intent = re.search(r"full-frame-rate-playback-intent\s*:\s*(\d)", header)
+    slowmo_tag = "playback-intent-0" if intent and intent.group(1) == "0" else (
+        "slow-mo" if re.search(r"slo(?:w)?[-_ ]?mo(?:tion)?\b", header, re.I) else "")
     container_m = re.search(r"Input #0, ([^,]+)", header)
     container = container_m.group(1) if container_m else "unknown"
 
@@ -102,7 +109,7 @@ def probe_video(path: Path) -> VideoInfo:
     fps = (frame_count - 1) / span
     duration = span + (durs[-1] * tb if durs[-1] else 1.0 / fps)
     return VideoInfo(round(fps, 2), round(nominal, 2), round(duration, 3), frame_count,
-                     width, height, has_audio, container)
+                     width, height, has_audio, container, slowmo_tag)
 
 
 def frame_times(path: Path) -> list[float]:
@@ -145,6 +152,26 @@ def check_frame_rate(info: VideoInfo) -> None:
             "camera video settings. In Record mode, use good light: many cameras lower the frame "
             "rate when the room is dark."
         )
+    if looks_slowed(info):
+        raise MediaError(SLOWED_MESSAGE)
+
+
+SLOW_MOTION_FPS = 100.0      # 120 and 240 fps captures (shown as slow motion in the results)
+
+
+def is_slow_motion(fps: float) -> bool:
+    return fps >= SLOW_MOTION_FPS
+
+
+def looks_slowed(info: VideoInfo) -> bool:
+    """A slow motion clip exported at normal frame rate: video and sound play slower than real time."""
+    return bool(info.slowmo_tag) and info.fps <= 65
+
+
+SLOWED_MESSAGE = ("This looks like a slow motion video that was exported slowed down, so the sound and the "
+                  "strokes play slower than you played them and tempo and timing would be wrong. Upload the "
+                  "original file instead: on iPhone, AirDrop it or use Share > Options > All Photos Data, or "
+                  "record at 60 fps.")
 
 
 def is_low_fps(fps: float) -> bool:
