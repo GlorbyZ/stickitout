@@ -31,6 +31,10 @@ function upstreamPath(method: string, sub: string): string | null {
   }
   if (read && sub === '/api/config') return sub;
   if (method === 'POST' && sub === '/api/analyze') return sub;
+  // Chunked upload for big slow motion files (Cloudflare caps one request body at 100 MB).
+  if (method === 'POST' && sub === '/api/uploads') return sub;
+  if (method === 'PUT' && new RegExp(`^/api/uploads/${JOB}$`).test(sub)) return sub;
+  if (method === 'POST' && new RegExp(`^/api/uploads/${JOB}/finish$`).test(sub)) return sub;
   if (read && new RegExp(`^/api/jobs/${JOB}$`).test(sub)) return sub;
   if (read && new RegExp(`^/api/jobs/${JOB}/video$`).test(sub)) return sub;
   if (read && new RegExp(`^/api/jobs/${JOB}/landmarks$`).test(sub)) return sub;
@@ -112,7 +116,7 @@ export async function analyzeProxy(request: Request, env: AnalyzeEnv, sub: strin
     if (v) headers.set(name, v);
   }
   // Cookies and the portal session never go to the analyzer.
-  const isUpload = method === 'POST';
+  const isUpload = method === 'POST' || method === 'PUT';
   const res = await upstream(env, target + (qs ? `?${qs}` : ''), {
     method,
     headers,

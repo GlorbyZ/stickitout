@@ -1,5 +1,7 @@
 // End-to-end check of the portal Analyze tab. Usage:
 //   node analyze-e2e.mjs <base> <video> [--cookie sio_member=...] [--local-login email] [--token-file path]
+//        [--chunk-mb N]  upload through the chunked /api/uploads route in N MB pieces (slow motion path)
+//        [--expect-fps N] check the measured fps of the saved video
 import fs from 'node:fs';
 const args = process.argv.slice(2);
 const base = args[0];
@@ -86,14 +88,40 @@ if (video) {
   fd.append('target_bpm', '100');
   fd.append('video', new Blob([buf], { type: 'video/mp4' }), video.split(/[\\/]/).pop());
   const t0 = Date.now();
-  r = await req('/analyze/api/analyze', { method: 'POST', body: fd, headers: { origin: opt('--origin') || base } });
-  const upText = await r.text();
+  const origin = { origin: opt('--origin') || base };
   let up = {};
-  try { up = JSON.parse(upText); } catch { up = { raw: upText.slice(0, 200) }; }
-  check('upload 202 via proxy', r.status === 202 && up.job_id, `${r.status} ${JSON.stringify(up)}`);
+  if (opt('--chunk-mb')) {
+    const step = Math.round(Number(opt('--chunk-mb')) * 1048576);
+    const sf = new FormData();
+    sf.append('filename', video.split(/[\\/]/).pop());
+    sf.append('size', String(buf.length));
+    r = await req('/analyze/api/uploads', { method: 'POST', body: sf, headers: origin });
+    const st = await r.json().catch(() => ({}));
+    check('chunked upload start 201 via proxy', r.status === 201 && st.upload_id, `${r.status} ${JSON.stringify(st)}`);
+    let off = 0, pieces = 0;
+    while (st.upload_id && off < buf.length) {
+      r = await req(`/analyze/api/uploads/${st.upload_id}?offset=${off}`, { method: 'PUT', body: buf.subarray(off, off + step), headers: origin });
+      const pr = await r.json().catch(() => ({}));
+      if (r.status !== 200) { check('chunk PUT 200 via proxy', false, `${r.status} ${JSON.stringify(pr)}`); break; }
+      off = pr.received; pieces++;
+    }
+    check('all pieces received', off === buf.length, `${off} of ${buf.length} bytes in ${pieces} pieces`);
+    const ff = new FormData();
+    ff.append('rudiment', 'Single Paradiddle');
+    ff.append('target_bpm', '100');
+    r = await req(`/analyze/api/uploads/${st.upload_id}/finish`, { method: 'POST', body: ff, headers: origin });
+    up = await r.json().catch(() => ({}));
+    check('chunked finish 202 via proxy', r.status === 202 && up.job_id, `${r.status} ${JSON.stringify(up)}`);
+  } else {
+    r = await req('/analyze/api/analyze', { method: 'POST', body: fd, headers: origin });
+    const upText = await r.text();
+    try { up = JSON.parse(upText); } catch { up = { raw: upText.slice(0, 200) }; }
+    check('upload 202 via proxy', r.status === 202 && up.job_id, `${r.status} ${JSON.stringify(up)}`);
+  }
+  if (opt('--expect-fps')) check('saved fps as expected', Math.abs((up.fps || 0) - Number(opt('--expect-fps'))) < 2, `fps=${up.fps} slow_motion=${up.slow_motion}`);
   if (up.job_id) {
     let job;
-    for (let i = 0; i < 240; i++) {
+    for (let i = 0; i < 900; i++) {
       r = await req(`/analyze/api/jobs/${up.job_id}`);
       job = await r.json();
       if (job.status === 'done' || job.status === 'error') break;
