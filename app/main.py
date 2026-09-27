@@ -4,7 +4,7 @@ Endpoints (all JSON; errors are {"error": message} with a proper status code):
   POST /api/analyze          multipart: video (required), rudiment, target_bpm,
                              av_offset_ms, verify_window_ms -> 202 {job_id}
   GET  /api/jobs/{id}        {status, progress, error, stage}
-  GET  /api/results/{id}     full report JSON (schema/report.schema.json)
+  GET  /api/results/{id}     full report JSON (schema/report.schema.json), coaching included
   GET  /api/jobs/{id}/video  the uploaded video, for playback on the results page
   GET  /api/config           {max_upload_mb, access_gate, min_fps, full_accuracy_fps} for the frontend
   GET  /healthz              {"ok": true}, never gated (for host health checks)
@@ -45,7 +45,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import config, dataset, jobs, labels, pipeline, tuning
+from . import coaching, config, dataset, jobs, labels, pipeline, tuning
 from .access import AccessGate
 from .media import LOW_FPS_BELOW, MediaError, check_frame_rate, min_fps, probe_video
 
@@ -178,7 +178,10 @@ def results(job_id: str):
         return error(422, job["error"] or "Analysis failed.")
     if job["status"] != "done":
         return error(409, f"Job is {job['status']}; results are not ready yet.")
-    return jobs.read_report(job_id)
+    report = jobs.read_report(job_id)
+    if coaching.needs_update(report):   # made before coaching (or an older version): computed on the fly
+        report["coaching"] = coaching.safe_coach(report)
+    return report
 
 
 @app.get("/api/jobs/{job_id}/video")

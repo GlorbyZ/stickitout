@@ -14,7 +14,8 @@
     "strokes",
     "verification",
     "sticking",
-    "scores"
+    "scores",
+    "coaching"
   ],
   "$defs": {
     "timing": {
@@ -1163,6 +1164,215 @@
     },
     "engine": {
       "type": "object"
+    },
+    "coaching": {
+      "type": "object",
+      "description": "Plain-language coaching from app/coaching.py: ranked findings, strengths and one focus line.",
+      "required": [
+        "version",
+        "status",
+        "focus",
+        "findings",
+        "strengths",
+        "notes"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "not_enough_data",
+            "error"
+          ]
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "focus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "focus_finding": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tempo_bpm": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "low_fps": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "severity",
+              "severity_label",
+              "title",
+              "saw",
+              "why",
+              "fix",
+              "drill",
+              "examples",
+              "confidence"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "fix_first",
+                  "work_on",
+                  "polish"
+                ]
+              },
+              "severity_label": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "saw": {
+                "type": "string"
+              },
+              "why": {
+                "type": "string"
+              },
+              "fix": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 3,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "drill": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "tempo_bpm",
+                  "text"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "tempo_bpm": {
+                    "type": "integer",
+                    "minimum": 40,
+                    "multipleOf": 10
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                }
+              },
+              "focus": {
+                "type": "string"
+              },
+              "examples": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "t",
+                    "label"
+                  ],
+                  "properties": {
+                    "t": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "hand": {
+                      "enum": [
+                        "L",
+                        "R",
+                        null
+                      ]
+                    }
+                  }
+                }
+              },
+              "hand": {
+                "enum": [
+                  "L",
+                  "R",
+                  null
+                ]
+              },
+              "confidence": {
+                "enum": [
+                  "high",
+                  "medium"
+                ]
+              },
+              "caveat": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "metric": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "strengths": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "title",
+              "saw"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "saw": {
+                "type": "string"
+              },
+              "metric": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

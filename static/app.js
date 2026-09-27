@@ -134,6 +134,7 @@ function render(r) {
   const { audio, video, verification: v, sticking: st, scores: s } = r;
   $("results").hidden = false;
   $("json-link").href = `/api/results/${r.job_id}`;
+  renderCoaching(r.coaching);
 
   const widened = v.window_widened ? ` <span class="small">(widened for ${Math.round(r.source.fps)} fps)</span>` : "";
   $("verified-card").innerHTML = `${lowFpsNotice(r)}<div><div class="label">Verified</div><div class="big">${fmt(s.verified, 0, "%")}</div>
@@ -290,6 +291,58 @@ function renderStrokes(strokes, limit) {
 // stored under each frame's presentation time, which the browser reports as
 // requestVideoFrameCallback mediaTime, so each drawn skeleton belongs to the frame on screen.
 // Frames without a detection draw nothing (never a frozen, stale pose).
+const HAND_NAME = { L: "Left hand", R: "Right hand" };
+
+// Coaching (app/coaching.py): focus line, ranked findings with "how to fix", strengths, and honesty notes.
+function renderCoaching(c) {
+  const box = $("coaching");
+  const ok = c && c.status === "ok";
+  $("results").classList.toggle("has-coaching", !!ok);
+  if (!c) { box.hidden = true; return; }
+  box.hidden = false;
+  const focus = ok ? c.focus : c.message || "We could not build coaching for this take.";
+  $("coach-focus").innerHTML = `<div class="coach-kicker">Focus for your next take</div>
+    <p class="coach-focus-text">${esc(focus)}</p>
+    ${ok && c.tempo_bpm ? `<div class="coach-meta">Measured tempo about ${Math.round(c.tempo_bpm)} BPM${c.low_fps ? ", filmed under 50 fps" : ""}</div>` : ""}`;
+  const findings = ok ? c.findings || [] : [];
+  $("coach-findings").innerHTML = findings.map((f) => `<article class="card coach-card sev-${esc(f.severity)}" data-id="${esc(f.id)}">
+      <div class="coach-top"><span class="sev-chip ${esc(f.severity)}">${esc(f.severity_label)}</span>${f.hand ? `<span class="hand-chip">${HAND_NAME[f.hand] || ""}</span>` : ""}</div>
+      <h3 class="coach-title">${esc(f.title)}</h3>
+      <p class="coach-saw"><b>What we saw:</b> ${esc(f.saw)}</p>
+      <p class="coach-why"><b>Why it matters:</b> ${esc(f.why)}</p>
+      ${f.examples && f.examples.length ? `<div class="coach-examples"><span class="ex-label">Watch it</span>${f.examples.map((e) =>
+        `<button type="button" class="ts-chip" data-t="${Number(e.t)}" data-hand="${esc(e.hand || f.hand || "")}" aria-label="Jump the video to ${esc(e.label)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>${esc(e.label)}</button>`).join("")}</div>` : ""}
+      <details class="coach-fix"><summary>How to fix it</summary>
+        <ol>${(f.fix || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
+        ${f.drill ? `<div class="drill"><div class="drill-head"><span class="drill-name">Drill: ${esc(f.drill.name)}</span><span class="drill-tempo">${esc(f.drill.tempo_bpm)} BPM</span></div>
+          <p>${esc(f.drill.text)}</p></div>` : ""}
+      </details>
+      ${f.caveat ? `<p class="coach-caveat">${esc(f.caveat)}</p>` : ""}
+    </article>`).join("") || (ok ? `<div class="card coach-card sev-none"><h3 class="coach-title">Nothing worth flagging</h3>
+      <p class="coach-saw">No timing, tempo, sticking or dynamics measurement crossed our thresholds on this take.</p></div>` : "");
+  const strengths = ok ? c.strengths || [] : [];
+  $("coach-strengths").hidden = !strengths.length;
+  $("coach-strengths").innerHTML = `<h3 class="coach-title">What you did well</h3><ul>${strengths.map((x) =>
+    `<li><b>${esc(x.title)}.</b> ${esc(x.saw)}</li>`).join("")}</ul>`;
+  const notes = c.notes || [];
+  $("coach-notes-wrap").hidden = !notes.length;
+  $("coach-notes").innerHTML = notes.map((n) => `<li>${esc(n)}</li>`).join("");
+  box.querySelectorAll(".ts-chip").forEach((b) => { b.onclick = () => jumpTo(Number(b.dataset.t), b.dataset.hand || null); });
+}
+
+// Timestamp chip: pause the video on that moment with the skeleton drawn and the hand ringed.
+let playHighlight = null, playbackApi = null;
+async function jumpTo(t, hand) {
+  const pb = $("playback");
+  pb.pause();
+  playHighlight = hand === "L" || hand === "R" ? hand : null;
+  if (playbackApi) await playbackApi.showSkeleton();
+  pb.currentTime = Math.max(0, t);
+  $("playback-card").scrollIntoView({ behavior: "smooth", block: "center" });
+  if (playbackApi && pb.readyState >= 2) playbackApi.redraw();
+}
+
 let playLoop = false, playData = null, playDataJob = null;
 function setupPlayback(r) {
   const pb = $("playback"), cv = $("play-overlay"), ctx = cv.getContext("2d"), box = $("play-skel"), dbg = $("play-debug");
@@ -303,7 +356,7 @@ function setupPlayback(r) {
     const size = overlaySize(rect.width, rect.height, pb.videoWidth, pb.videoHeight, Math.min(3, window.devicePixelRatio || 1));
     if (size.width && (cv.width !== size.width || cv.height !== size.height)) { cv.width = size.width; cv.height = size.height; }
     const f = playbackFrame(playData, mediaTime);
-    if (f.result) { drawSkeleton(ctx, f.result, cv.width, cv.height); drawn++; if (f.interpolated) interp++; }
+    if (f.result) { drawSkeleton(ctx, f.result, cv.width, cv.height); drawHighlight(f.result); drawn++; if (f.interpolated) interp++; }
     else { ctx.clearRect(0, 0, cv.width, cv.height); empty++; }
     if (debug) {
       dbg.hidden = false;
@@ -312,6 +365,29 @@ function setupPlayback(r) {
         `pose found on ${Math.round((st.pose_rate || 0) * 100)}% of frames, both hands ${Math.round((st.two_hands_rate || 0) * 100)}% | ` +
         `drawn ${drawn}, empty ${empty}, interpolated ${interp}`;
     }
+  };
+  // Ring the wrist a coaching finding is about (pose landmark 15 is the player's left wrist, 16 the right).
+  const drawHighlight = (result) => {
+    const pose = result?.pose?.landmarks?.[0];
+    const p = playHighlight && pose ? pose[playHighlight === "L" ? 15 : 16] : null;
+    if (!p) return;
+    const x = p.x * cv.width, y = p.y * cv.height, rad = Math.max(16, cv.width * 0.055), lw = Math.max(3, cv.width / 160);
+    ctx.save();
+    ctx.lineWidth = lw * 2.2; ctx.strokeStyle = "rgba(0,0,0,0.55)";
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = lw; ctx.strokeStyle = "#ff6b4a";
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.stroke();
+    const label = playHighlight === "L" ? "Left" : "Right";
+    ctx.font = `700 ${Math.round(rad * 0.75)}px system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.lineWidth = lw * 1.5; ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.strokeText(label, x, y - rad - lw);
+    ctx.fillStyle = "#ff6b4a"; ctx.fillText(label, x, y - rad - lw);
+    ctx.restore();
+  };
+  pb.onplay = () => { playHighlight = null; };
+  pb.onseeked = () => { if (playLoop && playData && pb.paused && pb.readyState >= 2) draw(pb.currentTime); };
+  playbackApi = {
+    showSkeleton: async () => { if (!box.checked) { box.checked = true; await box.onchange(); } },
+    redraw: () => { if (playLoop && playData) draw(pb.currentTime); },
   };
   box.onchange = async () => {
     playLoop = box.checked;

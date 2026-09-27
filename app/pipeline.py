@@ -6,7 +6,8 @@
   4. fusion module  -> per-stroke records and audio/video cross-verification
   5. sticking check -> single paradiddle RLRR LRLL comparison
   6. scoring        -> 0-100 scores
-  7. write report.json and mark the job done
+  7. coaching       -> ranked findings, strengths and a focus line (app/coaching.py)
+  8. write report.json and mark the job done
 
 Clips from MIN_FPS (about 24) up to 50 fps are analysed with quality.low_fps set,
 a disclaimer message, and a widened audio/video verify window.
@@ -29,6 +30,7 @@ from pathlib import Path
 
 from . import jobs, tuning
 from .audio import analyze_audio
+from .coaching import safe_coach
 from .fusion import fuse
 from .media import (LOW_FPS_BELOW, MediaError, VideoInfo, extract_audio, frame_times, is_low_fps, low_fps_message,
                     min_fps, probe_video)
@@ -193,8 +195,8 @@ def quality_section(info: VideoInfo, verification: dict) -> dict:
 
 def build_report(job_id: str, created_at: str, filename: str, info: VideoInfo, params: dict,
                  audio: dict, analysed: dict) -> dict:
-    """Assemble the report in the shape of schema/report.schema.json."""
-    return {
+    """Assemble the report in the shape of schema/report.schema.json, with coaching (app/coaching.py) last."""
+    report = {
         "job_id": job_id,
         "created_at": created_at,
         "source": {"filename": filename, "fps": info.fps, "nominal_fps": info.nominal_fps,
@@ -206,6 +208,8 @@ def build_report(job_id: str, created_at: str, filename: str, info: VideoInfo, p
         **analysed,
         "engine": _versions(),
     }
+    report["coaching"] = safe_coach(report)
+    return report
 
 
 def analyze_file(video_path: Path, params: dict, workdir: Path, stage=None,

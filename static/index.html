@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Analyze | Stick It Out</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/style.css?v=4">
+  <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
   <header class="topbar">
@@ -127,8 +127,18 @@
     </section>
 
     <section id="results" class="no-charts" hidden>
+      <!-- Coaching: what to fix and how, built by app/coaching.py. Sits above the scores. -->
+      <div id="coaching" class="coaching" hidden>
+        <div class="card coach-focus" id="coach-focus"></div>
+        <div id="coach-findings"></div>
+        <div class="card coach-strengths" id="coach-strengths" hidden></div>
+        <details class="card coach-notes" id="coach-notes-wrap" hidden>
+          <summary>How sure we are</summary>
+          <ul id="coach-notes"></ul>
+        </details>
+      </div>
       <div class="card verified-card" id="verified-card"></div>
-      <div class="card">
+      <div class="card scores-card">
         <h2>Scores</h2>
         <div class="dials" id="dials"></div>
         <div class="stats" id="stats"></div>
@@ -178,6 +188,6 @@
       <p class="center small" id="add-training-msg" hidden></p>
     </section>
   </main>
-  <script type="module" src="/static/app.js?v=4"></script>
+  <script type="module" src="/static/app.js?v=5"></script>
 </body>
 </html>

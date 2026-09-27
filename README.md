@@ -19,6 +19,7 @@ analysis runs on the server; the live skeleton in Record mode is only a framing 
 - [Remote access over HTTPS](#remote-access-over-https)
 - [Camera guide](#camera-guide)
 - [Record mode](#record-mode)
+- [Coaching](#coaching)
 - [What the results mean](#what-the-results-mean)
 - [Recording for training](#recording-for-training)
 - [Training data: labeling clips](#training-data-labeling-clips)
@@ -241,6 +242,30 @@ with no detection (never an older pose). Analyses made before this existed can g
 Needs internet for the CDN files and a secure page: `http://localhost:8800` on the same
 computer, or HTTPS (see [Remote access](#remote-access-over-https)) on a phone.
 
+## Coaching
+
+The top of every result is a **Coaching** section built by `app/coaching.py` from the numbers the
+pipeline already measures. It is rules based (no AI text) and returned as `coaching` in the report:
+
+- **Focus for your next take**: one line, taken from the most important finding.
+- **Findings** (at most 4), ranked Fix first, Worth working on, Nice to tidy up. Each has a plain
+  title with the measured number, "What we saw", "Why it matters", 2 to 3 "How to fix" steps, one
+  drill with a tempo (a multiple of 10, slower than the measured tempo) and up to 3 timestamps of
+  the worst moments. Tapping a timestamp pauses the video there with the skeleton on and the hand
+  in question ringed.
+- **What you did well**: 1 to 2 strengths from different areas.
+- **Notes**: what we could not judge, or how sure we are (low video match, low frame rate).
+
+It covers tempo drift and target tempo, timing spread, left versus right timing, beat positions
+(paradiddles), sticking slips, doubles (second note quieter, squeezed or open), accents and volume
+evenness, and left versus right wrist travel. It does not judge posture, elbow angles, flams or
+stick height. Every threshold is a `coach_*` setting in `app/tuning.py`, so they can be tuned
+against labeled clips. Full rules: [docs/coaching.md](docs/coaching.md).
+
+`GET /api/results/{id}` adds or refreshes coaching for older analyses on the fly (when the
+coaching `VERSION` changed). To write it into the saved reports:
+`.\.venv\Scripts\python.exe -m scripts.backfill_coaching [job_id ...] [--force]`.
+
 ## Tests
 
 ```powershell
@@ -258,6 +283,7 @@ computer, or HTTPS (see [Remote access](#remote-access-over-https)) on a phone.
 | `test_labels_dataset.py` | labels.json schema (Python validator and JSON Schema agree on valid and invalid files), clip upload with pre-filled strokes, saving labels, Add to training set from a job, dataset errors, `/label` behind the gate, no em dashes in user-facing copy |
 | `test_frontend_js.py` | runs `node --test tests/js` (skipped without node): `static/camera.js` constraint ladder, 60 fps boost, fps badge and tip text, friendly camera names and best default, MediaRecorder type and bitrate, skeleton plan (every frame, pause only when off or under 55 fps); `static/overlay.js` playback frame lookup by mediaTime (exact match, no stale pose on a missing detection, gap interpolation limits), overlay and input sizing, rate meter |
 | `test_playback_landmarks.py` | per-frame playback data shape and detection rates, old caches not served, endpoint errors; a fast motion-blurred variable frame rate clip with a 0.25 s start offset analysed on every frame keyed by pts (pose on at least 95% of frames), and `scripts/backfill_landmarks.py` on an older analysis |
+| `test_coaching.py` | coaching engine on synthetic metrics: left hand rushing, left hand rushing the offbeats, speeding up and dragging, uneven hands (volume and wrist travel), a clean take (strengths, nothing scary), a 30 fps take (wider hand thresholds, no wrist advice), sticking slips with the hand caveat, quieter second notes of doubles, an accent off the beat (hedged), target tempo, too few hits, no video (no hand advice), drill tempo rounding, thresholds read from tuning; every result checked against the schema, drill tempo rules and no em dashes; `/api/results` adds coaching to an older report and `scripts/backfill_coaching.py` writes it |
 | `test_evaluate.py` | tuning file, environment and override; metric maths (matching, hands, tempo, sticking caught/missed/false alarms, timing error, form correlation, run comparison); end to end on the synthetic drummer labeled with its known strokes (near perfect F1, hands, tempo, timing), a sloppy-labeled copy, `--compare-to`, `--compare` and a grid search |
 
 Synthetic inputs: `python scripts/make_click_test.py` writes the 120 BPM fixture;
@@ -355,6 +381,7 @@ app/          FastAPI app and pipeline
   sticking.py   paradiddle sticking check
   scoring.py    0 to 100 scores
   pipeline.py   runs the stages and builds the report
+  coaching.py   rules-based coaching: findings, fixes, drills, strengths (report "coaching")
   tuning.py     every analyzer threshold in one settings object (file and env overrides)
   labels.py     labels.json validation
   dataset.py    training dataset: intake, pre-fill, storage
@@ -365,8 +392,9 @@ static/       Analyze page (index.html, app.js, record.js, camera.js, skeleton.j
 schema/       report.schema.json, labels.schema.json
 scripts/      make_click_test.py, make_test_video.py, fetch_models.py, serve-remote.ps1,
               backfill_landmarks.py (playback skeleton for older analyses),
+              backfill_coaching.py (coaching for older analyses),
               evaluate.py and evaluate.ps1 (accuracy evaluation)
-docs/         training-shot-list.md, 60fps-capture.md
+docs/         training-shot-list.md, 60fps-capture.md, coaching.md
 reports/      evaluation output (not committed)
 tests/        pytest suite
 samples/      real-sample report (pending)
