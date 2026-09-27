@@ -2,7 +2,9 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-data/
+data/*
+!data/youtube/
+data/youtube/cache/
 models/
 *.log
 .env
