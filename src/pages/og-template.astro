@@ -1,0 +1,128 @@
+---
+/**
+ * Source for the social share images. Screenshot each card at its own size,
+ * then export to public/img/social/ via: npm run build:og
+ * Not linked from the site.
+ */
+import '../styles/global.css';
+
+const cards = [
+  { id: 'og-home', w: 1200, h: 630, kicker: 'First lesson free', head: 'One lesson.<br/>One week.<br/>Then the next one.', sub: 'stickitoutbook.com' },
+  { id: 'og-book', w: 1200, h: 630, kicker: 'PDF $19.99', head: 'Stick It Out', sub: 'Rhythm is resilience.', cover: true },
+  { id: 'og-square', w: 1200, h: 1200, kicker: 'First lesson free', head: 'One lesson.<br/>One week.', sub: 'stickitoutbook.com' },
+];
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OG templates</title>
+    <meta name="robots" content="noindex" />
+  </head>
+  <body style="margin:0;background:#222">
+    {cards.map((card) => (
+      <div
+        id={card.id}
+        class="og"
+        style={`width:${card.w}px;height:${card.h}px`}
+        data-w={card.w}
+        data-h={card.h}
+      >
+        <div class="og-inner">
+          <div class="og-copy">
+            <p class="og-kicker">{card.kicker}</p>
+            <h1 class="og-head" set:html={card.head} />
+            <p class="og-sub">{card.sub}</p>
+          </div>
+          {card.cover && <img class="og-cover" src="/img/cover.jpg" alt="" />}
+        </div>
+        <div class="og-mark">
+          <img src="/img/brand/glyph.png" alt="" width="40" height="40" />
+          <span>Stick It Out</span>
+        </div>
+      </div>
+    ))}
+  </body>
+</html>
+
+<style>
+  .og {
+    position: relative;
+    background: var(--blackout);
+    overflow: hidden;
+    font-family: var(--font-body);
+  }
+  .og::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(70% 90% at 88% 20%, rgba(232, 163, 23, 0.18), transparent 60%);
+  }
+  .og-inner {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 60px;
+    padding: 80px;
+    box-sizing: border-box;
+  }
+  .og-kicker {
+    margin: 0 0 18px;
+    font-family: var(--font-display);
+    font-size: 30px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gel);
+  }
+  .og-head {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 104px;
+    line-height: 0.92;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--cue);
+  }
+  .og-sub {
+    margin: 26px 0 0;
+    font-size: 30px;
+    color: var(--chrome);
+  }
+  .og-cover {
+    height: 420px;
+    width: auto;
+    border: 1px solid rgba(242, 235, 227, 0.14);
+    flex: none;
+  }
+  .og-mark {
+    position: absolute;
+    right: 80px;
+    bottom: 56px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .og-mark img {
+    width: 34px;
+    height: 34px;
+  }
+  .og-mark span {
+    font-family: var(--font-display);
+    font-size: 26px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cue);
+  }
+  #og-square .og-inner {
+    align-items: center;
+  }
+  #og-square .og-head {
+    font-size: 136px;
+  }
+  #og-book .og-mark {
+    right: auto;
+    left: 80px;
+  }
+</style>

@@ -1,0 +1,41 @@
+{
+  "name": "stickitout",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev --port 4325",
+    "build": "astro build",
+    "preview": "astro preview --port 4325",
+    "check": "astro check",
+    "serve:dist": "node scripts/serve-dist.mjs",
+    "build:icons": "node scripts/process-brand.mjs && node scripts/build-icons.mjs",
+    "ship-check": "node scripts/ship-check.mjs",
+    "ship": "node scripts/ship/cli.mjs",
+    "shipit": "npm run build && node scripts/ship-check.mjs && node shipit.js",
+    "shipit:only": "node shipit.js --only",
+    "build:demo": "node scripts/build-demo.mjs",
+    "sync:blaze-demo": "node scripts/sync-blaze-demo.mjs",
+    "portal:dev": "wrangler dev --config workers/app/wrangler.jsonc --port 8787",
+    "portal:deploy": "wrangler deploy --config workers/app/wrangler.jsonc",
+    "portal:types": "wrangler types workers/app/worker-configuration.d.ts --config workers/app/wrangler.jsonc --env-interface Env",
+    "leads:import": "node scripts/import-leads.mjs"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "^5.2.5",
+    "@fontsource/bebas-neue": "^5.2.5",
+    "@tailwindcss/vite": "^4.1.11",
+    "astro": "^5.13.0",
+    "tailwindcss": "^4.1.11"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "dotenv": "^16.4.7",
+    "ssh2-sftp-client": "^12.1.1",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.132.0"
+  }
+}

@@ -1,0 +1,17 @@
+---
+import BookLayout from '../layouts/BookLayout.astro';
+
+const bookUrl = import.meta.env.PUBLIC_STRIPE_BOOK_PDF || 'https://buy.stripe.com/aFacN68X1bJ7d96dwXcIE00';
+---
+<BookLayout title="Buy Stick It Out | PDF" description="Buy the Stick It Out PDF for $19.99." noindex>
+  <section class="max-w-3xl mx-auto px-4 sm:px-6 py-16 grid sm:grid-cols-2 gap-10 items-center">
+    <img src="/img/cover.jpg" alt="Stick It Out cover" class="rounded-flyer border border-chrome/20 w-full" />
+    <div>
+      <h1 class="font-display text-4xl text-cue">Stick It Out PDF</h1>
+      <p class="mt-3 text-chrome text-sm leading-relaxed">One-time purchase. Instant download after checkout.</p>
+      <p class="mt-4 text-3xl font-bold text-gel">$19.99</p>
+      <a href={bookUrl} class="tap mt-6 inline-flex btn-gel px-6 py-3 text-sm">Pay with Stripe</a>
+      <p class="mt-3 text-xs text-chrome/60">Physical edition coming later.</p>
+    </div>
+  </section>
+</BookLayout>

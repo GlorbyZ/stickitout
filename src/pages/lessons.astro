@@ -1,0 +1,40 @@
+---
+import LessonsLayout from '../layouts/LessonsLayout.astro';
+---
+<LessonsLayout title="Lesson Library | Stick It Out Lessons" description="Weekly drum lessons from Mike Staus.">
+  <div class="max-w-6xl mx-auto w-full px-4 sm:px-6 py-12 sm:py-16">
+    <p class="text-xs font-bold uppercase tracking-[0.18em] text-gel mb-2">Library</p>
+    <h1 class="font-display text-4xl sm:text-5xl text-cue">15 lessons at launch</h1>
+    <p class="mt-3 text-chrome max-w-2xl leading-relaxed">
+      Titles are public. Video and routines unlock with membership. Join the founding waitlist to get in when spots open.
+    </p>
+    <a href="/#home-email" class="tap mt-6 inline-flex btn-gel px-5 py-3 text-sm">Join the founding waitlist</a>
+    <ol class="mt-10 grid sm:grid-cols-2 gap-3">
+      {[
+        'Anthem Part Two: fast singles at tempo',
+        'Feeling This: fast 8ths and the half-time switch',
+        'Travis fills, decoded: linear hand/foot patterns',
+        'Ghost notes that sit in the pocket',
+        'Double kick endurance without blowing up',
+        'Linear funk grooves for the stage',
+        'Odd-time comfort without the math headache',
+        'Brush control for quiet rooms',
+        'Fill vocabulary that serves the song',
+        'Tempo mapping: click to feel',
+        'Snare tuning and stick choice',
+        'Open-handed independence starters',
+        'Blast beats: control before speed',
+        'Ballad dynamics and space',
+        'Show-night warm-up protocol',
+      ].map((title, i) => (
+        <li class="panel-card px-4 py-4 flex gap-3 items-start justify-between opacity-90">
+          <span class="flex gap-3">
+            <span class="font-display text-gel text-sm">{String(i + 1).padStart(2, '0')}</span>
+            <span class="text-sm text-cue/90">{title}</span>
+          </span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-chrome border border-chrome/30 px-2 py-0.5 rounded-flyer shrink-0">Locked</span>
+        </li>
+      ))}
+    </ol>
+  </div>
+</LessonsLayout>

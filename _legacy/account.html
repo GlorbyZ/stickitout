@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Account &amp; Billing | Stick It Out Lessons</title>
+  <meta name="description" content="Manage your Stick It Out Lessons membership, billing, and weekly lessons." />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="./img/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/tokens.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            blackout: 'var(--blackout)', wings: 'var(--wings)', cue: 'var(--cue)',
+            gel: { DEFAULT: 'var(--gel)', deep: 'var(--gel-deep)' }, chrome: 'var(--chrome)'
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'system-ui', 'sans-serif'],
+            body: ['"Barlow"', 'system-ui', 'sans-serif']
+          },
+          borderRadius: { flyer: 'var(--radius)' },
+          boxShadow: { soft: '0 20px 50px rgba(0,0,0,.45)' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: var(--font-body); background: var(--blackout); color: var(--cue); -webkit-tap-highlight-color: transparent; }
+    .font-display { font-family: var(--font-display); letter-spacing: var(--tracking-display); text-transform: uppercase; }
+    .tap { min-height: 44px; }
+    .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+    .hidden-block { display: none !important; }
+    .btn-gel { background: var(--gel); color: var(--blackout); border-radius: var(--radius); font-weight: 700; }
+    .btn-gel:hover { background: var(--gel-deep); }
+  </style>
+  <meta name="designer" content="Blaze Digital Design" data-blaze-credit-head="1" />
+  <meta name="theme-color" content="#0C0B0A" />
+</head>
+<body class="bg-blackout text-cue antialiased min-h-screen flex flex-col font-body">
+
+  <header class="sticky top-0 z-40 border-b border-chrome/20 bg-blackout/90 backdrop-blur-md">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <a href="./membership.html" class="font-display text-lg text-cue">
+        StickItOut<span class="text-gel">.Lessons</span>
+      </a>
+      <nav class="flex items-center gap-2 sm:gap-3 text-sm text-chrome">
+        <a href="./portal.html" class="tap inline-flex items-center justify-center px-3 py-2 btn-gel text-sm">Portal</a>
+        <a href="./membership.html" class="hover:text-cue transition-colors hidden sm:inline">Lessons home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-grow safe-bottom max-w-4xl mx-auto w-full px-4 sm:px-6 py-10 sm:py-14">
+    <h1 class="font-display text-4xl sm:text-5xl text-cue">Account</h1>
+    <p class="mt-2 text-chrome text-sm sm:text-base max-w-xl leading-relaxed">
+      Membership status, billing, and library access. Full login arrives with Stripe customer email once billing is live.
+    </p>
+
+    <section class="mt-8 rounded-flyer border border-chrome/20 bg-wings p-6 sm:p-7" id="login-section">
+      <h2 class="text-lg font-bold text-cue">Sign in</h2>
+      <p class="mt-1.5 text-sm text-chrome leading-relaxed">Enter the email you use (or will use) for membership. This saves locally until Stripe portal login is connected.</p>
+      <form id="login-form" class="mt-4 flex flex-col sm:flex-row gap-3">
+        <input type="email" id="login-email" required autocomplete="email" placeholder="you@email.com"
+          class="flex-1 rounded-flyer bg-blackout border border-chrome/30 px-4 py-3 text-sm text-cue placeholder:text-chrome/50 focus:outline-none focus:border-gel" />
+        <button type="submit" class="tap inline-flex items-center justify-center px-5 py-3 rounded-flyer border border-chrome/35 text-cue text-sm font-semibold hover:border-gel hover:text-gel transition-colors">
+          Continue
+        </button>
+      </form>
+      <div id="session-bar" class="hidden-block mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <p class="text-chrome">Signed in as <strong class="text-cue" id="session-email"></strong></p>
+        <button type="button" id="sign-out" class="text-chrome/70 hover:text-cue underline underline-offset-2 text-xs">Sign out</button>
+      </div>
+    </section>
+
+    <div class="mt-6 grid gap-5">
+
+      <section class="rounded-flyer border border-chrome/20 bg-wings p-6 sm:p-7">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-gel">Membership</p>
+            <h2 class="mt-1 font-display text-2xl text-cue" id="membership-title">No active plan yet</h2>
+            <p class="mt-2 text-sm text-chrome leading-relaxed" id="membership-copy">
+              Start a founding plan from checkout, or join the waitlist if payment links are not live yet.
+            </p>
+          </div>
+          <a href="./membership-checkout.html" id="membership-cta" class="tap inline-flex items-center justify-center px-4 py-2.5 btn-gel text-sm">
+            Choose a plan
+          </a>
+        </div>
+      </section>
+
+      <section class="rounded-flyer border border-chrome/20 bg-wings p-6 sm:p-7" id="billing">
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-gel">Billing</p>
+        <h2 class="mt-1 font-display text-2xl text-cue">Payment manager</h2>
+        <p class="mt-2 text-sm text-chrome leading-relaxed max-w-xl">
+          Update your card, switch founding monthly / annual, download invoices, or cancel. Powered by Stripe Customer Portal.
+        </p>
+        <div class="mt-5 flex flex-wrap gap-3">
+          <a id="portal-btn" href="#" class="tap inline-flex items-center justify-center px-5 py-2.5 rounded-flyer bg-cue text-blackout text-sm font-semibold hover:bg-gel transition-colors">
+            Manage billing
+          </a>
+          <span id="portal-soon" class="tap inline-flex items-center justify-center px-5 py-2.5 rounded-flyer border border-chrome/25 text-chrome/60 text-sm font-semibold cursor-not-allowed">
+            Portal link coming soon
+          </span>
+        </div>
+        <ul class="mt-5 grid sm:grid-cols-3 gap-3 text-xs text-chrome">
+          <li class="rounded-flyer border border-chrome/20 bg-blackout/50 px-3 py-3">Update payment method</li>
+          <li class="rounded-flyer border border-chrome/20 bg-blackout/50 px-3 py-3">Change plan tier</li>
+          <li class="rounded-flyer border border-chrome/20 bg-blackout/50 px-3 py-3">Cancel anytime</li>
+        </ul>
+      </section>
+
+      <section class="rounded-flyer border border-chrome/20 bg-wings p-6 sm:p-7">
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-gel">Library</p>
+        <h2 class="mt-1 font-display text-2xl text-cue">Your lessons</h2>
+        <p class="mt-2 text-sm text-chrome leading-relaxed">Open the member portal for this week&rsquo;s lesson video, BPM logging, and Tracks.</p>
+        <a href="./portal.html" class="tap mt-4 inline-flex items-center justify-center px-5 py-2.5 btn-gel text-sm">
+          Open member portal
+        </a>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <a href="./lessons.html" class="tap inline-flex items-center px-3.5 py-2 rounded-flyer border border-chrome/25 text-sm text-cue/80 hover:border-gel hover:text-gel transition-colors">Browse library</a>
+          <a href="./challenges.html" class="tap inline-flex items-center px-3.5 py-2 rounded-flyer border border-chrome/25 text-sm text-cue/80 hover:border-gel hover:text-gel transition-colors">Challenges</a>
+          <a href="./free-lesson.html" class="tap inline-flex items-center px-3.5 py-2 rounded-flyer border border-chrome/25 text-sm text-cue/80 hover:border-gel hover:text-gel transition-colors">Free lesson</a>
+        </div>
+      </section>
+
+      <section class="rounded-flyer border border-chrome/20 bg-wings p-6 sm:p-7">
+        <p class="text-xs font-bold uppercase tracking-[0.18em] text-chrome">Shop</p>
+        <h2 class="mt-1 font-display text-2xl text-cue">Stick It Out book</h2>
+        <p class="mt-2 text-sm text-chrome leading-relaxed">
+          Membership stands alone. The coordination book is $19.99 PDF, or included with founding annual.
+        </p>
+        <a href="./index.html" class="tap mt-4 inline-flex items-center justify-center px-4 py-2.5 rounded-flyer border border-chrome/25 text-sm font-semibold text-cue/80 hover:border-chrome/50 hover:text-cue transition-colors">
+          View the book
+        </a>
+      </section>
+    </div>
+  </main>
+
+  <footer class="border-t border-chrome/20 px-4 sm:px-6 py-8 safe-bottom">
+    <div class="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between gap-3 text-xs text-chrome/60">
+      <p>© <span id="y"></span> Michael Staus · Stick It Out Lessons</p>
+      <a href="https://blazedigitaldesign.com" class="hover:text-cue transition-colors">Built by Blaze Digital</a>
+    </div>
+  </footer>
+
+  <script src="./js/membership-commerce.js"></script>
+  <script>
+    (function () {
+      document.getElementById('y').textContent = new Date().getFullYear();
+      var C = window.SIOLessons;
+      var state = C.loadState();
+
+      var loginForm = document.getElementById('login-form');
+      var sessionBar = document.getElementById('session-bar');
+      var sessionEmail = document.getElementById('session-email');
+      var portalBtn = document.getElementById('portal-btn');
+      var portalSoon = document.getElementById('portal-soon');
+      var memTitle = document.getElementById('membership-title');
+      var memCopy = document.getElementById('membership-copy');
+      var memCta = document.getElementById('membership-cta');
+
+      function refreshSession() {
+        state = C.loadState();
+        var email = state.email || state.waitlistEmail || state.freeLessonEmail || '';
+        if (email) {
+          loginForm.classList.add('hidden-block');
+          sessionBar.classList.remove('hidden-block');
+          sessionEmail.textContent = email;
+        } else {
+          loginForm.classList.remove('hidden-block');
+          sessionBar.classList.add('hidden-block');
+        }
+      }
+
+      function refreshMembership() {
+        var planId = state.waitlistPlanId;
+        if (planId) {
+          var plan = C.getPlan(planId);
+          memTitle.textContent = 'Waitlisted · ' + plan.label;
+          memCopy.textContent = 'You joined the list for ' + plan.label + ' (' + plan.priceLabel + plan.interval + '). We will email you when checkout opens.';
+          memCta.href = C.checkoutHref(plan.id);
+          memCta.textContent = 'Review plan';
+        } else {
+          memTitle.textContent = 'No active plan yet';
+          memCopy.textContent = 'Start a founding plan from checkout, or join the waitlist if payment links are not live yet.';
+          memCta.href = './membership-checkout.html';
+          memCta.textContent = 'Choose a plan';
+        }
+      }
+
+      function refreshPortal() {
+        if (C.portalEnabled()) {
+          portalBtn.href = C.portalUrl;
+          portalBtn.classList.remove('hidden-block');
+          portalSoon.classList.add('hidden-block');
+        } else {
+          portalBtn.classList.add('hidden-block');
+          portalSoon.classList.remove('hidden-block');
+        }
+      }
+
+      loginForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        C.setSessionEmail(document.getElementById('login-email').value);
+        refreshSession();
+      });
+
+      document.getElementById('sign-out').addEventListener('click', function () {
+        C.clearSession();
+        document.getElementById('login-email').value = '';
+        refreshSession();
+        refreshMembership();
+      });
+
+      refreshSession();
+      refreshMembership();
+      refreshPortal();
+    })();
+  </script>
+</body>
+</html>

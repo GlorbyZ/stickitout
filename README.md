@@ -1,16 +1,34 @@
 # Stick It Out
 
-Local working tree for the Stick It Out site and **Lessons** subscription product.
+Astro site for **Stick It Out** (book + Lessons). Local-only agents for this project.
 
-**Local path:** `C:\Users\epicn\Documents\sites\Stickitout`
+**Live:** https://stickitoutdrums.com/  
+**Repo:** https://github.com/GlorbyZ/stickitout
 
-## Product
+## Commands
 
-- **Lessons membership:** Monthly / biannual / annual plans (Stripe Payment Links + Customer Portal when wired). Surfaces: `membership.html`, `membership-checkout.html`, `membership-welcome.html`, `account.html`, `portal.html`. Plan config: `js/membership-commerce.js`.
-- **Book (separate):** One-time PDF purchase via `payment.html` / `unlock.html`.
+```bash
+npm install
+npm run dev          # http://localhost:4325
+npm run build
+npm run shipit       # build + secret scan + SFTP
+```
 
-## Notes
+## Email capture
 
-- This repo is the source of truth for the Stick It Out system (site + membership checkout + member portal).
-- A Blaze demo mirror may exist under `Blaze/demos/stickitout/` for portfolio showcase only.
-- Do not commit SFTP credentials (`.vscode/sftp.json` is gitignored).
+Free lesson + waitlist POST to `/api/capture.php` → `data/leads.json` and Cloudflare D1 + Resend lists.
+
+1. Set `SFTP_PASSWORD` in `.env`
+2. Optional: `CAPTURE_NOTIFY_TO=you@email.com` for mail alerts on each signup
+3. `npm run shipit`
+4. Pull leads anytime via SFTP: `data/leads.json`
+
+See [docs/deploy.md](docs/deploy.md).
+
+## Member + admin portals
+
+https://member.stickitoutdrums.com/ and https://admin.stickitoutdrums.com/ (Cloudflare Worker + D1). Setup: [docs/portals.md](docs/portals.md).
+
+## Brand lab
+
+https://stickitoutdrums.com/brand-lab.html (also GitHub Pages until next Pages deploy)

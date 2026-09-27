@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Stick It Out Lessons — Weekly Drum Lessons with Mike Staus</title>
+  <meta name="description" content="One 10-minute drum lesson a week from Mike Staus. Travis-style pop-punk grooves, speed, and endurance — each lesson is a full week's practice routine. First lesson free." />
+  <meta property="og:title" content="A drum lesson a week. Not a pile of videos." />
+  <meta property="og:description" content="One 10-minute drum lesson a week from Mike Staus. Travis-style pop-punk grooves, speed, and endurance. First lesson free." />
+  <meta property="og:image" content="./img/mike.jpg" />
+  <link rel="icon" href="./img/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/tokens.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            blackout: 'var(--blackout)',
+            wings: 'var(--wings)',
+            cue: 'var(--cue)',
+            gel: { DEFAULT: 'var(--gel)', deep: 'var(--gel-deep)' },
+            chrome: 'var(--chrome)'
+          },
+          fontFamily: {
+            display: ['"Bebas Neue"', 'system-ui', 'sans-serif'],
+            body: ['"Barlow"', 'system-ui', 'sans-serif']
+          },
+          borderRadius: { flyer: 'var(--radius)' },
+          boxShadow: {
+            soft: '0 20px 50px rgba(0,0,0,.45)',
+            card: '0 12px 40px rgba(0,0,0,.35)'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: var(--font-body);
+      background: var(--blackout);
+      color: var(--cue);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .font-display { font-family: var(--font-display); letter-spacing: var(--tracking-display); text-transform: uppercase; }
+    ::selection { background: rgba(232, 163, 23, .35); color: var(--cue); }
+    .tap { min-height: 44px; }
+    .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+    .check {
+      background: var(--gel); color: var(--blackout); width: 1.25rem; height: 1.25rem; border-radius: 9999px;
+      display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      font-size: .7rem; font-weight: 700; line-height: 1;
+    }
+    details summary { list-style: none; }
+    details summary::-webkit-details-marker { display: none; }
+    details[open] .faq-chev { transform: rotate(180deg); }
+    .pricing-bg {
+      background:
+        linear-gradient(180deg, rgba(12,11,10,.88), rgba(12,11,10,.96)),
+        url('./img/gym/kit.jpg') center/cover no-repeat;
+    }
+    .hero-mosaic {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: repeat(4, minmax(0, 1fr));
+      gap: .55rem;
+      padding: .75rem;
+      height: 100%;
+    }
+    .hero-mosaic img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: var(--radius);
+      filter: grayscale(1) brightness(.42) contrast(1.08);
+    }
+    .hm-a { grid-column: 1 / 3; grid-row: 1 / 3; }
+    .hm-b { grid-column: 3 / 5; grid-row: 1 / 2; }
+    .hm-c { grid-column: 5 / 7; grid-row: 1 / 3; }
+    .hm-d { grid-column: 3 / 5; grid-row: 2 / 4; }
+    .hm-e { grid-column: 1 / 3; grid-row: 3 / 5; }
+    .hm-f { grid-column: 5 / 7; grid-row: 3 / 4; }
+    .hm-g { grid-column: 3 / 5; grid-row: 4 / 5; }
+    .hm-h { grid-column: 5 / 7; grid-row: 4 / 5; }
+    @media (max-width: 640px) {
+      .hero-mosaic {
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, minmax(0, 1fr));
+        gap: .4rem;
+        padding: .5rem;
+      }
+      .hm-a { grid-column: 1 / 3; grid-row: 1 / 3; }
+      .hm-b { grid-column: 3 / 5; grid-row: 1 / 2; }
+      .hm-c { grid-column: 3 / 5; grid-row: 2 / 4; }
+      .hm-d { grid-column: 1 / 3; grid-row: 3 / 5; }
+      .hm-e { grid-column: 3 / 5; grid-row: 4 / 5; }
+      .hm-f, .hm-g, .hm-h { display: none; }
+    }
+    .fade-up {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity .45s ease, transform .45s ease;
+    }
+    .fade-up.is-in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .fade-up { opacity: 1; transform: none; transition: none; }
+    }
+    .price-card {
+      background: rgba(22, 19, 17, .92);
+      border: 1px solid rgba(154, 163, 173, .22);
+      border-radius: var(--radius);
+      transition: border-color .2s ease, transform .2s ease;
+    }
+    .price-card.is-featured {
+      border-color: rgba(232, 163, 23, .65);
+      background: rgba(22, 19, 17, .98);
+      transform: translateY(-6px);
+      box-shadow: 0 18px 40px rgba(0,0,0,.45);
+    }
+    @media (max-width: 639px) {
+      .price-card.is-featured { transform: none; }
+    }
+    .btn-gel {
+      background: var(--gel);
+      color: var(--blackout);
+      border-radius: var(--radius);
+      font-weight: 700;
+    }
+    .btn-gel:hover { background: var(--gel-deep); }
+    .panel-card {
+      background: var(--wings);
+      border: 1px solid rgba(154, 163, 173, .18);
+      border-radius: var(--radius);
+    }
+    .lesson-num {
+      font-family: var(--font-display);
+      letter-spacing: var(--tracking-display);
+      color: var(--gel);
+      font-size: .85rem;
+    }
+  </style>
+  <meta name="designer" content="Blaze Digital Design" data-blaze-credit-head="1" />
+  <meta name="theme-color" content="#0C0B0A" />
+</head>
+<body class="bg-blackout text-cue antialiased font-body">
+
+  <header class="sticky top-0 z-50 border-b border-chrome/20 bg-blackout/90 backdrop-blur-md">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <a href="./membership.html" class="font-display text-lg sm:text-xl text-cue">
+        StickItOut<span class="text-gel">.Lessons</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-5 text-sm text-chrome">
+        <a href="./lessons.html" class="hover:text-cue transition-colors">Lessons</a>
+        <a href="./challenges.html" class="hover:text-cue transition-colors">Challenges</a>
+        <a href="#pricing" class="hover:text-cue transition-colors">Pricing</a>
+        <a href="#mike" class="hover:text-cue transition-colors">About Mike</a>
+        <a href="./index.html" class="hover:text-cue transition-colors">Book</a>
+      </nav>
+      <div class="flex items-center gap-2">
+        <a href="./account.html" class="tap inline-flex items-center justify-center px-3 py-2 rounded-flyer border border-chrome/35 text-cue text-sm font-semibold hover:border-gel hover:text-gel transition-colors">Log in</a>
+        <a href="./free-lesson.html" class="tap inline-flex items-center justify-center px-3 py-2 sm:px-3.5 btn-gel text-sm">Start free lesson</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="safe-bottom">
+
+    <!-- Hero -->
+    <section class="relative min-h-[92svh] flex items-center overflow-hidden">
+      <div class="absolute inset-0" aria-hidden="true">
+        <div class="hero-mosaic">
+          <img class="hm-a" src="./img/gym/kit.jpg" alt="" />
+          <img class="hm-b" src="./img/gym/drummer.jpg" alt="" />
+          <img class="hm-c" src="./img/gym/live.jpg" alt="" />
+          <img class="hm-d" src="./img/gym/sticks.jpg" alt="" />
+          <img class="hm-e" src="./img/gym/snare.jpg" alt="" />
+          <img class="hm-f" src="./img/gym/hand-speed.jpg" alt="" />
+          <img class="hm-g" src="./img/gym/pop-punk.jpg" alt="" />
+          <img class="hm-h" src="./img/gym/practice.jpg" alt="" />
+        </div>
+      </div>
+      <div class="absolute inset-0 bg-gradient-to-b from-blackout/55 via-blackout/78 to-blackout"></div>
+
+      <div class="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-24 sm:py-28 text-center">
+        <p class="font-display text-gel text-sm sm:text-base tracking-[0.14em] mb-4">Don&rsquo;t flinch on the one.</p>
+        <h1 class="font-display text-[2.6rem] sm:text-5xl md:text-[3.75rem] leading-[1.02] text-cue">
+          One lesson.<br />One week.<br />Then the next one.
+        </h1>
+        <p class="mt-5 text-base sm:text-lg text-chrome max-w-2xl mx-auto leading-relaxed">
+          Mike Staus teaches the Travis Barker parts he actually plays — note for note, in the style of — in 10-minute lessons. Each one is your whole practice routine for the week. New lesson every week.
+        </p>
+
+        <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <a href="./free-lesson.html" class="tap inline-flex items-center justify-center px-8 py-3.5 btn-gel text-base shadow-soft">
+            Start with a free lesson
+          </a>
+          <a href="#library" class="tap inline-flex items-center justify-center px-6 py-3.5 rounded-flyer border border-chrome/35 text-cue text-sm font-semibold hover:border-gel hover:text-gel transition-colors">
+            See what&rsquo;s in the library →
+          </a>
+        </div>
+        <p class="mt-3 text-xs sm:text-sm text-chrome/70">No card. Just the first lesson and your email.</p>
+
+        <div class="mt-9 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-flyer border border-gel/40 bg-blackout/55 px-5 py-2.5 text-xs sm:text-sm text-cue/90 backdrop-blur-sm">
+          <span class="inline-flex items-center gap-1.5"><span class="text-gel" aria-hidden="true">★</span> Berklee-trained</span>
+          <span class="hidden sm:inline text-gel/35" aria-hidden="true">|</span>
+          <span class="inline-flex items-center gap-1.5"><span class="text-gel" aria-hidden="true">◉</span> Touring + studio drummer</span>
+          <span class="hidden sm:inline text-gel/35" aria-hidden="true">|</span>
+          <span class="inline-flex items-center gap-1.5"><span class="text-gel" aria-hidden="true">✓</span> New lesson every week</span>
+          <span class="hidden sm:inline text-gel/35" aria-hidden="true">|</span>
+          <span class="inline-flex items-center gap-1.5"><span class="text-gel" aria-hidden="true">✓</span> 10 minutes to learn, 7 days to own it</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how" class="bg-wings border-t border-chrome/15">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-[4.5rem]">
+        <div class="text-center max-w-2xl mx-auto mb-11 fade-up">
+          <p class="text-xs font-bold uppercase tracking-[0.18em] text-gel mb-2">The gameplan</p>
+          <h2 class="font-display text-4xl sm:text-5xl text-cue">Three steps, no homework pile</h2>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-5">
+          <div class="fade-up panel-card p-7">
+            <p class="font-display text-gel text-3xl">1</p>
+            <h3 class="mt-3 font-display text-2xl text-cue">Pick your week</h3>
+            <p class="mt-2.5 text-sm text-chrome leading-relaxed">Browse the library, grab the lesson you want. Nothing is locked.</p>
+          </div>
+          <div class="fade-up panel-card p-7" style="transition-delay:.06s">
+            <p class="font-display text-gel text-3xl">2</p>
+            <h3 class="mt-3 font-display text-2xl text-cue">Get the routine</h3>
+            <p class="mt-2.5 text-sm text-chrome leading-relaxed">Each lesson is ~10 minutes of teaching plus a written daily plan: 15 minutes a day, minimum, and your starting BPM.</p>
+          </div>
+          <div class="fade-up panel-card p-7" style="transition-delay:.12s">
+            <p class="font-display text-gel text-3xl">3</p>
+            <h3 class="mt-3 font-display text-2xl text-cue">Log it and move on</h3>
+            <p class="mt-2.5 text-sm text-chrome leading-relaxed">Log your clean BPM day 1 and day 7. Beat it, then take next week&rsquo;s lesson. Deep dive one for a month if you want.</p>
+          </div>
+        </div>
+        <p class="mt-8 text-center text-sm text-cue/85 fade-up max-w-2xl mx-auto leading-relaxed border border-gel/30 rounded-flyer px-5 py-4 bg-blackout/40">
+          <strong class="text-gel">Rule we actually enforce:</strong> never more than two lessons a week. Two weeks of real reps beats ten videos you watched once.
+        </p>
+      </div>
+    </section>
+
+    <!-- Library -->
+    <section id="library" class="bg-blackout border-t border-chrome/15">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-[4.5rem]">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5 mb-9 fade-up">
+          <div class="max-w-xl">
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-gel mb-2">The library</p>
+            <h2 class="font-display text-4xl sm:text-5xl text-cue">15 lessons at launch. One more every week.</h2>
+            <p class="mt-3 text-chrome leading-relaxed">Every lesson is a named part or a real skill — not a course number. Full access on any plan.</p>
+          </div>
+          <a href="./lessons.html" class="tap inline-flex items-center justify-center px-5 py-2.5 rounded-flyer border border-chrome/35 text-cue text-sm font-semibold hover:border-gel hover:text-gel transition-colors self-start">Browse all lessons</a>
+        </div>
+
+        <!-- Featured free -->
+        <article class="fade-up panel-card overflow-hidden mb-8 grid md:grid-cols-[1.1fr_1fr] border-gel/40">
+          <div class="relative aspect-[16/10] md:aspect-auto md:min-h-[240px] overflow-hidden bg-blackout">
+            <img src="./img/gym/kit.jpg" alt="Sparkle kit on a dark stage" class="w-full h-full object-cover" loading="lazy" />
+            <span class="absolute top-3 left-3 text-[11px] font-bold bg-gel text-blackout px-2.5 py-1 rounded-flyer tracking-wide">Free</span>
+          </div>
+          <div class="p-6 sm:p-8 flex flex-col justify-center">
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-gel mb-2">Featured · Lesson 01</p>
+            <h3 class="font-display text-2xl sm:text-3xl text-cue leading-snug">Anthem Part Two — the singles that raised a generation</h3>
+            <p class="mt-3 text-sm text-chrome leading-relaxed">Travis&rsquo;s fast single strokes at tempo, broken down slow, then built back to the record. This is the one everybody asks about. Start here.</p>
+            <p class="mt-4 text-xs font-bold text-gel uppercase tracking-wider">~11 min · Week routine included · BPM log</p>
+            <a href="./free-lesson.html" class="tap mt-5 inline-flex items-center justify-center self-start px-5 py-2.5 btn-gel text-sm">Start free lesson</a>
+          </div>
+        </article>
+
+        <ol class="grid sm:grid-cols-2 gap-3 mb-12">
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">01</span><span class="text-sm text-cue/90">Anthem Part Two — fast singles at tempo <span class="text-gel font-semibold">· free</span></span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">02</span><span class="text-sm text-cue/90">Feeling This — fast 8ths and the half-time switch</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">03</span><span class="text-sm text-cue/90">Travis fills, decoded — linear hand/foot patterns</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">04</span><span class="text-sm text-cue/90">The ghost notes and rimshots that make the pocket</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">05</span><span class="text-sm text-cue/90">Paradiddles on a blink groove (not on a practice pad)</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">06</span><span class="text-sm text-cue/90">Double-time kick that doesn&rsquo;t die in the chorus</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">07</span><span class="text-sm text-cue/90">Box Car Racer — The End With You: taste over speed</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">08</span><span class="text-sm text-cue/90">Violence — playing busy without rushing</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">09</span><span class="text-sm text-cue/90">Bounce and rebound: stop muscling the stick</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">10</span><span class="text-sm text-cue/90">The click is not your enemy — playing to a track</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">11</span><span class="text-sm text-cue/90">Crash choking and the punk stop</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">12</span><span class="text-sm text-cue/90">Toms as a melody, not a fill</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">13</span><span class="text-sm text-cue/90">16th-note hi-hat control at 160+</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start"><span class="lesson-num">14</span><span class="text-sm text-cue/90">Endurance: the 20-minute no-stop set run</span></li>
+          <li class="fade-up panel-card px-4 py-3.5 flex gap-3 items-start sm:col-span-2"><span class="lesson-num">15</span><span class="text-sm text-cue/90">Your own fills — turning a lick into vocabulary</span></li>
+        </ol>
+
+        <div class="fade-up">
+          <h3 class="font-display text-3xl text-cue mb-2">Not sure where to start? Take a Track.</h3>
+          <p class="text-sm text-chrome leading-relaxed max-w-2xl mb-6">A Track is four lessons in order — about a month of practice. Same videos, just a path.</p>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="panel-card p-5">
+              <h4 class="font-display text-xl text-cue">Blink Groove Builder</h4>
+              <p class="mt-1 text-xs text-gel font-semibold uppercase tracking-wider">Lessons 2, 4, 6, 8</p>
+            </div>
+            <div class="panel-card p-5">
+              <h4 class="font-display text-xl text-cue">Hand Speed</h4>
+              <p class="mt-1 text-xs text-gel font-semibold uppercase tracking-wider">Lessons 1, 9, 13, 14</p>
+            </div>
+            <div class="panel-card p-5">
+              <h4 class="font-display text-xl text-cue">Paradiddle 200</h4>
+              <p class="mt-1 text-xs text-gel font-semibold uppercase tracking-wider">Lessons 5, 9, 13, 3</p>
+            </div>
+            <div class="panel-card p-5">
+              <h4 class="font-display text-xl text-cue">Foot Speed</h4>
+              <p class="mt-1 text-xs text-gel font-semibold uppercase tracking-wider">Lessons 6, 3, 14, 10</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Challenges -->
+    <section id="challenges" class="bg-wings border-t border-chrome/15">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-[4.5rem]">
+        <div class="grid lg:grid-cols-2 gap-10 items-center fade-up">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-gel mb-2">Monthly challenges</p>
+            <h2 class="font-display text-4xl sm:text-5xl text-cue">Free with membership. Mike does them with you.</h2>
+            <p class="mt-4 text-chrome leading-relaxed">
+              One challenge a month — most clean single strokes in a minute, cleanest paradiddle at 160, whatever&rsquo;s next. One take, no edits, click audible, hands in frame. The leaderboard ranks <strong class="text-cue">% improvement</strong>, not raw speed, so a beginner can win.
+            </p>
+            <p class="mt-3 text-sm text-chrome leading-relaxed">
+              Prizes: sticks, heads, cymbals from our partners. Beat Mike and the sticks are automatic. Once we&rsquo;re big enough, one full kit a year.
+            </p>
+            <a href="./challenges.html" class="tap mt-6 inline-flex items-center justify-center px-5 py-2.5 btn-gel text-sm">See the current challenge →</a>
+          </div>
+          <div class="panel-card p-7 border-gel/30">
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-gel">Rules snapshot</p>
+            <ul class="mt-4 space-y-3 text-sm text-cue/85">
+              <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>One take · no edits</span></li>
+              <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>Click audible · hands in frame</span></li>
+              <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>Ranked by % improvement</span></li>
+              <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>Beat Mike → sticks automatic</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- About Mike -->
+    <section id="mike" class="bg-blackout border-t border-chrome/15">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+        <div class="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          <div class="fade-up">
+            <h2 class="font-display text-4xl sm:text-5xl text-cue">Learn With Mike</h2>
+            <p class="mt-5 text-[15px] sm:text-base text-chrome leading-relaxed">
+              Mike Staus is a Berklee-trained studio and touring drummer out of Billings, MT — the production force behind FlickN, co-founder of FlickN and Wink-183, and the guy 7,000+ drummers follow for Travis Barker parts played straight. His Anthem Part Two breakdown has been watched over 70,000 times.
+            </p>
+            <p class="mt-3 text-[15px] sm:text-base text-chrome leading-relaxed">
+              He&rsquo;s not teaching theory at you. He&rsquo;s teaching what he plays on stage.
+            </p>
+            <ul class="mt-7 space-y-3.5 text-[15px] sm:text-base text-cue/85">
+              <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>One instructor, one voice, all levels</span></li>
+              <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>Travis / blink vocabulary taught honestly — in the style of, never the master track</span></li>
+              <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>A written weekly routine with every lesson, not just a video</span></li>
+              <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>BPM logging so progress is a number, not a feeling</span></li>
+              <li class="flex gap-3 items-start"><span class="check mt-0.5">✓</span><span>Monthly challenges and a leaderboard</span></li>
+            </ul>
+          </div>
+
+          <div class="relative fade-up" style="transition-delay:.08s">
+            <div class="rounded-flyer overflow-hidden shadow-soft border border-chrome/20 aspect-[4/5] sm:aspect-[5/6] bg-blackout">
+              <img src="./img/mike.jpg" alt="Mike Staus playing drums live" class="w-full h-full object-cover object-top" width="800" height="1000" />
+            </div>
+            <div class="absolute -bottom-5 left-3 right-3 sm:left-5 sm:right-auto sm:max-w-sm bg-blackout text-cue rounded-flyer p-4 sm:p-5 shadow-soft border border-chrome/25">
+              <p class="text-sm leading-relaxed text-cue/90 italic">
+                &ldquo;My number one priority in teaching is to help you grow. Whether you learn best by watching, listening, reading, or a mix of all three, we&rsquo;ll do it together.&rdquo;
+              </p>
+              <p class="mt-2.5 text-xs font-semibold text-gel uppercase tracking-wider">Mike Staus · Drums</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Why learn online -->
+      <div class="border-t border-chrome/15 bg-wings">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-[4.5rem]">
+          <div class="text-center max-w-2xl mx-auto mb-11 fade-up">
+            <h2 class="font-display text-4xl sm:text-5xl text-cue">Why learn drums online?</h2>
+            <p class="mt-4 text-chrome leading-relaxed">
+              <strong class="text-cue font-semibold">Total freedom, with an actual plan.</strong>
+              No scheduled lesson to miss. Open your phone, run this week&rsquo;s routine, log the tempo.
+            </p>
+          </div>
+          <div class="grid sm:grid-cols-3 gap-5">
+            <div class="fade-up panel-card p-7 text-center">
+              <div class="mx-auto w-12 h-12 rounded-flyer bg-gel text-blackout flex items-center justify-center shadow-sm" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              </div>
+              <h3 class="mt-5 font-display text-2xl text-cue leading-snug">Your pace, your pick</h3>
+              <p class="mt-2.5 text-sm text-chrome leading-relaxed">15 lessons unlocked from day one. Take the one you need this week.</p>
+            </div>
+            <div class="fade-up panel-card p-7 text-center" style="transition-delay:.06s">
+              <div class="mx-auto w-12 h-12 rounded-flyer bg-gel text-blackout flex items-center justify-center shadow-sm" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              </div>
+              <h3 class="mt-5 font-display text-2xl text-cue leading-snug">A real player, not a curriculum</h3>
+              <p class="mt-2.5 text-sm text-chrome leading-relaxed">Mike teaches the parts he gets paid to play.</p>
+            </div>
+            <div class="fade-up panel-card p-7 text-center" style="transition-delay:.12s">
+              <div class="mx-auto w-12 h-12 rounded-flyer bg-gel text-blackout flex items-center justify-center shadow-sm" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <h3 class="mt-5 font-display text-2xl text-cue leading-snug">Progress you can prove</h3>
+              <p class="mt-2.5 text-sm text-chrome leading-relaxed">Day 1 vs. day 7 BPM on every lesson. The number doesn&rsquo;t lie.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pricing -->
+      <div id="pricing" class="pricing-bg border-t border-chrome/15">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-[4.75rem]">
+          <div class="text-center mb-10 fade-up">
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-gel mb-2">Founding member pricing</p>
+            <h2 class="font-display text-4xl sm:text-5xl text-cue">$19/month. Locked for life. First 100 only.</h2>
+            <p class="mt-3 text-chrome max-w-xl mx-auto leading-relaxed">
+              Full library, every new weekly lesson, all Tracks, challenges, and BPM tracking. After 100 members it&rsquo;s $29.99 — founding members never move.
+            </p>
+          </div>
+
+          <div class="grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto items-stretch fade-up">
+            <a href="./membership-checkout.html?plan=monthly" class="price-card is-featured p-7 text-center flex flex-col justify-center min-h-[180px] hover:border-gel/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gel js-checkout-cta">
+              <h3 class="text-xs font-bold uppercase tracking-[0.22em] text-chrome">Founding Monthly</h3>
+              <p class="mt-4 text-[2rem] font-extrabold text-cue tracking-tight">$19 <span class="text-base font-semibold text-chrome">/mo</span></p>
+              <p class="mt-2 text-sm font-semibold text-gel">7-day free trial</p>
+              <p class="mt-3 text-xs font-semibold text-gel">Claim your spot →</p>
+            </a>
+            <a href="./membership-checkout.html?plan=annual" class="price-card p-7 text-center flex flex-col justify-center min-h-[168px] hover:border-chrome/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gel js-checkout-cta">
+              <h3 class="text-xs font-bold uppercase tracking-[0.22em] text-chrome">Founding Annual</h3>
+              <p class="mt-4 text-[2rem] font-extrabold text-cue tracking-tight">$149 <span class="text-base font-semibold text-chrome">/yr</span></p>
+              <p class="mt-2 text-sm font-semibold text-chrome">Book PDF included · ~$12.42/mo</p>
+              <p class="mt-3 text-xs font-semibold text-gel">Claim your spot →</p>
+            </a>
+            <div class="price-card p-7 text-center flex flex-col justify-center min-h-[168px] opacity-80 cursor-default">
+              <h3 class="text-xs font-bold uppercase tracking-[0.22em] text-chrome">After launch</h3>
+              <p class="mt-4 text-[2rem] font-extrabold text-cue tracking-tight">$29.99 <span class="text-base font-semibold text-chrome">/mo</span></p>
+              <p class="mt-2 text-sm font-semibold text-chrome">Same access · not locked</p>
+              <p class="mt-3 text-xs font-semibold text-chrome/70">Founding rate ends at 100</p>
+            </div>
+          </div>
+
+          <div class="mt-9 text-center fade-up">
+            <a href="./membership-checkout.html?plan=monthly" id="pricing-trial-cta" class="tap inline-flex items-center justify-center px-8 py-3.5 btn-gel text-base shadow-soft js-checkout-cta">
+              Claim your spot
+            </a>
+            <p class="mt-3 text-sm text-cue/85 font-semibold">First 100 members · founding rate locked for life</p>
+            <p class="mt-2 text-xs text-chrome/70" id="pricing-footnote">Cancel anytime from your account. 7-day free trial on monthly.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- FAQ -->
+      <div id="faq" class="bg-blackout text-cue border-t border-chrome/15">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-[4.5rem]">
+          <h2 class="font-display text-4xl tracking-tight text-center mb-9 flex items-center justify-center gap-2.5 fade-up">
+            <span class="inline-flex w-8 h-8 rounded-flyer border border-chrome/40 items-center justify-center text-sm font-semibold" aria-hidden="true">?</span>
+            FAQ
+          </h2>
+          <div class="space-y-3">
+            <details class="fade-up rounded-flyer bg-wings border border-chrome/20 px-5 py-1" open>
+              <summary class="tap cursor-pointer font-semibold text-cue py-4 flex items-center justify-between gap-4">
+                <span>What do I get?</span>
+                <svg class="faq-chev w-5 h-5 text-chrome shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+              </summary>
+              <p class="pb-4 text-sm text-chrome leading-relaxed">The full lesson library, a new ~10-minute lesson every week, the written weekly routine and BPM targets for each one, Tracks, monthly challenges, and your practice log. Every plan gets everything.</p>
+            </details>
+            <details class="fade-up rounded-flyer bg-wings border border-chrome/20 px-5 py-1">
+              <summary class="tap cursor-pointer font-semibold text-cue py-4 flex items-center justify-between gap-4">
+                <span>How much do I have to practice?</span>
+                <svg class="faq-chev w-5 h-5 text-chrome shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+              </summary>
+              <p class="pb-4 text-sm text-chrome leading-relaxed">15 minutes a day is the minimum that works. One lesson is a full week. Don&rsquo;t take more than two at once.</p>
+            </details>
+            <details class="fade-up rounded-flyer bg-wings border border-chrome/20 px-5 py-1">
+              <summary class="tap cursor-pointer font-semibold text-cue py-4 flex items-center justify-between gap-4">
+                <span>Is this a 30-day course?</span>
+                <svg class="faq-chev w-5 h-5 text-chrome shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+              </summary>
+              <p class="pb-4 text-sm text-chrome leading-relaxed">No. It&rsquo;s a weekly lesson library — you choose what to work on. If you want a path, take a Track: four lessons in order, about a month.</p>
+            </details>
+            <details class="fade-up rounded-flyer bg-wings border border-chrome/20 px-5 py-1">
+              <summary class="tap cursor-pointer font-semibold text-cue py-4 flex items-center justify-between gap-4">
+                <span>Is this official Travis Barker or blink-182 content?</span>
+                <svg class="faq-chev w-5 h-5 text-chrome shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+              </summary>
+              <p class="pb-4 text-sm text-chrome leading-relaxed">No. Mike teaches in the style of that pocket from years of playing it live. No affiliation or endorsement, and we teach to a click or our own backing tracks — never over the records.</p>
+            </details>
+            <details class="fade-up rounded-flyer bg-wings border border-chrome/20 px-5 py-1">
+              <summary class="tap cursor-pointer font-semibold text-cue py-4 flex items-center justify-between gap-4">
+                <span>How is this different from YouTube?</span>
+                <svg class="faq-chev w-5 h-5 text-chrome shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+              </summary>
+              <p class="pb-4 text-sm text-chrome leading-relaxed">YouTube gives you a video. This gives you a routine, a tempo target, a retest, and a leaderboard — plus the guy who filmed it answering you.</p>
+            </details>
+            <details class="fade-up rounded-flyer bg-wings border border-chrome/20 px-5 py-1">
+              <summary class="tap cursor-pointer font-semibold text-cue py-4 flex items-center justify-between gap-4">
+                <span>Do I need the book?</span>
+                <svg class="faq-chev w-5 h-5 text-chrome shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+              </summary>
+              <p class="pb-4 text-sm text-chrome leading-relaxed">No. The membership stands alone. Founding annual includes the PDF.</p>
+            </details>
+            <details class="fade-up rounded-flyer bg-wings border border-chrome/20 px-5 py-1">
+              <summary class="tap cursor-pointer font-semibold text-cue py-4 flex items-center justify-between gap-4">
+                <span>What if I&rsquo;m a beginner?</span>
+                <svg class="faq-chev w-5 h-5 text-chrome shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+              </summary>
+              <p class="pb-4 text-sm text-chrome leading-relaxed">Fine. Every lesson has a slow tempo entry point, and the challenge leaderboard ranks improvement, not speed.</p>
+            </details>
+            <details class="fade-up rounded-flyer bg-wings border border-chrome/20 px-5 py-1">
+              <summary class="tap cursor-pointer font-semibold text-cue py-4 flex items-center justify-between gap-4">
+                <span>Can I cancel?</span>
+                <svg class="faq-chev w-5 h-5 text-chrome shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+              </summary>
+              <p class="pb-4 text-sm text-chrome leading-relaxed">Yes, anytime, from your account — Stripe&rsquo;s portal, no email required.</p>
+            </details>
+            <details class="fade-up rounded-flyer bg-wings border border-chrome/20 px-5 py-1">
+              <summary class="tap cursor-pointer font-semibold text-cue py-4 flex items-center justify-between gap-4">
+                <span>Can I get feedback on my playing?</span>
+                <svg class="faq-chev w-5 h-5 text-chrome shrink-0 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
+              </summary>
+              <p class="pb-4 text-sm text-chrome leading-relaxed">Post your take in the member community and in the monthly challenge. Mike watches those. Structured 1:1 review comes once we&rsquo;re past 100 members.</p>
+            </details>
+          </div>
+        </div>
+      </div>
+
+      <!-- Final CTA -->
+      <div class="bg-wings text-cue border-t border-chrome/15">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center fade-up">
+          <h2 class="font-display text-4xl sm:text-5xl">Don&rsquo;t flinch on the one.</h2>
+          <p class="mt-3 text-chrome max-w-xl mx-auto leading-relaxed">
+            Start with the free lesson. If the week&rsquo;s routine works, the door&rsquo;s open.
+          </p>
+          <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+            <a href="./free-lesson.html" class="tap inline-flex items-center justify-center px-8 py-3.5 btn-gel text-base">Start free lesson</a>
+            <a href="./membership-checkout.html?plan=monthly" class="tap inline-flex items-center justify-center px-8 py-3.5 rounded-flyer border border-chrome/35 text-cue text-sm font-semibold hover:border-gel hover:text-gel transition-colors js-checkout-cta">Claim your spot →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Book strip -->
+      <div class="bg-blackout border-t border-chrome/15">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 fade-up">
+          <p class="text-sm text-chrome leading-relaxed max-w-xl">
+            <strong class="text-cue">Want the coordination work on paper?</strong> <em>Stick It Out</em>, Mike&rsquo;s book — PDF $19.99, or free with the founding annual plan.
+          </p>
+          <a href="./index.html" class="tap inline-flex items-center justify-center px-5 py-2.5 rounded-flyer border border-chrome/35 text-cue text-sm font-semibold hover:border-gel hover:text-gel transition-colors shrink-0">See the book →</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-chrome/20 px-4 sm:px-6 py-8 safe-bottom bg-blackout">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between gap-3 text-xs text-chrome/70">
+      <p>© <span id="y"></span> Michael Staus · Stick It Out Lessons</p>
+      <a href="https://blazedigitaldesign.com" class="hover:text-cue transition-colors">Built by Blaze Digital</a>
+    </div>
+  </footer>
+  <script src="./js/membership-commerce.js"></script>
+  <script>
+    document.getElementById('y').textContent = new Date().getFullYear();
+    (function () {
+      var C = window.SIOLessons;
+      if (C) {
+        document.querySelectorAll('.js-checkout-cta').forEach(function (el) {
+          var href = el.getAttribute('href') || '';
+          var m = href.match(/[?&]plan=([^&]+)/);
+          var planId = m ? decodeURIComponent(m[1]) : C.defaultPlanId;
+          el.setAttribute('href', C.checkoutHref(planId));
+        });
+        var note = document.getElementById('pricing-footnote');
+        if (note) {
+          note.textContent = C.anyCheckoutLive()
+            ? 'Encrypted checkout via Stripe. Cancel anytime from your account. 7-day free trial on monthly.'
+            : 'Cancel anytime from your account. 7-day free trial on monthly. Join the waitlist if payment links are not live yet.';
+        }
+      }
+      var nodes = document.querySelectorAll('.fade-up');
+      if (!nodes.length) return;
+      if (!('IntersectionObserver' in window)) {
+        nodes.forEach(function (n) { n.classList.add('is-in'); });
+        return;
+      }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-in');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+      nodes.forEach(function (n) { io.observe(n); });
+    })();
+  </script>
+</body>
+</html>

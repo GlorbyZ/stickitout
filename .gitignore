@@ -14,7 +14,20 @@ Thumbs.db
 logs/
 *.log
 
-# Dependencies (if added later)
+# Dependencies / build
 node_modules/
 dist/
 .cache/
+.astro/
+
+# Lead capture (server-only)
+public/data/leads.json
+public/data/leads.lock
+public/data/capture-config.php
+dist/data/leads.json
+dist/data/capture-config.php
+
+# Cloudflare / Wrangler
+.wrangler/
+workers/app/.dev.vars
+.dev.vars

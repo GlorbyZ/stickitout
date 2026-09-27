@@ -1,0 +1,173 @@
+@import "tailwindcss";
+@import "@fontsource/bebas-neue/400.css";
+@import "@fontsource/barlow/400.css";
+@import "@fontsource/barlow/500.css";
+@import "@fontsource/barlow/600.css";
+@import "@fontsource/barlow/700.css";
+@import "./tokens.css";
+
+@theme {
+  --color-blackout: var(--blackout);
+  --color-wings: var(--wings);
+  --color-cue: var(--cue);
+  --color-gel: var(--gel);
+  --color-gel-deep: var(--gel-deep);
+  --color-chrome: var(--chrome);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --radius-flyer: var(--radius);
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+  /* Overscroll matches the chrome instead of flashing white */
+  background-color: var(--blackout);
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--blackout);
+  color: var(--cue);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+body.nav-open { overflow: hidden; }
+
+/* Branded scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gel) var(--blackout);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--blackout);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gel);
+  border-radius: 6px;
+  border: 2px solid var(--blackout);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gel-deep);
+}
+
+/* No system blue/teal slab on tap, focus, or selection */
+*,
+*::before,
+*::after {
+  -webkit-tap-highlight-color: transparent;
+}
+::selection {
+  background: var(--gel);
+  color: var(--on-gel);
+}
+::-moz-selection {
+  background: var(--gel);
+  color: var(--on-gel);
+}
+:focus,
+:active {
+  outline: none;
+}
+a:focus,
+a:active,
+button:focus,
+button:active {
+  outline: none;
+  box-shadow: none;
+}
+::-moz-focus-inner {
+  border: 0;
+}
+
+/* Keyboard-only cue */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--gel);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--gel);
+  outline-offset: 1px;
+  border-color: var(--gel);
+}
+
+/* Anchor targets clear the sticky header */
+[id] {
+  scroll-margin-top: 80px;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.tap {
+  min-height: var(--touch);
+  min-width: var(--touch);
+}
+
+/* Blaze signature */
+.blaze-credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--chrome) 85%, transparent);
+  transition: color 220ms var(--ease);
+}
+.blaze-credit:hover {
+  color: var(--cue);
+}
+.blaze-credit svg {
+  width: 0.7rem;
+  height: 0.7rem;
+  fill: var(--gel);
+  transition: transform 220ms var(--ease);
+}
+.blaze-credit:hover svg {
+  transform: translateY(-2px);
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.btn-gel {
+  background: var(--gel);
+  color: var(--blackout);
+  border-radius: var(--radius);
+  font-weight: 700;
+}
+
+.btn-gel:hover {
+  background: var(--gel-deep);
+}
+
+.hidden-block {
+  display: none !important;
+}
+
+.panel-card {
+  background: var(--wings);
+  border: 1px solid color-mix(in srgb, var(--chrome) 18%, transparent);
+  border-radius: var(--radius);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

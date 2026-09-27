@@ -1,18 +1,18 @@
 /**
  * Stick It Out Lessons - commerce config (single source of truth)
  *
- * Stripe Dashboard setup:
- * 1. Create three Subscription products/prices (Monthly $29.99, Biannual $149.95, Annual $269.90).
- * 2. Create a Payment Link for each subscription (enable free trial = 7 days if offering the week trial).
- * 3. Paste each Payment Link into plans[*].checkoutUrl below.
- * 4. Settings → Billing → Customer portal: enable cancel / update payment method / switch plans.
- * 5. Paste the Customer Portal login URL into portalUrl below.
- * 6. On each Payment Link, set Success URL to:
- *    https://YOUR-DOMAIN/membership-welcome.html
- *    (or /demos/stickitout/membership-welcome.html on the Blaze demo).
+ * Stripe Dashboard setup (Z wires this):
+ * 1. Create Subscription products/prices:
+ *    - Founding Monthly $19/mo (7-day free trial)
+ *    - Founding Annual $149/yr (book PDF included)
+ *    - Post-launch Monthly $29.99/mo (after first 100)
+ * 2. Create a Payment Link for each; paste into plans[*].checkoutUrl below.
+ * 3. Settings → Billing → Customer portal: enable cancel / update payment / switch plans.
+ * 4. Paste Customer Portal login URL into portalUrl below.
+ * 5. On each Payment Link, set Success URL to membership-welcome.html
  *
  * Until checkoutUrl / portalUrl are filled, checkout shows waitlist capture and
- * account billing shows "coming soon".
+ * account billing shows "coming soon". Do not invent Payment Link URLs.
  */
 (function (global) {
   'use strict';
@@ -21,44 +21,41 @@
 
   var commerce = {
     productName: 'Stick It Out Lessons',
-    trialLabel: 'Start Your Week Free Trial',
+    trialLabel: 'Claim your spot',
+    foundingNote: 'First 100 members · founding rate locked for life',
+    postLaunchPriceLabel: '$29.99',
+    postLaunchInterval: '/mo',
     /** Stripe Customer Portal URL (paste when ready) */
     portalUrl: '',
     /** Default plan when CTA has no ?plan= */
-    defaultPlanId: 'biannual',
+    defaultPlanId: 'monthly',
     plans: {
       monthly: {
         id: 'monthly',
-        label: 'Monthly',
-        priceLabel: '$29.99',
+        label: 'Founding Monthly',
+        priceLabel: '$19',
         interval: '/mo',
-        savings: '',
-        checkoutUrl: ''
-      },
-      biannual: {
-        id: 'biannual',
-        label: 'Biannual',
-        priceLabel: '$149.95',
-        interval: '/6mo',
-        savings: '1 month savings',
+        savings: '7-day free trial',
         checkoutUrl: ''
       },
       annual: {
         id: 'annual',
-        label: 'Annual',
-        priceLabel: '$269.90',
+        label: 'Founding Annual',
+        priceLabel: '$149',
         interval: '/yr',
-        savings: '3 month savings',
+        savings: 'Book PDF included · ~$12.42/mo',
         checkoutUrl: ''
       }
     },
 
     planList: function () {
-      return [this.plans.monthly, this.plans.biannual, this.plans.annual];
+      return [this.plans.monthly, this.plans.annual];
     },
 
     getPlan: function (id) {
       if (!id) return this.plans[this.defaultPlanId];
+      // Legacy biannual links → annual founding
+      if (id === 'biannual') return this.plans.annual;
       return this.plans[id] || this.plans[this.defaultPlanId];
     },
 
@@ -89,7 +86,7 @@
       return './membership-checkout.html?plan=' + encodeURIComponent(this.getPlan(planId).id);
     },
 
-    /* --- localStorage helpers (waitlist / soft session) --- */
+    /* --- localStorage helpers (waitlist / soft session / free-lesson) --- */
 
     loadState: function () {
       try {
@@ -115,6 +112,16 @@
         waitlistEmail: String(email || '').trim().toLowerCase(),
         waitlistPlanId: plan.id,
         waitlistAt: Date.now()
+      });
+    },
+
+    claimFreeLesson: function (name, email) {
+      return this.saveState({
+        freeLessonName: String(name || '').trim(),
+        freeLessonEmail: String(email || '').trim().toLowerCase(),
+        freeLessonAt: Date.now(),
+        waitlistName: String(name || '').trim() || this.loadState().waitlistName,
+        waitlistEmail: String(email || '').trim().toLowerCase() || this.loadState().waitlistEmail
       });
     },
 

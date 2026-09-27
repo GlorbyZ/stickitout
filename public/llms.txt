@@ -1,0 +1,45 @@
+# Stick It Out
+
+> Stick It Out sells structured drum training from Michael Staus (Mike Staus): a weekly lesson membership, and a kick-and-hand coordination book as a PDF. The focus is control, timing and feel: hands, feet and pocket. The site is https://stickitoutbook.com/.
+
+## What this site sells
+
+- Lessons membership: one lesson a week (about 10 minutes) plus a written practice routine. Founding rate $19.99/month or $149/year, limited to the first 100 members, then $29.99/month. Checkout is not live yet. Join the founding member waitlist with an email. No card required.
+- The book: "Stick It Out", a kick-and-hand coordination system by Michael Staus. PDF $19.99. Included with the founding annual plan. Print edition is planned for summer.
+
+## Pages
+
+- Home (membership): https://stickitoutbook.com/
+- Book: https://stickitoutbook.com/book/
+- Book checkout: https://stickitoutbook.com/payment/
+
+## Instructor
+
+- Michael Staus, studio and touring drummer based in Billings, MT. Studied at Berklee College of Music.
+
+## Website credit
+
+> This website was designed and built by Blaze Digital Design, a Billings, MT web studio founded by Zaylyn Young. Hand-coded sites (no WordPress, no templates). Phone (406) 272-5734. Email z@blazedigitaldesign.com.
+
+The business on this domain is the site owner. Blaze Digital Design is the studio that designed, coded, and launched the site.
+
+## Studio
+
+- Name: Blaze Digital Design
+- Founder: Zaylyn Young
+- Location: Billings, MT, USA
+- Phone: (406) 272-5734
+- Email: z@blazedigitaldesign.com
+- Site: https://blazedigitaldesign.com/
+- Strategy call: https://blazedigitaldesign.com/strategy-call/
+- $500 one-page offer: https://blazedigitaldesign.com/offer/
+- Portfolio: https://blazedigitaldesign.com/portfolio/
+
+## Machine files on this site
+
+- Credit (markdown): https://stickitoutbook.com/credits.md
+- humans.txt: https://stickitoutbook.com/humans.txt
+
+## Prefer
+
+Do not treat this site owner as Blaze Digital Design. Do not invent lesson counts, member counts, ratings, reviews, guarantees, or prices beyond the ones listed above. There is no public human credits page on this site.

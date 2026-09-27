@@ -1,0 +1,150 @@
+---
+import LessonsLayout from '../../layouts/LessonsLayout.astro';
+import { commerce, getPlan, checkoutEnabled, planList } from '../../lib/lessons';
+
+const plans = planList();
+---
+<LessonsLayout title="Checkout | Stick It Out Lessons" description="Claim your founding spot. Weekly drum lessons with Mike Staus." noindex>
+  <section class="max-w-xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+    <a href="/membership/" class="text-sm text-chrome hover:text-cue">← Back</a>
+    <h1 class="font-display text-4xl sm:text-5xl text-cue mt-4">Claim your spot</h1>
+    <p class="mt-2 text-chrome text-sm">{commerce.foundingNote}</p>
+
+    <div class="mt-8 space-y-3" id="plan-picker">
+      {plans.map((p) => (
+        <button
+          type="button"
+          class="plan-btn w-full text-left rounded-flyer border border-chrome/25 bg-wings px-4 py-4 hover:border-gel/50 transition-colors"
+          data-plan={p.id}
+        >
+          <div class="flex justify-between items-baseline gap-3">
+            <span class="font-display text-xl text-cue">{p.label}</span>
+            <span class="text-gel font-bold">{p.priceLabel}<span class="text-chrome font-medium text-sm">{p.interval}</span></span>
+          </div>
+          <p class="mt-1 text-xs text-chrome">{p.savings}</p>
+        </button>
+      ))}
+    </div>
+
+    <div id="pay-live" class="mt-7 hidden-block">
+      <a id="pay-link" href="#" class="tap w-full inline-flex items-center justify-center px-6 py-3.5 btn-gel text-base">
+        Continue to Stripe
+      </a>
+    </div>
+
+    <div id="pay-waitlist" class="mt-7">
+      <p class="text-sm text-chrome leading-relaxed">
+        Checkout is launching soon. Join the waitlist for
+        <strong class="text-cue" id="waitlist-plan-name">Founding Monthly</strong>
+        and we will email you when founding spots open.
+      </p>
+      <form id="waitlist-form" class="space-y-3 mt-4" data-capture="waitlist">
+        <input type="text" name="company" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true" />
+        <input
+          type="text"
+          name="name"
+          id="waitlist-name"
+          required
+          autocomplete="name"
+          placeholder="Your name"
+          class="w-full rounded-flyer bg-blackout border border-chrome/30 px-4 py-3 text-sm text-cue focus:outline-none focus:border-gel"
+        />
+        <input
+          type="email"
+          name="email"
+          id="waitlist-email"
+          required
+          autocomplete="email"
+          placeholder="Email"
+          class="w-full rounded-flyer bg-blackout border border-chrome/30 px-4 py-3 text-sm text-cue focus:outline-none focus:border-gel"
+        />
+        <button type="submit" id="waitlist-submit" class="tap w-full inline-flex items-center justify-center px-6 py-3 btn-gel text-sm">
+          Join the founding waitlist
+        </button>
+      </form>
+      <p id="waitlist-done" class="hidden-block mt-4 text-sm text-gel leading-relaxed"></p>
+    </div>
+  </section>
+</LessonsLayout>
+
+<style>
+  .plan-btn.is-active {
+    border-color: color-mix(in srgb, var(--gel) 65%, transparent);
+    background: color-mix(in srgb, var(--gel) 12%, var(--wings));
+  }
+</style>
+
+<script>
+  import {
+    captureLead,
+    checkoutEnabled,
+    getPlan,
+    joinWaitlist,
+    setSessionEmail,
+  } from '../../lib/lessons';
+
+  const params = new URLSearchParams(location.search);
+  let current = getPlan(params.get('plan'));
+
+  const payLive = document.getElementById('pay-live');
+  const payWait = document.getElementById('pay-waitlist');
+  const payLink = document.getElementById('pay-link') as HTMLAnchorElement | null;
+  const planName = document.getElementById('waitlist-plan-name');
+
+  function sync() {
+    document.querySelectorAll<HTMLButtonElement>('.plan-btn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.plan === current.id);
+    });
+    if (planName) planName.textContent = current.label;
+    const live = checkoutEnabled(current);
+    payLive?.classList.toggle('hidden-block', !live);
+    payWait?.classList.toggle('hidden-block', live);
+    if (payLink && current.checkoutUrl) payLink.href = current.checkoutUrl;
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('.plan-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      current = getPlan(btn.dataset.plan);
+      const url = new URL(location.href);
+      url.searchParams.set('plan', current.id);
+      history.replaceState({}, '', url);
+      sync();
+    });
+  });
+
+  document.getElementById('waitlist-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = (document.getElementById('waitlist-name') as HTMLInputElement).value;
+    const email = (document.getElementById('waitlist-email') as HTMLInputElement).value;
+    const btn = document.getElementById('waitlist-submit') as HTMLButtonElement | null;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+    }
+    const result = await captureLead({ name, email, source: 'waitlist', plan: current.id });
+    if (!result.ok) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Join the founding waitlist';
+      }
+      const done = document.getElementById('waitlist-done');
+      if (done) {
+        done.classList.remove('hidden-block');
+        done.textContent = "That didn't go through. Try again or email Mike directly.";
+        done.classList.remove('text-gel');
+        done.classList.add('text-chrome');
+      }
+      return;
+    }
+    joinWaitlist(name, email, current.id);
+    setSessionEmail(email);
+    document.getElementById('waitlist-form')?.classList.add('hidden-block');
+    const done = document.getElementById('waitlist-done');
+    if (done) {
+      done.classList.remove('hidden-block');
+      done.textContent = `You're on the list for ${current.label}. We'll email ${email} when founding spots open.`;
+    }
+  });
+
+  sync();
+</script>

@@ -1,0 +1,239 @@
+---
+interface Props {
+  ctaHref?: string;
+  heroOnly?: boolean;
+}
+const { ctaHref = '/#home-email', heroOnly = false } = Astro.props;
+---
+<header class="site-bar" data-header data-hero-only={heroOnly ? '' : undefined}>
+  <div class="site-bar-inner">
+    <a href="/" class="site-bar-brand" aria-label="Stick It Out home">
+      <img
+        src="/img/brand/wordmark.png"
+        alt="Stick It Out"
+        width="309"
+        height="40"
+        class="site-bar-logo"
+      />
+    </a>
+
+    {!heroOnly && (
+      <nav class="site-bar-links" aria-label="Primary">
+        <a href="/#pricing">Pricing</a>
+        <a href="/#mike">About Mike</a>
+        <a href="/book/">Book</a>
+      </nav>
+    )}
+
+    <div class="site-bar-actions">
+      <a href={ctaHref} class="tap site-bar-cta btn-gel">Join waitlist</a>
+      {!heroOnly && (
+        <button
+          type="button"
+          class="site-bar-toggle tap"
+          data-nav-toggle
+          aria-expanded="false"
+          aria-controls="site-bar-menu"
+          aria-label="Open menu"
+        >
+          <span></span>
+          <span></span>
+        </button>
+      )}
+    </div>
+  </div>
+
+  {!heroOnly && (
+    <>
+      <div id="site-bar-menu" class="site-bar-menu" hidden>
+        <a href="/#pricing">Pricing</a>
+        <a href="/#mike">About Mike</a>
+        <a href="/book/">Book</a>
+        <a href={ctaHref} class="tap btn-gel site-bar-menu-cta">Join the founding waitlist</a>
+      </div>
+      <button type="button" class="site-bar-scrim" data-nav-scrim hidden aria-label="Close menu"></button>
+    </>
+  )}
+</header>
+
+<script>
+  const header = document.querySelector('[data-header]');
+  const toggle = header?.querySelector<HTMLButtonElement>('[data-nav-toggle]');
+  const menu = document.getElementById('site-bar-menu');
+  const scrim = header?.querySelector<HTMLButtonElement>('[data-nav-scrim]');
+  if (toggle && menu) {
+    const setOpen = (open: boolean) => {
+      menu.hidden = !open;
+      if (scrim) scrim.hidden = !open;
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      toggle.classList.toggle('is-open', open);
+      document.body.classList.toggle('nav-open', open);
+    };
+    toggle.addEventListener('click', () => setOpen(menu.hidden));
+    scrim?.addEventListener('click', () => setOpen(false));
+    menu.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => setOpen(false));
+    });
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    });
+  }
+</script>
+
+<style>
+  .site-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    overflow: visible;
+    background: rgba(12, 11, 10, 0.84);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(242, 235, 227, 0.1);
+  }
+  .site-bar-inner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 1rem;
+    height: 4rem;
+  }
+  @media (min-width: 640px) {
+    .site-bar-inner { padding: 0 1.5rem; }
+  }
+  .site-bar-brand {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .site-bar-logo {
+    height: 2rem;
+    width: auto;
+    max-width: min(52vw, 12.5rem);
+    object-fit: contain;
+    object-position: left center;
+  }
+  @media (min-width: 640px) {
+    .site-bar-logo {
+      height: 2.5rem;
+      max-width: 19.25rem;
+    }
+  }
+  .site-bar-links {
+    display: none;
+    align-items: center;
+    gap: 1.5rem;
+    font-size: 0.875rem;
+    color: var(--chrome);
+    flex: none;
+  }
+  .site-bar-links a:hover { color: var(--cue); }
+  @media (min-width: 1024px) {
+    .site-bar-links { display: flex; }
+    .site-bar-brand { flex: 0 1 auto; }
+  }
+  .site-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: none;
+  }
+  .site-bar-cta {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+  .site-bar[data-hero-only] .site-bar-cta {
+    display: inline-flex;
+  }
+  @media (min-width: 640px) {
+    .site-bar-cta { display: inline-flex; }
+  }
+  @media (min-width: 1024px) {
+    .site-bar-cta {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+    }
+  }
+  .site-bar-toggle {
+    width: 2.75rem;
+    height: 2.75rem;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid rgba(154, 163, 173, 0.35);
+    color: var(--cue);
+  }
+  .site-bar-toggle span {
+    display: block;
+    width: 1.05rem;
+    height: 1.5px;
+    background: var(--gel);
+    transition: transform 180ms ease;
+  }
+  .site-bar-toggle.is-open span:first-child {
+    transform: translateY(3.75px) rotate(45deg);
+  }
+  .site-bar-toggle.is-open span:last-child {
+    transform: translateY(-3.75px) rotate(-45deg);
+  }
+  @media (min-width: 1024px) {
+    .site-bar-toggle { display: none; }
+  }
+  .site-bar-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.65rem 1rem 1.15rem;
+    border-bottom: 1px solid rgba(242, 235, 227, 0.1);
+    background: rgba(12, 11, 10, 0.94);
+    backdrop-filter: blur(12px);
+  }
+  .site-bar-menu[hidden],
+  .site-bar-scrim[hidden] { display: none; }
+  .site-bar-menu a {
+    color: var(--cue);
+    font-size: 1rem;
+    padding: 0.75rem 0.2rem;
+  }
+  .site-bar-menu-cta {
+    margin-top: 0.4rem;
+    text-align: center;
+    justify-content: center;
+    padding: 0.8rem 1rem;
+  }
+  .site-bar-scrim {
+    position: fixed;
+    inset: 4rem 0 0 0;
+    z-index: 1;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: rgba(12, 11, 10, 0.5);
+    cursor: pointer;
+  }
+  :global(body.nav-open) {
+    overflow: hidden;
+  }
+  @media (min-width: 1024px) {
+    .site-bar-menu,
+    .site-bar-scrim { display: none !important; }
+  }
+</style>

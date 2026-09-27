@@ -1,0 +1,19 @@
+# Stick It Out Apache redirects (IONOS)
+RewriteEngine On
+
+# Legacy HTML → Astro routes
+RewriteRule ^membership\.html$ / [R=301,L]
+RewriteRule ^membership/?$ / [R=301,L]
+RewriteRule ^membership-checkout\.html$ /membership/checkout/ [R=301,L]
+RewriteRule ^membership-welcome\.html$ /membership/welcome/ [R=301,L]
+RewriteRule ^free-lesson\.html$ /free-lesson/ [R=301,L]
+RewriteRule ^lessons\.html$ /lessons/ [R=301,L]
+RewriteRule ^challenges\.html$ /challenges/ [R=301,L]
+RewriteRule ^account\.html$ /account/ [R=301,L]
+RewriteRule ^portal\.html$ /portal/ [R=301,L]
+RewriteRule ^payment\.html$ /payment/ [R=301,L]
+RewriteRule ^unlock\.html$ /unlock/ [R=301,L]
+RewriteRule ^brand\.html$ /brand-lab.html [R=302,L]
+
+# Protect lead store if ever exposed outside /data/.htaccess
+RewriteRule ^data/leads\.json$ - [F,L]

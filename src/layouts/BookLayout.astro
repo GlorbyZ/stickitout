@@ -1,0 +1,31 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  noindex?: boolean;
+  ogImage?: string;
+  ogAlt?: string;
+  ogType?: string;
+  canonical?: string;
+}
+const props = Astro.props;
+---
+<BaseLayout {...props}>
+  <Fragment slot="head"><slot name="head" /></Fragment>
+  <SiteHeader />
+  <main id="main" class="flex-grow safe-bottom">
+    <slot />
+  </main>
+  <footer class="border-t border-chrome/20 px-4 sm:px-6 py-8">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between gap-3 text-xs text-chrome/80">
+      <p>© {new Date().getFullYear()} Stick It Out · Michael Staus</p>
+      <a href="https://blazedigitaldesign.com" target="_blank" rel="noopener noreferrer" class="blaze-credit">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 11-13h-7l1-7z" /></svg>
+        Built by Blaze Digital Design
+      </a>
+    </div>
+  </footer>
+</BaseLayout>
