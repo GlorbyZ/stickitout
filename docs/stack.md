@@ -2,12 +2,9 @@
 
 Briefing for agents. Status of every user-facing path is `docs/source-of-truth.md` in the Stickitout repo. This file is how the pieces fit together. If you change product behavior, update source-of-truth in the same turn. Do not mark something `live` if it only works on this PC.
 
-There are two git repos on disk, side by side. They are not one repo.
+There is one git repo. The analyzer is the `analyzer/` directory in this checkout. On disk that repo lives at `C:\Users\epicn\Documents\sites\Stickitout`. GitHub: `GlorbyZ/stickitout` (public).
 
-| Folder | What it is |
-| --- | --- |
-| `C:\Users\epicn\Documents\sites\Stickitout` | Public site, member portal, admin. GitHub: `GlorbyZ/stickitout` (public) |
-| `C:\Users\epicn\Documents\sites\Stickitout-analyzer` | Drum analysis server. Separate from the portal repo |
+The process that is running on this PC was started from the older sibling folder `C:\Users\epicn\Documents\sites\Stickitout-analyzer`. That folder is the same snapshot that was imported here. New analyzer edits belong in `analyzer/` inside this repo, then restart from that folder when you want the running server to match.
 
 Reference videos used to fit the temporary analyzer profile are not in git: `D:\Stickitout-dataset\reference-videos`.
 
@@ -91,7 +88,7 @@ Mail from `noreply@stickitoutdrums.com` can fail until Resend DKIM and SPF are f
 
 ## Analyzer
 
-FastAPI app in `Stickitout-analyzer\app`, port 8800.
+Code in this repo: `analyzer/`. FastAPI app in `analyzer/app`, port 8800. The server currently running on this PC was launched from `C:\Users\epicn\Documents\sites\Stickitout-analyzer` and still reads that folder.
 
 ```powershell
 cd C:\Users\epicn\Documents\sites\Stickitout-analyzer
@@ -112,13 +109,13 @@ Side view is the shot list default. A 45 degree angle is a label value (`side`, 
 
 ## Temporary threshold profile
 
-`Stickitout-analyzer\tuning.temp.json` was fit by `python -m scripts.temp_train` on the 13 CC-BY clips in `D:\Stickitout-dataset\reference-videos`. `scripts\serve-remote.ps1` sets `SIO_TEMP_TRAINING=1` when that file exists, and `app/tuning.py` then loads it instead of the shipped defaults.
+`analyzer/tuning.temp.json` was fit by `python -m scripts.temp_train` on the 13 CC-BY clips in `D:\Stickitout-dataset\reference-videos`. `analyzer/scripts/serve-remote.ps1` sets `SIO_TEMP_TRAINING=1` when that file exists, and `analyzer/app/tuning.py` then loads it instead of the shipped defaults.
 
 Current overrides: `hand_source=strike_first`, `strike_min_prominence=0.012`. On those clips the fit score went from 17.35 to 35.49. Median video-to-hit match is still about 29 percent. Sticking is only a few points above shuffled hands. Do not describe this as a trained drum model.
 
-Delete `tuning.temp.json` and restart the analyzer to restore shipped thresholds. `SIO_TEMP_TRAINING=0` also ignores the file. A later `TUNING_FILE` env value wins over both.
+Delete `analyzer/tuning.temp.json` and restart the analyzer to restore shipped thresholds. `SIO_TEMP_TRAINING=0` also ignores the file. A later `TUNING_FILE` env value wins over both.
 
-Raw numbers: `Stickitout-analyzer\reports\temp-training.json`. Credits for the clips: `D:\Stickitout-dataset\reference-videos\ATTRIBUTION.md`.
+Raw numbers: `analyzer/reports/temp-training.json` is gitignored (local only). The sibling folder may still have `C:\Users\epicn\Documents\sites\Stickitout-analyzer\reports\temp-training.json`. Credits for the clips: `D:\Stickitout-dataset\reference-videos\ATTRIBUTION.md`.
 
 ## Do not
 
