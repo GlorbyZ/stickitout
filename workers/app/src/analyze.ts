@@ -330,6 +330,8 @@ header.bar, body.kind-member .dock { backdrop-filter: none !important; -webkit-b
   background: rgba(232, 163, 23, 0.14); border: 1px solid rgba(232, 163, 23, 0.35); border-left: 5px solid var(--gel);
   color: var(--cue); font-size: 0.95rem; line-height: 1.45; }
 .az .lowfps-notice b { color: var(--gel); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.az .confidence-note { display: grid; gap: 0.35rem; padding: 0.85rem 1rem; border-radius: 12px; background: rgba(242,235,227,0.06); color: var(--cue); }
+.az .confidence-note p { margin: 0; }
 
 /* Score rings: big Overall on the left, the other four in a 2 x 2 grid on phones. */
 .az .dials { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.6rem; align-items: start; }

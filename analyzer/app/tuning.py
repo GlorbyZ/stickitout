@@ -86,6 +86,14 @@ class Tuning:
     coach_min_verified_pct: float = 50.0  # video matched fewer hits than this: hand advice gets a caveat
     coach_drill_pct: float = 80.0         # drill tempo: this % of the measured tempo, rounded down to a 10
     coach_max_findings: int = 4           # show at most this many findings
+    # Confidence gate (app/confidence.py). Video verdicts stay hidden until these clear.
+    conf_min_coverage: float = 0.80       # pose tracked on under this share of frames: video is weak
+    conf_min_agreement: float = 60.0      # video matched under this percent of hits: video is weak
+    conf_min_verified_strokes: int = 24   # fewer seen hits than this: video is weak
+    conf_min_sticking_strokes: int = 32   # sticking verdict needs at least this many seen hits
+    conf_near_coverage: float = 0.90      # under 50 fps, coverage below this stays weak
+    conf_near_agreement: float = 70.0     # under 50 fps, agreement below this stays weak
+    conf_near_strokes: int = 40           # under 50 fps, fewer seen hits than this stays weak
 
 
 FIELD_TYPES = {f.name: f.type for f in fields(Tuning)}

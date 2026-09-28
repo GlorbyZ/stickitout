@@ -266,17 +266,24 @@ function render(r) {
   renderCoaching(r.coaching);
 
   const widened = v.window_widened ? ` <span class="small">(widened for ${Math.round(r.source.fps)} fps)</span>` : "";
-  $("verified-card").innerHTML = `${lowFpsNotice(r)}<div><div class="label">Verified</div><div class="big">${fmt(s.verified, 0, "%")}</div>
+  const gate = r.confidence || { show_verified: s.verified != null, show_sticking: true, message: "", hint: "" };
+  const gateNote = gate.message
+    ? `<div class="confidence-note" role="note"><p>${esc(gate.message)}</p>${gate.hint ? `<p class="small">${esc(gate.hint)}</p>` : ""}</div>`
+    : "";
+  const savedFps = `<div class="saved-fps ${r.source.fps >= fullFps ? "good" : "warn"}" id="saved-fps">Saved video: <b>${r.source.fps >= slowFps ? `${fmt(r.source.fps, 0)} fps (slow motion)` : `${fmt(r.source.fps, 1)} fps`}</b>, measured by the server from the file</div>
+      ${r.time_remap?.message ? `<div class="saved-fps good" id="slowmo-line">${esc(r.time_remap.message)}${r.time_remap.remapped && r.audio?.tempo_bpm ? `. Real-time tempo: <b>${fmt(r.audio.tempo_bpm, 0)} BPM</b>` : ""}</div>` : ""}`;
+  $("verified-card").innerHTML = gate.show_verified
+    ? `${lowFpsNotice(r)}<div><div class="label">Verified</div><div class="big">${fmt(s.verified, 0, "%")}</div>
     ${r.quality?.low_fps ? '<div class="est">estimate</div>' : ""}</div>
-    <div><div class="saved-fps ${r.source.fps >= fullFps ? "good" : "warn"}" id="saved-fps">Saved video: <b>${r.source.fps >= slowFps ? `${fmt(r.source.fps, 0)} fps (slow motion)` : `${fmt(r.source.fps, 1)} fps`}</b>, measured by the server from the file</div>
-      ${r.time_remap?.message ? `<div class="saved-fps good" id="slowmo-line">${esc(r.time_remap.message)}${r.time_remap.remapped && r.audio?.tempo_bpm ? `. Real-time tempo: <b>${fmt(r.audio.tempo_bpm, 0)} BPM</b>` : ""}</div>` : ""}
+    <div>${savedFps}
       <div class="vcounts"><span><b>${v.verified_stroke_count}</b> verified hits</span>
       <span><b>${v.unverified_onsets}</b> heard, not seen</span><span><b>${v.video_only_strikes}</b> seen, not heard</span>
       ${(v.video_only_no_sound || []).length ? `<span><b>${v.video_only_no_sound.length}</b> video only (slow motion section, no usable sound)</span>` : ""}
       <span>window plus or minus <b>${v.window_ms}</b> ms${widened}</span></div>
       <div>Verified-only tempo <b>${fmt(v.verified_tempo_bpm, 1, " BPM")}</b>, timing error <b>${fmt(v.verified_timing.mean_abs_error_ms, 1, " ms")}</b>${v.median_av_delta_ms !== null ? `, median audio-to-video gap <b>${fmt(v.median_av_delta_ms, 1, " ms")}</b>` : ""}</div>
       <div class="small" style="color:#bbb;margin-top:6px">A hit counts as verified when a wrist strike in the video lands within the window of the sound.
-      ${esc(v.note || "")}</div></div>`;
+      ${esc(v.note || "")}</div></div>`
+    : `${lowFpsNotice(r)}${gateNote}<div>${savedFps}</div>`;
 
   $("dials").innerHTML = [
     dial("Timing", s.timing), dial("Consistency", s.consistency), dial("Dynamics", s.dynamics),
@@ -291,7 +298,9 @@ function render(r) {
   ].join("");
 
   const breaks = st.breaks.slice(0, 40).map((b) => `<li>${fmt(b.t, 2)} s, stroke ${b.stroke_index + 1}: ${esc(b.note)}</li>`).join("");
-  $("sticking-card").innerHTML = `<h2>Sticking: ${esc(st.rudiment)}</h2>` + (st.checked
+  $("sticking-card").innerHTML = !gate.show_sticking
+    ? gateNote
+    : `<h2>Sticking: ${esc(st.rudiment)}</h2>` + (st.checked
     ? `<div class="stats">${stat("Sticking accuracy", fmt(st.sticking_accuracy_pct, 1, "%"))}${stat("Lead hand", st.leading_hand)}
         ${stat("Wrong hand", st.wrong_hand)}${stat("Lost place", st.resyncs)}</div>
        <p class="small muted">Expected ${esc(st.pattern)} (either hand may lead), checked over ${st.strokes_checked} strokes.</p>
@@ -299,7 +308,7 @@ function render(r) {
     : `<p class="muted">${esc(st.reason)}</p><p class="small muted">Expected pattern ${esc(st.pattern || "")}</p>`);
 
   const ph = s.per_hand, f = video.form;
-  $("hands-card").innerHTML = `<h2>Left vs right</h2><div class="table-wrap"><table>
+  $("hands-card").innerHTML = !gate.show_hand_metrics ? gateNote : `<h2>Left vs right</h2><div class="table-wrap"><table>
     <tr><th></th><th>Left</th><th>Right</th></tr>
     <tr><td>Strokes</td><td>${ph.L.strokes}</td><td>${ph.R.strokes}</td></tr>
     <tr><td>Timing score</td><td>${fmt(ph.L.timing, 0)}</td><td>${fmt(ph.R.timing, 0)}</td></tr>

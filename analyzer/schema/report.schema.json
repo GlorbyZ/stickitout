@@ -1020,9 +1020,18 @@
           "maximum": 100
         },
         "verified": {
-          "type": "number",
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0,
           "maximum": 100
+        },
+        "verified_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "form_null_reason": {
           "type": [
@@ -1160,6 +1169,23 @@
             "type": "string"
           }
         }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "description": "Whether video-derived verdicts may be shown. Audio scores are not gated.",
+      "required": ["version", "video", "show_verified", "show_sticking", "show_hand_metrics"],
+      "properties": {
+        "version": {"const": 1},
+        "video": {"enum": ["good", "weak", "none"]},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "show_verified": {"type": "boolean"},
+        "show_sticking": {"type": "boolean"},
+        "show_hand_metrics": {"type": "boolean"},
+        "landmark_coverage": {"type": "number"},
+        "agreement_pct": {"type": "number"},
+        "message": {"type": "string"},
+        "hint": {"type": "string"}
       }
     },
     "engine": {

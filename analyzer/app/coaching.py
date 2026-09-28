@@ -34,7 +34,7 @@ import numpy as np
 
 from . import tuning
 
-VERSION = 2  # bump when rules or wording change: /api/results recomputes older coaching on read
+VERSION = 3  # bump when rules or wording change: /api/results recomputes older coaching on read
 SEVERITY_LABEL = {"fix_first": "Fix first", "work_on": "Worth working on", "polish": "Nice to tidy up"}
 SEVERITY_RANK = {"fix_first": 0, "work_on": 1, "polish": 2}
 HAND_WORD = {"L": "left", "R": "right"}
@@ -133,6 +133,7 @@ class _Take:
         self.phase = self._anchor_phase()
         self.practice_bpm = drill_tempo(self.tempo) if self.tempo else 100
         self.drifted = False
+        self.confidence = report.get("confidence") or {}
 
     def local_step(self, idx: np.ndarray) -> float | None:
         if idx.size < 4 or len(set(self.k[idx])) < 3:
@@ -182,6 +183,8 @@ class _Take:
         return (best if ratio >= tune.coach_accent_ratio else None), ratio
 
     def hand_reliable(self) -> bool:
+        if self.confidence and not self.confidence.get("show_hand_metrics", True):
+            return False
         return self.video_ok and self.coverage >= tuning.current().coach_min_coverage and np.isin(self.hand, ["L", "R"]).mean() >= 0.8
 
     def hand_caveat(self) -> str | None:
@@ -425,6 +428,8 @@ def timing_bias(tk: _Take) -> dict | None:
 def sticking(tk: _Take) -> tuple[dict | None, dict | None]:
     tune = tuning.current()
     st = tk.report.get("sticking") or {}
+    if tk.confidence and not tk.confidence.get("show_sticking", True):
+        return None, None
     if not st.get("checked") or not tk.hand_reliable():
         return None, None
     acc = st.get("sticking_accuracy_pct")

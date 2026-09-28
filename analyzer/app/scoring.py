@@ -64,5 +64,14 @@ def score_report(audio: dict, video: dict, strokes: list[dict], verification: di
         "form": form, "form_null_reason": form_reason, "form_components": components,
         "overall": round(float(np.mean(present)), 1) if present else None,
         "verified": _clip(verification["agreement_pct"]),
+        "verified_reason": None,
         "per_hand": per_hand,
     }
+
+
+def gate_verified(scores: dict, confidence: dict) -> dict:
+    """Drop the Verified number when the video is not good enough to show it."""
+    if confidence.get("show_verified"):
+        return scores
+    reason = confidence.get("message") or "The video is not clear enough to show a Verified score."
+    return {**scores, "verified": None, "verified_reason": reason}

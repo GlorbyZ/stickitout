@@ -36,7 +36,8 @@ from . import timeremap
 from .audio import load_wav
 from .media import (LOW_FPS_BELOW, MediaError, VideoInfo, extract_audio, frame_times, is_low_fps, low_fps_message,
                     min_fps, probe_video)
-from .scoring import score_report
+from .confidence import assess
+from .scoring import gate_verified, score_report
 from .sticking import check_sticking
 from .video import MAX_PROCESS_WIDTH, POSE_MODEL, build_tracks, extract_landmarks, session_metrics
 
@@ -216,6 +217,8 @@ def build_report(job_id: str, created_at: str, filename: str, info: VideoInfo, p
         **analysed,
         "engine": _versions(),
     }
+    report["confidence"] = assess(report)
+    report["scores"] = gate_verified(report["scores"], report["confidence"])
     report["coaching"] = safe_coach(report)          # on the real-time clock
     tmap = timeremap.from_section(report.get("time_remap"))
     if tmap is not None:
