@@ -38,6 +38,7 @@ import json
 import math
 import re
 import shutil
+import threading
 import uuid
 import time
 from contextlib import asynccontextmanager
@@ -72,9 +73,29 @@ def cleanup_old_jobs(force: bool = False) -> None:
         cleanup_abandoned_uploads()
 
 
+def pull_shared_clips() -> None:
+    """Copy settled videos from CLIP_SHARE into the dataset and start intake."""
+    if not config.CLIP_SHARE:
+        return
+    try:
+        added = dataset.import_from_share()
+    except OSError:
+        return
+    for item in added:
+        dataset.process(item["clip_id"])
+
+
+def _share_loop() -> None:
+    while True:
+        pull_shared_clips()
+        time.sleep(30)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     cleanup_old_jobs(force=True)
+    if config.CLIP_SHARE:
+        threading.Thread(target=_share_loop, name="clip-share", daemon=True).start()
     yield
 
 
@@ -413,7 +434,18 @@ def _clip_or_404(clip_id: str):
 
 @app.get("/api/dataset")
 def dataset_list():
-    return {"clips": dataset.list_clips(), "dataset_dir": str(dataset.DATASET_DIR)}
+    return {"clips": dataset.list_clips(), "dataset_dir": str(dataset.DATASET_DIR),
+            "clip_share": str(config.CLIP_SHARE) if config.CLIP_SHARE else ""}
+
+
+@app.post("/api/dataset/import-share", status_code=202)
+def dataset_import_share(background: BackgroundTasks):
+    if not config.CLIP_SHARE:
+        return error(404, "CLIP_SHARE is not set. Point it at the shared drive folder.")
+    if not config.CLIP_SHARE.is_dir():
+        return error(404, f"Shared drive folder was not found: {config.CLIP_SHARE}")
+    background.add_task(pull_shared_clips)
+    return {"ok": True, "clip_share": str(config.CLIP_SHARE)}
 
 
 @app.post("/api/dataset", status_code=202)
@@ -535,7 +567,8 @@ async def reject_oversized(request: Request, call_next):
 def client_config():
     return {"max_upload_mb": config.MAX_UPLOAD_MB, "access_gate": bool(config.ACCESS_TOKEN),
             "min_fps": min_fps(), "full_accuracy_fps": LOW_FPS_BELOW,
-            "slow_motion_fps": SLOW_MOTION_FPS, "piece_bytes": PIECE_BYTES}
+            "slow_motion_fps": SLOW_MOTION_FPS, "piece_bytes": PIECE_BYTES,
+            "clip_share": str(config.CLIP_SHARE) if config.CLIP_SHARE else ""}
 
 
 @app.get("/healthz")

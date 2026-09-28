@@ -6,6 +6,8 @@
   ACCESS_TOKEN    if set, the UI and API require this key (see app/access.py)
   JOB_TTL_HOURS   jobs older than this are deleted, uploads included (default 72; 0 keeps them)
   DATASET_DIR     training clips and their labels (default DATA_DIR/dataset). Never cleaned up.
+  CLIP_SHARE      folder on a shared drive. New video files that have finished copying
+                  are pulled into the dataset. Empty means the share import is off.
   TUNING_FILE     JSON file of analyzer thresholds (default ./tuning.json if present; see app/tuning.py)
   MIN_FPS         lowest measured frame rate accepted for analysis (default 23.5, so 24 fps and
                   23.976 fps film rate pass). Clips under 50 fps are analysed with a low
@@ -34,3 +36,4 @@ ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN", "").strip()
 JOB_TTL_HOURS = _float("JOB_TTL_HOURS", 72)
 MIN_FPS = _float("MIN_FPS", 23.5)
 DATASET_DIR = Path(os.environ.get("DATASET_DIR") or DATA_DIR / "dataset")
+CLIP_SHARE = Path(os.environ["CLIP_SHARE"]) if os.environ.get("CLIP_SHARE", "").strip() else None

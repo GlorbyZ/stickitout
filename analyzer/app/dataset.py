@@ -21,6 +21,7 @@ import re
 import secrets
 import shutil
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -282,3 +283,70 @@ def video_file(clip_id: str) -> Path:
 
 def waveform(clip_id: str) -> dict | None:
     return _read_json(clip_dir(clip_id) / "waveform.json")
+
+
+SHARE_EXT = {".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi"}
+SHARE_SETTLE_S = 20
+
+
+def _share_ledger_path() -> Path:
+    return Path(DATASET_DIR) / "_share" / "imported.json"
+
+
+def _load_share_ledger() -> dict:
+    data = _read_json(_share_ledger_path(), {"files": {}})
+    if not isinstance(data, dict) or not isinstance(data.get("files"), dict):
+        return {"files": {}}
+    return data
+
+
+def _save_share_ledger(data: dict) -> None:
+    path = _share_ledger_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(path, data)
+
+
+def import_from_share(share: Path | None = None, settle_s: float = SHARE_SETTLE_S) -> list[dict]:
+    """Copy finished videos from a shared drive into the dataset.
+
+    A file is ready when it is non-empty and has not been written for settle_s seconds,
+    so a phone that is still copying onto the share is left alone. The share is never
+    modified. The same file (path, size, mtime) is imported once.
+    """
+    root = Path(share) if share is not None else config.CLIP_SHARE
+    if root is None or not root.is_dir():
+        return []
+    dataset_root = Path(DATASET_DIR).resolve()
+    ledger = _load_share_ledger()
+    known = ledger["files"]
+    added = []
+    now = time.time()
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.suffix.lower() not in SHARE_EXT:
+            continue
+        if path.name.startswith((".", "~")):
+            continue
+        try:
+            resolved = path.resolve()
+            if dataset_root in resolved.parents or resolved == dataset_root:
+                continue
+            st = path.stat()
+        except OSError:
+            continue
+        if st.st_size <= 0 or now - st.st_mtime < settle_s:
+            continue
+        key = f"{resolved}|{st.st_size}|{st.st_mtime_ns}"
+        if key in known:
+            continue
+        clip_id = ""
+        try:
+            clip_id, dest = create(path.name, path.suffix.lower(), "share")
+            shutil.copy2(path, dest)
+        except OSError:
+            if clip_id:
+                delete(clip_id)
+            continue
+        known[key] = {"clip_id": clip_id, "name": path.name, "at": now_iso()}
+        _save_share_ledger(ledger)
+        added.append({"clip_id": clip_id, "name": path.name, "source": str(resolved)})
+    return added

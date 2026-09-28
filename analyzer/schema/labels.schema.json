@@ -34,7 +34,8 @@
     "source": {
       "enum": [
         "upload",
-        "job"
+        "job",
+        "share"
       ]
     },
     "created_at": {

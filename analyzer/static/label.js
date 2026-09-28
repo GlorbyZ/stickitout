@@ -20,6 +20,13 @@ let view = { start: 0, span: 4 };
 let drag = null;
 let clips = [];
 
+api("/api/config").then((cfg) => {
+  const note = $("share-note");
+  if (!note || !cfg.clip_share) return;
+  note.hidden = false;
+  note.textContent = "New videos on the shared drive show up here after they finish copying. You do not need to move the files.";
+}).catch(() => {});
+
 // ---------- helpers ----------
 function showError(msg) { $("error").hidden = !msg; $("error").textContent = msg || ""; }
 async function api(path, opts = {}) {

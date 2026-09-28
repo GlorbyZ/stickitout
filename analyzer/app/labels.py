@@ -9,7 +9,7 @@ and returns a normalised copy (defaults filled in, strokes sorted by time).
     "clip_id": "20260926-150400-paradiddles-100-a1b2",
     "video_file": "video.mp4",              original upload, byte for byte
     "original_filename": "IMG_0421.MOV",
-    "source": "upload" | "job",
+    "source": "upload" | "job" | "share",
     "created_at": "...", "updated_at": "...",
     "status": "draft" | "done",             only "done" clips are evaluated by default
     "labeler": "Mike Staus",
@@ -39,7 +39,7 @@ SCHEMA_VERSION = 1
 CLIP_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{5,79}$")
 MAX_STROKES = 20000
 STATUSES = ("draft", "done")
-SOURCES = ("upload", "job")
+SOURCES = ("upload", "job", "share")
 HANDS = ("L", "R", None)
 STROKE_TYPES = ("normal", "accent", "ghost")
 STROKE_SOURCES = ("analyzer", "manual")
@@ -175,7 +175,7 @@ def validate(data) -> dict:
         raise LabelError("status must be draft or done.")
     source = data.get("source", "upload")
     if source not in SOURCES:
-        raise LabelError("source must be upload or job.")
+        raise LabelError("source must be upload, job, or share.")
     strokes = data.get("strokes", [])
     if not isinstance(strokes, list):
         raise LabelError("strokes must be a list.")

@@ -90,12 +90,19 @@ Mail from `noreply@stickitoutdrums.com` can fail until Resend DKIM and SPF are f
 
 Code in this repo: `analyzer/`. FastAPI app in `analyzer/app`, port 8800. The server currently running on this PC was launched from `C:\Users\epicn\Documents\sites\Stickitout-analyzer` and still reads that folder.
 
+Recording clips are not planted into a folder by hand. Set `CLIP_SHARE` to the shared-drive directory and `DATASET_DIR` (use `D:\Stickitout-dataset\clips`, not C:) before starting. Every 30 seconds the server copies videos that have finished arriving. The originals stay on the share. Then label them at `http://127.0.0.1:8800/label`. Do not send these takes through the member Analyze tab: those jobs are deleted after 72 hours.
+
 ```powershell
-cd C:\Users\epicn\Documents\sites\Stickitout-analyzer
-.\start-local.ps1     # http://127.0.0.1:8800/
-.\start-remote.ps1    # local server plus the named tunnel the portal uses
-.\stop-remote.ps1
+cd C:\Users\epicn\Documents\sites\Stickitout\analyzer
+$env:CLIP_SHARE = '\\server\share\sio-takes'   # the real shared-drive path
+$env:DATASET_DIR = 'D:\Stickitout-dataset\clips'
+$env:JOB_TTL_HOURS = '0'
+$env:MAX_UPLOAD_MB = '2048'
+# The venv and models live in the sibling folder until this copy has its own.
+& "..\..\Stickitout-analyzer\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8800
 ```
+
+The older sibling folder still starts with `C:\Users\epicn\Documents\sites\Stickitout-analyzer\start-local.ps1` and `start-remote.ps1`. It does not see this change until you start from `analyzer/` here or copy these files across.
 
 What a take actually runs:
 
