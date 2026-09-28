@@ -32,6 +32,8 @@ from . import jobs, tuning
 from .audio import analyze_audio
 from .coaching import safe_coach
 from .fusion import fuse
+from . import timeremap
+from .audio import load_wav
 from .media import (LOW_FPS_BELOW, MediaError, VideoInfo, extract_audio, frame_times, is_low_fps, low_fps_message,
                     min_fps, probe_video)
 from .scoring import score_report
@@ -137,10 +139,16 @@ def playback_landmarks(cache: Path) -> dict | None:
     }
 
 
-def run_video_stage(video_path: Path, progress, cache: Path | None = None) -> tuple[object | None, dict]:
-    """Landmarks and session metrics. Returns (tracks or None, video section)."""
+def run_video_stage(video_path: Path, progress, cache: Path | None = None,
+                    tmap: "timeremap.TimeMap | None" = None) -> tuple[object | None, dict]:
+    """Landmarks and session metrics. Returns (tracks or None, video section).
+
+    With a slow motion TimeMap the frames are put on the real-time clock before tracking
+    (the cache and the playback pts stay on the file timeline)."""
     try:
         raw = landmarks(video_path, progress, cache)
+        if tmap is not None:
+            raw = timeremap.remap_frames(raw, tmap)
         tracks = build_tracks(raw)
         return tracks, session_metrics(tracks)
     except Exception as exc:  # degrade, keep the audio results
@@ -208,7 +216,10 @@ def build_report(job_id: str, created_at: str, filename: str, info: VideoInfo, p
         **analysed,
         "engine": _versions(),
     }
-    report["coaching"] = safe_coach(report)
+    report["coaching"] = safe_coach(report)          # on the real-time clock
+    tmap = timeremap.from_section(report.get("time_remap"))
+    if tmap is not None:
+        timeremap.to_file_times(report, tmap)          # display times follow the file as it plays
     return report
 
 
@@ -226,13 +237,27 @@ def analyze_file(video_path: Path, params: dict, workdir: Path, stage=None,
     wav = Path(workdir) / "audio.wav"
     if not wav.exists() or wav.stat().st_mtime < Path(video_path).stat().st_mtime:
         extract_audio(video_path, wav, info)
+    stage("checking for slow motion", 0.07)
+    try:
+        y, sr = load_wav(wav)
+    except Exception:
+        y, sr = None, None
+    tmap, remap = timeremap.detect(video_path, info, y, sr)
+    audio_wav = wav
+    if tmap is not None and y is not None:
+        audio_wav = Path(workdir) / "audio_real.wav"      # sound on the real-time clock
+        timeremap.write_wav(audio_wav, timeremap.real_time_audio(y, sr, tmap), sr)
     stage("analysing audio", 0.10)
-    audio = analyze_audio(wav, params.get("target_bpm"))
+    audio = analyze_audio(audio_wav, params.get("target_bpm"))
     stage("tracking pose and hands", 0.30)
     tracks, video = run_video_stage(video_path, lambda f: stage("tracking pose and hands", 0.30 + 0.55 * f),
-                                    landmarks_cache)
+                                    landmarks_cache, tmap)
     stage("fusing audio and video", 0.90)
-    return info, audio, analyse(audio, tracks, video, params, info.fps)
+    analysed = analyse(audio, tracks, video, params, info.fps)
+    if tmap is not None:
+        timeremap.split_video_only(analysed["verification"], tmap)
+    analysed["time_remap"] = remap
+    return info, audio, analysed
 
 
 def run(job_id: str, video_path: Path, params: dict) -> None:

@@ -28,6 +28,16 @@ def test_tuning_sources_and_override(tmp_path, monkeypatch):
         monkeypatch.delenv("TUNING_FILE")
         monkeypatch.delenv("SIO_TUNE_MIN_IOI_MS")
         tuning.reload()
+    temp = tmp_path / "tuning.temp.json"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(tuning, "ROOT", tmp_path)
+    temp.write_text(json.dumps({"strike_min_prominence": 0.015}))
+    monkeypatch.setenv("SIO_TEMP_TRAINING", "1")
+    try:
+        assert tuning.reload().strike_min_prominence == 0.015
+    finally:
+        monkeypatch.delenv("SIO_TEMP_TRAINING")
+        tuning.reload()
     with pytest.raises(ValueError, match="Unknown tuning setting"):
         tuning.with_values(tuning.Tuning(), {"onset_sensitivity": 1})
     with pytest.raises(ValueError, match="hand_source"):

@@ -100,12 +100,11 @@ def test_slow_motion_original_keeps_real_timestamps(tmp_path):
     assert is_slow_motion(info.fps)
 
 
-def test_slowed_slow_motion_export_refused(tmp_path):
+def test_slowed_slow_motion_export_accepted_for_remap(tmp_path):
     out = tmp_path / "slowed.mov"
     encode(out, "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=30", "-t", "2", "-c:v", "libx264",
            "-pix_fmt", "yuv420p", "-metadata", "com.apple.quicktime.full-frame-rate-playback-intent=0",
            "-movflags", "use_metadata_tags")
     info = probe_video(out)
     assert looks_slowed(info)
-    with pytest.raises(MediaError, match="slow motion"):
-        check_frame_rate(info)
+    check_frame_rate(info)      # no longer refused: the slow part is measured and remapped to real time

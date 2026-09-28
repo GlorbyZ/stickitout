@@ -152,8 +152,6 @@ def check_frame_rate(info: VideoInfo) -> None:
             "camera video settings. In Record mode, use good light: many cameras lower the frame "
             "rate when the room is dark."
         )
-    if looks_slowed(info):
-        raise MediaError(SLOWED_MESSAGE)
 
 
 SLOW_MOTION_FPS = 100.0      # 120 and 240 fps captures (shown as slow motion in the results)

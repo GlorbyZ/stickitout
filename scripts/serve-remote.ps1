@@ -6,6 +6,7 @@ Set-Location $root
 $env:ACCESS_TOKEN = (Get-Content -Raw (Join-Path $root '.remote-token')).Trim()
 $env:PORT = "$Port"
 $env:MAX_UPLOAD_MB = "$MaxUploadMB"
+if (Test-Path (Join-Path $root 'tuning.temp.json')) { $env:SIO_TEMP_TRAINING = '1' }
 Add-Type -Namespace SIO -Name Power -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint esFlags);'
 [void][SIO.Power]::SetThreadExecutionState([uint32]2147483649)  # ES_CONTINUOUS | ES_SYSTEM_REQUIRED
 $python = Join-Path $root '.venv\Scripts\python.exe'

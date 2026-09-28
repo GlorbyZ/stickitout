@@ -1,0 +1,5 @@
+{
+  "_comment": "Temporary profile fit on the CC-BY reference videos in D:\\Stickitout-dataset\\reference-videos. Score 35.49 versus shipped defaults 17.35. Delete this file and restart the analyzer to restore shipped thresholds.",
+  "hand_source": "strike_first",
+  "strike_min_prominence": 0.012
+}

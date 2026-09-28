@@ -119,6 +119,12 @@ def tuning_file() -> Path | None:
     raw = os.environ.get("TUNING_FILE", "").strip()
     if raw:
         return Path(raw)
+    # Temporary profile from scripts/temp_train.py. The server turns this on.
+    # SIO_TEMP_TRAINING=0 keeps the shipped defaults even if the file is present.
+    if os.environ.get("SIO_TEMP_TRAINING", "").strip() == "1":
+        temp = ROOT / "tuning.temp.json"
+        if temp.exists():
+            return temp
     default = ROOT / "tuning.json"
     return default if default.exists() else None
 

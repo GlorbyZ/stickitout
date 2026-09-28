@@ -269,8 +269,10 @@ function render(r) {
   $("verified-card").innerHTML = `${lowFpsNotice(r)}<div><div class="label">Verified</div><div class="big">${fmt(s.verified, 0, "%")}</div>
     ${r.quality?.low_fps ? '<div class="est">estimate</div>' : ""}</div>
     <div><div class="saved-fps ${r.source.fps >= fullFps ? "good" : "warn"}" id="saved-fps">Saved video: <b>${r.source.fps >= slowFps ? `${fmt(r.source.fps, 0)} fps (slow motion)` : `${fmt(r.source.fps, 1)} fps`}</b>, measured by the server from the file</div>
+      ${r.time_remap?.message ? `<div class="saved-fps good" id="slowmo-line">${esc(r.time_remap.message)}${r.time_remap.remapped && r.audio?.tempo_bpm ? `. Real-time tempo: <b>${fmt(r.audio.tempo_bpm, 0)} BPM</b>` : ""}</div>` : ""}
       <div class="vcounts"><span><b>${v.verified_stroke_count}</b> verified hits</span>
       <span><b>${v.unverified_onsets}</b> heard, not seen</span><span><b>${v.video_only_strikes}</b> seen, not heard</span>
+      ${(v.video_only_no_sound || []).length ? `<span><b>${v.video_only_no_sound.length}</b> video only (slow motion section, no usable sound)</span>` : ""}
       <span>window plus or minus <b>${v.window_ms}</b> ms${widened}</span></div>
       <div>Verified-only tempo <b>${fmt(v.verified_tempo_bpm, 1, " BPM")}</b>, timing error <b>${fmt(v.verified_timing.mean_abs_error_ms, 1, " ms")}</b>${v.median_av_delta_ms !== null ? `, median audio-to-video gap <b>${fmt(v.median_av_delta_ms, 1, " ms")}</b>` : ""}</div>
       <div class="small" style="color:#bbb;margin-top:6px">A hit counts as verified when a wrist strike in the video lands within the window of the sound.
