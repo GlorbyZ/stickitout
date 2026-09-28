@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Label | Stick It Out</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css?v=2">
+  <link rel="stylesheet" href="/static/label.css?v=2">
+</head>
+<body class="label-page">
+  <header class="topbar">
+    <div class="brand"><span class="logo">SIO</span> Stick It Out</div>
+    <nav class="tabs" aria-label="Analyzer">
+      <a class="tab" href="/">Analyze</a>
+      <a class="tab active" href="/label" aria-current="page">Label</a>
+    </nav>
+  </header>
+
+  <main class="lbl-main">
+    <div class="lbl-layout">
+      <aside class="lbl-side">
+        <section class="card" id="clips-card">
+          <div class="row-between"><h2>Training clips</h2><button type="button" class="btn small-btn" id="refresh">Refresh</button></div>
+          <div id="clip-list" class="clip-list"><p class="muted small">Loading...</p></div>
+          <details class="add-clip" id="add-clip">
+            <summary><b>Add a clip</b></summary>
+            <form id="upload-form" class="stack" autocomplete="off">
+              <label class="drop small-drop" id="drop">
+                <input type="file" id="file" name="video" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv">
+                <span id="drop-text"><strong>Choose a video</strong> or drop it here<br><span class="muted">MP4, MOV or WebM, the original file</span></span>
+              </label>
+              <label>Player <input name="player" list="players" placeholder="Zaylyn"></label>
+              <label>Rudiment <input name="rudiment" list="rudiments" value="Single Paradiddle"></label>
+              <div class="two">
+                <label>Click BPM <input name="click_bpm" type="number" min="20" max="400" step="1" inputmode="numeric" placeholder="100"></label>
+                <label>Surface <select name="surface"><option value="">?</option><option value="pad">Pad</option><option value="snare">Snare</option><option value="kit">Kit</option></select></label>
+              </div>
+              <button type="submit" class="btn primary" id="upload-btn" disabled>Upload to training set</button>
+              <div id="upload-progress" class="progress" hidden><div class="bar"><div id="upload-fill"></div></div><p id="upload-text" class="muted small"></p></div>
+            </form>
+            <p class="muted small">Or analyze a video on the <a href="/">Analyze</a> page and press <b>Add to training set</b> on the results.
+              The analyzer runs on every new clip so the stroke list starts pre-filled.</p>
+          </details>
+        </section>
+
+        <details class="card guide" id="guide">
+          <summary><h2>Recording for training</h2></summary>
+          <ul class="guide-list">
+            <li><b>Side angle</b>, phone level with the pad or drum, 2 to 3 m away.</li>
+            <li><b>Both arms and both sticks in frame</b> the whole time, plus the pad or snare.</li>
+            <li><b>Good, even light.</b> No bright window behind the player.</li>
+            <li><b>Phone on a stand</b> or tripod, not hand held.</li>
+            <li><b>60 fps preferred</b> (1080p at 60 fps). 30 fps works but is less accurate.</li>
+            <li><b>One clap at the start</b> with hands in view, then count in.</li>
+            <li><b>Click running</b> and audible on the recording. Note its BPM.</li>
+            <li><b>30 to 45 seconds</b> per take.</li>
+          </ul>
+          <p class="small"><b>Shot list (about 20 takes):</b> pad and snare; slow (70), medium (100) and fast; singles, doubles and
+            paradiddles; one accent take and one ghost note take; and some deliberately sloppy takes: flipped sticking,
+            dragging behind the click, one hand dropping out, uneven doubles, and a mixed one. The full list is in
+            <code>docs/training-shot-list.md</code>.</p>
+        </details>
+      </aside>
+
+      <section class="lbl-work">
+        <div id="empty-state" class="card">
+          <h1>Label training clips</h1>
+          <p>Pick a clip on the left, or add one. Each clip opens with the analyzer's own strokes already marked, so you only fix
+            what it got wrong: missing or extra strokes, the wrong hand, accents and ghost notes, and sticking mistakes.</p>
+          <p class="muted">Labels are saved next to the video in the dataset folder and used by <code>scripts/evaluate.py</code>
+            to measure the analyzer.</p>
+        </div>
+
+        <div id="workspace" hidden>
+          <div class="card player-card">
+            <div class="lbl-head">
+              <div class="lbl-title"><b id="clip-title"></b> <span id="clip-sub" class="muted small"></span></div>
+              <div class="lbl-state"><span id="save-state" class="pill-l"></span>
+                <button type="button" class="btn small-btn primary" id="save-btn">Save</button></div>
+            </div>
+            <div id="intake-note" class="notice warn" hidden></div>
+            <div class="stage lbl-stage" id="stage">
+              <video id="video" playsinline preload="auto"></video>
+              <div class="hud"><span id="hud-time" class="pill"></span><span id="hud-rate" class="pill"></span></div>
+              <div id="hud-stroke" class="hud-stroke" hidden></div>
+            </div>
+            <div class="transport" role="toolbar" aria-label="Playback">
+              <button type="button" class="btn tbtn" data-act="back1s" title="Back 1 s (Shift+Left)">-1 s</button>
+              <button type="button" class="btn tbtn" data-act="prevframe" title="Previous frame (Left or ,)">&lsaquo; Frame</button>
+              <button type="button" class="btn tbtn primary" data-act="play" id="play-btn" title="Play or pause (Space)">Play</button>
+              <button type="button" class="btn tbtn" data-act="nextframe" title="Next frame (Right or .)">Frame &rsaquo;</button>
+              <button type="button" class="btn tbtn" data-act="fwd1s" title="Forward 1 s (Shift+Right)">+1 s</button>
+              <div class="speed" role="group" aria-label="Speed">
+                <button type="button" class="spd" data-rate="0.25" title="Key 1">0.25x</button>
+                <button type="button" class="spd" data-rate="0.5" title="Key 2">0.5x</button>
+                <button type="button" class="spd active" data-rate="1" title="Key 3">1x</button>
+              </div>
+            </div>
+            <div class="timeline-wrap">
+              <canvas id="timeline" data-h="150" aria-label="Stroke timeline"></canvas>
+              <canvas id="overview" data-h="26" aria-label="Whole clip"></canvas>
+            </div>
+            <div class="tap-row" role="toolbar" aria-label="Mark strokes">
+              <button type="button" class="btn tap left" data-act="addL" title="F (Shift+F accent, D ghost)">Left <kbd>F</kbd></button>
+              <button type="button" class="btn tap right" data-act="addR" title="J (Shift+J accent, K ghost)">Right <kbd>J</kbd></button>
+              <button type="button" class="btn ebtn" data-act="accent" title="Toggle accent on the selected stroke">Accent <kbd>A</kbd></button>
+              <button type="button" class="btn ebtn" data-act="ghost" title="Toggle ghost on the selected stroke">Ghost <kbd>G</kbd></button>
+              <button type="button" class="btn ebtn" data-act="error" title="Toggle sticking mistake on the selected stroke">Mistake <kbd>X</kbd></button>
+              <button type="button" class="btn ebtn" data-act="flip" title="Swap hand of the selected stroke">Swap hand <kbd>H</kbd></button>
+              <button type="button" class="btn ebtn" data-act="delete" title="Delete the selected stroke">Delete <kbd>Del</kbd></button>
+              <button type="button" class="btn ebtn" data-act="undo" title="Undo (Ctrl+Z)">Undo</button>
+              <button type="button" class="btn ebtn" data-act="redo" title="Redo (Ctrl+Y)">Redo</button>
+            </div>
+            <div class="opts">
+              <label class="check"><input type="checkbox" id="snap" checked> Snap taps to the nearest sound onset (40 ms)</label>
+              <label class="check">Tap delay <input type="number" id="latency" value="0" min="0" max="400" step="10" inputmode="numeric"> ms</label>
+              <label class="check"><input type="checkbox" id="show-det" checked> Show analyzer detections</label>
+              <label class="check">Zoom <input type="range" id="zoom" min="0.5" max="20" step="0.5" value="4"> <span id="zoom-val">4 s</span></label>
+            </div>
+            <details class="keys">
+              <summary>How to label and keyboard shortcuts</summary>
+              <div class="keys-grid">
+                <div>
+                  <ol class="small">
+                    <li>Watch at 0.25x or 0.5x. Each marker is a stroke: <span class="kl">L</span> on the top lane, <span class="kr">R</span> on the bottom,
+                      unknown hand in the middle.</li>
+                    <li>Tap <kbd>F</kbd> (left) or <kbd>J</kbd> (right) on every stroke. Tapping on an existing marker changes its hand, so you can
+                      tap along to fix hands. A tap where nothing is marked adds a stroke.</li>
+                    <li>Click a marker to select it, then fix it: <kbd>A</kbd> accent, <kbd>G</kbd> ghost, <kbd>X</kbd> sticking mistake,
+                      <kbd>H</kbd> swap hand, <kbd>Del</kbd> delete. Drag it to move it; drag it to the other lane to change the hand.</li>
+                    <li>Mark the clap with <kbd>C</kbd>. Fill in the clip details, then <b>Save and mark done</b>.</li>
+                  </ol>
+                </div>
+                <table class="small keys-table">
+                  <tr><td><kbd>Space</kbd></td><td>play or pause</td></tr>
+                  <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>speed 0.25x, 0.5x, 1x</td></tr>
+                  <tr><td><kbd>Left</kbd> <kbd>Right</kbd> or <kbd>,</kbd> <kbd>.</kbd></td><td>one frame back or forward</td></tr>
+                  <tr><td><kbd>Shift</kbd>+<kbd>Left</kbd>/<kbd>Right</kbd></td><td>1 second back or forward</td></tr>
+                  <tr><td><kbd>Up</kbd> <kbd>Down</kbd></td><td>previous or next stroke</td></tr>
+                  <tr><td><kbd>F</kbd> <kbd>J</kbd></td><td>left or right stroke at the playhead</td></tr>
+                  <tr><td><kbd>Shift</kbd>+<kbd>F</kbd>/<kbd>J</kbd></td><td>accented left or right stroke</td></tr>
+                  <tr><td><kbd>D</kbd> <kbd>K</kbd></td><td>ghost left or right stroke</td></tr>
+                  <tr><td><kbd>A</kbd> <kbd>G</kbd> <kbd>X</kbd> <kbd>H</kbd></td><td>accent, ghost, mistake, swap hand (selected)</td></tr>
+                  <tr><td><kbd>Alt</kbd>+<kbd>Left</kbd>/<kbd>Right</kbd></td><td>nudge selected stroke 5 ms</td></tr>
+                  <tr><td><kbd>M</kbd></td><td>move selected stroke to the playhead</td></tr>
+                  <tr><td><kbd>Del</kbd> / <kbd>Backspace</kbd></td><td>delete selected stroke</td></tr>
+                  <tr><td><kbd>C</kbd></td><td>mark the sync clap at the playhead</td></tr>
+                  <tr><td><kbd>I</kbd> <kbd>O</kbd></td><td>start and end of the part to score (optional)</td></tr>
+                  <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>undo / redo</td></tr>
+                  <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>save</td></tr>
+                  <tr><td><kbd>Esc</kbd></td><td>clear selection</td></tr>
+                </table>
+              </div>
+              <p class="small muted">Tap delay: if your taps land late while the video plays, set roughly how late (in real time). It is
+                ignored while paused. Snapping moves each tap onto the closest sound onset the analyzer heard.</p>
+            </details>
+          </div>
+
+          <div class="lbl-grid">
+            <div class="card">
+              <div class="row-between"><h2>Strokes</h2><span id="stroke-counts" class="muted small"></span></div>
+              <div class="table-wrap stroke-table-wrap"><table id="stroke-table"></table></div>
+              <div class="controls">
+                <button type="button" class="btn small-btn" id="reset-det">Reset to analyzer detections</button>
+                <button type="button" class="btn small-btn" id="clear-all">Clear all strokes</button>
+                <button type="button" class="btn small-btn" id="reanalyze">Re-run analyzer</button>
+              </div>
+              <p class="muted small" id="region-note"></p>
+            </div>
+            <div class="card">
+              <h2>Clip details</h2>
+              <form id="meta-form" class="meta-form" autocomplete="off">
+                <label>Player <input name="player" list="players"></label>
+                <label>Labeled by <input name="labeler" list="players" placeholder="Your name"></label>
+                <label>Rudiment <input name="rudiment" list="rudiments"></label>
+                <label>Click BPM <input name="click_bpm" type="number" min="20" max="400" step="0.1" inputmode="decimal"></label>
+                <label>Notes per click <select name="notes_per_beat"><option value="">auto</option><option value="2">2 (8ths)</option>
+                  <option value="3">3 (triplets)</option><option value="4">4 (16ths)</option><option value="6">6 (sextuplets)</option><option value="8">8 (32nds)</option></select></label>
+                <label>Surface <select name="surface"><option value="">?</option><option value="pad">Pad</option><option value="snare">Snare</option><option value="kit">Kit</option></select></label>
+                <label>Camera angle <select name="camera_angle"><option value="">?</option><option value="side">Side</option><option value="45">45 degrees</option>
+                  <option value="front">Front</option><option value="overhead">Overhead</option><option value="other">Other</option></select></label>
+                <label>Frame rate (fps) <input name="fps" type="number" min="1" max="480" step="0.01" inputmode="decimal"></label>
+                <label>Lighting <select name="lighting"><option value="">?</option><option value="bright">Bright</option><option value="ok">OK</option><option value="dim">Dim</option></select></label>
+                <label>Take <select name="take_type"><option value="">?</option><option value="clean">Clean</option><option value="sloppy">Deliberately sloppy</option></select></label>
+                <label class="wide">Known mistakes (what went wrong, roughly when)
+                  <textarea name="known_mistakes" rows="2" placeholder="e.g. flipped sticking around 0:12 and 0:25, left hand dropped at 0:31"></textarea></label>
+                <label>Mike's form grade <select name="form_grade"><option value="">not graded</option>
+                  <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label>
+                <label class="wide">Form comment <textarea name="form_comment" rows="2" placeholder="Short note on grip, height, relaxation..."></textarea></label>
+                <label class="check wide"><input type="checkbox" name="sticking_errors_marked"> I flagged every sticking mistake with X
+                  (otherwise evaluation works them out from the hands and the rudiment)</label>
+              </form>
+              <div class="controls">
+                <button type="button" class="btn primary" id="done-btn">Save and mark done</button>
+                <button type="button" class="btn" id="draft-btn">Save as draft</button>
+                <span id="status-pill" class="pill-l"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="error" class="notice bad" hidden></div>
+      </section>
+    </div>
+  </main>
+
+  <datalist id="players"><option value="Zaylyn"><option value="Mike Staus"></datalist>
+  <datalist id="rudiments">
+    <option value="Single Paradiddle"><option value="Single Stroke Roll"><option value="Double Stroke Roll">
+    <option value="Double Paradiddle"><option value="Paradiddle-diddle"><option value="Flam"><option value="Five Stroke Roll">
+  </datalist>
+  <script type="module" src="/static/label.js?v=2"></script>
+</body>
+</html>

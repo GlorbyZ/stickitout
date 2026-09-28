@@ -1,0 +1,32 @@
+# docker compose up -d --build   then open http://localhost:8800/?key=<ACCESS_TOKEN>
+# Put settings in a .env file next to this file (ACCESS_TOKEN=..., PORT=..., MAX_UPLOAD_MB=...).
+services:
+  analyzer:
+    build: .
+    image: sio-analyzer:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8800}:${PORT:-8800}"
+    environment:
+      PORT: ${PORT:-8800}
+      DATA_DIR: /data/jobs
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-1024}
+      ACCESS_TOKEN: ${ACCESS_TOKEN:-}
+      JOB_TTL_HOURS: ${JOB_TTL_HOURS:-72}
+      MIN_FPS: ${MIN_FPS:-23.5}
+    volumes:
+      - analyzer-data:/data
+
+  # Optional HTTPS for phones without a domain: a Cloudflare quick tunnel.
+  # docker compose --profile tunnel up -d   then read the https://*.trycloudflare.com URL
+  # from: docker compose logs tunnel
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://analyzer:${PORT:-8800}
+    depends_on:
+      - analyzer
+
+volumes:
+  analyzer-data:

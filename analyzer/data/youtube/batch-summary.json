@@ -1,0 +1,39 @@
+{
+ "clips": 1,
+ "analysed": 1,
+ "errors": 0,
+ "rudiments": 1,
+ "median_onsets": 56,
+ "median_match_rate_pct": 20.6,
+ "median_match_rate_pct_60fps": null,
+ "median_match_rate_pct_under_50fps": 20.6,
+ "clips_60fps": 0,
+ "clips_under_50fps": 1,
+ "sticking_checked": 1,
+ "median_sticking_pct": 80.4,
+ "median_baseline_pct": 79.0,
+ "median_lift_pct": 1.4,
+ "sticking_at_least_90": 0,
+ "sticking_near_chance": 1,
+ "by_family": {
+  "Diddle": {
+   "clips": 1,
+   "median_match_rate_pct": 20.6,
+   "median_sticking_pct": 80.4,
+   "median_lift_pct": 1.4
+  }
+ },
+ "by_angle": {
+  "three-quarter": {
+   "clips": 1,
+   "median_match_rate_pct": 20.6,
+   "median_sticking_pct": 80.4
+  }
+ },
+ "failure_modes": {
+  "many hits heard but not seen (click, talking, other drums or hands out of view)": 1,
+  "under 50 fps": 1,
+  "sticking match near chance": 1
+ },
+ "settings": "production defaults (app/tuning.py), unchanged"
+}

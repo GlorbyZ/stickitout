@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stickitout.local/schema/labels.schema.json",
+  "title": "Stick It Out training clip labels",
+  "description": "DATASET_DIR/<clip_id>/labels.json. Enforced at runtime by app/labels.py (validate).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "clip_id",
+    "video_file",
+    "status",
+    "meta",
+    "strokes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "clip_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{5,79}$"
+    },
+    "video_file": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/\\\\.][^/\\\\]*$",
+      "description": "plain file name inside the clip folder"
+    },
+    "original_filename": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "source": {
+      "enum": [
+        "upload",
+        "job"
+      ]
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "done"
+      ]
+    },
+    "labeler": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "player": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
+        },
+        "rudiment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
+        },
+        "click_bpm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 20,
+          "maximum": 400
+        },
+        "notes_per_beat": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 12,
+          "description": "4 = 16th notes, 3 or 6 = triplets"
+        },
+        "surface": {
+          "enum": [
+            "pad",
+            "snare",
+            "kit",
+            null
+          ]
+        },
+        "camera_angle": {
+          "enum": [
+            "side",
+            "front",
+            "45",
+            "overhead",
+            "other",
+            null
+          ]
+        },
+        "fps": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 480
+        },
+        "lighting": {
+          "enum": [
+            "bright",
+            "ok",
+            "dim",
+            null
+          ]
+        },
+        "take_type": {
+          "enum": [
+            "clean",
+            "sloppy",
+            null
+          ]
+        },
+        "known_mistakes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4000
+        },
+        "form_grade": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Mike's form grade"
+        },
+        "form_comment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2000
+        },
+        "clap_t": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 86400,
+          "description": "time of the sync clap"
+        },
+        "eval_start_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 86400
+        },
+        "eval_end_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 86400
+        },
+        "sticking_errors_marked": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "strokes": {
+      "type": "array",
+      "maxItems": 20000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "t",
+          "hand"
+        ],
+        "properties": {
+          "t": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 86400,
+            "description": "seconds from the start of the video"
+          },
+          "hand": {
+            "enum": [
+              "L",
+              "R",
+              null
+            ]
+          },
+          "type": {
+            "enum": [
+              "normal",
+              "accent",
+              "ghost"
+            ],
+            "default": "normal"
+          },
+          "sticking_error": {
+            "type": "boolean",
+            "default": false,
+            "description": "played with the wrong hand for the rudiment"
+          },
+          "source": {
+            "enum": [
+              "analyzer",
+              "manual"
+            ],
+            "default": "manual"
+          },
+          "edited": {
+            "type": "boolean",
+            "default": false,
+            "description": "pre-filled by the analyzer, then changed by a labeler"
+          }
+        }
+      }
+    },
+    "prefill": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "engine": {
+          "type": "string"
+        },
+        "stroke_count": {
+          "type": "integer"
+        },
+        "at": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

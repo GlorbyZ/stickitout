@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/*
+!data/youtube/
+data/youtube/cache/
+models/
+*.log
+.env
+remote-url.txt
+.remote-token
+logs/
+reports/
+.tunnel-token
