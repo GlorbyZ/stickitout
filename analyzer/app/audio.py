@@ -111,6 +111,23 @@ def grid_indices(times: np.ndarray, step: float) -> np.ndarray:
     return np.asarray(k)
 
 
+def steady_beat(beat_times: list[float]) -> tuple[float, float] | None:
+    """(first beat, period in seconds) when the beats are a metronome, not the player's drift.
+
+    A click stays within about 2 percent. The player's own hits are not used to move the tempo.
+    """
+    beats = np.asarray(beat_times, dtype=float)
+    if len(beats) < 5:
+        return None
+    gaps = np.diff(beats)
+    gaps = gaps[gaps > 0.05]
+    if len(gaps) < 4:
+        return None
+    if float(np.std(gaps) / np.mean(gaps)) > 0.02:
+        return None
+    return float(beats[0]), float(np.median(gaps))
+
+
 def fit_grid(times: np.ndarray, idx: np.ndarray) -> tuple[float, float]:
     """Least-squares fit t = t0 + step * k. Returns (t0, step)."""
     step, t0 = np.polyfit(idx.astype(float), times, 1)
@@ -184,7 +201,7 @@ def waveform_summary(y: np.ndarray, sr: int) -> dict:
     return {"duration_s": round(len(y) / sr, 3), "peaks": [round(p / top, 4) for p in peaks]}
 
 
-def analyze_audio(wav_path: Path, target_bpm: float | None = None) -> dict:
+def analyze_audio(wav_path: Path, target_bpm: float | None = None, subdivision: int | None = None) -> dict:
     """Run the full audio module on a WAV file and return the report's audio section."""
     y, sr = load_wav(wav_path)
     tune = tuning.current()
@@ -195,24 +212,46 @@ def analyze_audio(wav_path: Path, target_bpm: float | None = None) -> dict:
         onsets = detect_onsets(y, sr, method)
 
     times = np.array([o["t"] for o in onsets])
-    vel = onset_velocities(y, sr, list(times))
+    heard = y
+    raw_bpm, beat_times = estimate_tempo(y, sr)
+    locked = steady_beat(beat_times)
+    if locked is not None:
+        from .drums import drum_stem, has_drums_besides_click
+        if has_drums_besides_click(y, sr, times):
+            stem = drum_stem(y, sr)
+            if stem is not None:
+                drum_onsets = detect_onsets(stem, sr, method)
+                if len(drum_onsets) >= 4:
+                    onsets = drum_onsets
+                    times = np.array([o["t"] for o in onsets])
+                    heard = stem
+    vel = onset_velocities(heard, sr, list(times))
     keep = vel >= tune.min_rel_velocity
     onsets = [o for o, k in zip(onsets, keep) if k]
     times, vel = times[keep], vel[keep]
     if vel.size and vel.max() > 0:
         vel = vel / vel.max()
-
-    raw_bpm, beat_times = estimate_tempo(y, sr)
-    tempo_bpm, subdivision, grid, errors = None, 4, None, np.array([])
+    asked = subdivision if subdivision in (4, 6) else None
+    tempo_bpm, subdivision, grid, errors = None, asked or 4, None, np.array([])
     idx = np.zeros(len(times), dtype=int)
-    if len(times) >= 4 and raw_bpm > 0:
-        subdivision = choose_subdivision(times, 60.0 / raw_bpm)
+    locked = steady_beat(beat_times)
+    if locked and heard is not y and len(times) >= 4:
+        t0, period = locked
+        subdivision = asked or choose_subdivision(times, period)
+        step = period / subdivision
+        idx = np.round((times - t0) / step).astype(int)
+        errors = (times - (t0 + step * idx)) * 1000.0
+        tempo_bpm = round(float(np.clip(60.0 / period, TEMPO_MIN, TEMPO_MAX)), 2)
+        grid = {"subdivision": subdivision, "step_ms": round(step * 1000, 4), "t0": round(t0, 5),
+                "anchor_t": round(t0, 5), "metronome": True}
+    elif len(times) >= 4 and raw_bpm > 0:
+        subdivision = asked or choose_subdivision(times, 60.0 / raw_bpm)
         idx = grid_indices(times, 60.0 / raw_bpm / subdivision)
         t0, step = fit_grid(times, idx)
         tempo_bpm = round(float(np.clip(60.0 / (step * subdivision), TEMPO_MIN, TEMPO_MAX)), 2)
         errors = (times - (t0 + step * np.round((times - t0) / step))) * 1000.0
         grid = {"subdivision": subdivision, "step_ms": round(step * 1000, 4), "t0": round(t0, 5),
-                "anchor_t": round(float(times[np.argmax(vel >= 0.5)]), 5)}
+                "anchor_t": round(float(times[np.argmax(vel >= 0.5)]), 5), "metronome": False}
     elif raw_bpm > 0:
         tempo_bpm = round(raw_bpm, 2)
 
@@ -223,7 +262,15 @@ def analyze_audio(wav_path: Path, target_bpm: float | None = None) -> dict:
         o["t"] = round(o["t"], 5)
 
     ioi = np.diff(times)
-    rolling = rolling_tempo(times, idx, subdivision) if grid else []
+    if grid and grid.get("metronome") and tempo_bpm:
+        rolling = []
+        start = 0.0
+        dur = len(y) / sr
+        while start + ROLL_WINDOW_S <= dur + 1e-9:
+            rolling.append({"t_start": round(start, 3), "t_end": round(start + ROLL_WINDOW_S, 3), "bpm": tempo_bpm})
+            start += ROLL_HOP_S
+    else:
+        rolling = rolling_tempo(times, idx, subdivision) if grid else []
     evenness = float(np.clip(1.0 - np.std(vel) / np.mean(vel), 0.0, 1.0)) if vel.size and np.mean(vel) > 0 else None
     return {
         "sample_rate": sr,

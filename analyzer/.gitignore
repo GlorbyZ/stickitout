@@ -13,3 +13,10 @@ remote-url.txt
 logs/
 reports/
 .tunnel-token
+
+# Local live server data
+data/
+logs/
+work/
+models/
+.venv/

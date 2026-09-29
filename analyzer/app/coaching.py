@@ -34,7 +34,7 @@ import numpy as np
 
 from . import tuning
 
-VERSION = 3  # bump when rules or wording change: /api/results recomputes older coaching on read
+VERSION = 5  # bump when rules or wording change: /api/results recomputes older coaching on read
 SEVERITY_LABEL = {"fix_first": "Fix first", "work_on": "Worth working on", "polish": "Nice to tidy up"}
 SEVERITY_RANK = {"fix_first": 0, "work_on": 1, "polish": 2}
 HAND_WORD = {"L": "left", "R": "right"}
@@ -56,6 +56,16 @@ def _num(v, d=0):
 
 def _ms(v):
     return f"{int(round(abs(float(v))))} ms"
+
+
+def _much(ms):
+    """How a drummer hears a timing gap. The raw milliseconds stay in the metric, not the sentence."""
+    a = abs(float(ms))
+    if a < 18:
+        return "a little"
+    if a < 40:
+        return "noticeably"
+    return "a lot"
 
 
 def _clock(t):
@@ -148,7 +158,7 @@ class _Take:
     def _anchor_phase(self) -> int | None:
         """Grid phase of the beat, from paradiddle doubles: the first note of a double is the '&' (position 2)."""
         st = self.report.get("sticking") or {}
-        if not st.get("checked") or self.sub != 4:
+        if not getattr(self, "allow_positions", True) or not st.get("checked") or self.sub != 4:
             return None
         votes = {}
         for i in range(len(self.onsets) - 1):
@@ -306,21 +316,20 @@ def timing_spread(tk: _Take) -> tuple[dict | None, dict | None]:
     metric = {"mean_abs_ms": round(spread, 1), "std_ms": round(float(rc.std()), 1)}
     if spread <= tune.coach_timing_tight_ms:
         return None, {"id": "tight_timing", "title": "Your timing is tight",
-                      "saw": f"Your notes land within about {_ms(spread)} of an even grid on average.", "metric": metric}
+                      "saw": "Your notes are landing with the click.", "metric": metric}
     if spread < tune.coach_timing_work_ms:
         return None, None
     sev = "fix_first" if spread >= tune.coach_timing_fix_ms else "work_on"
     items = [{"t": float(tk.t[i]), "i": i, "e": float(abs(r[i]))} for i in np.where(tk.core)[0]]
     worst = _worst(items, key=lambda it: it["e"])
-    ex = [_ex(tk, it["i"], f"{_clock(it['t'])}, {_ms(r[it['i']])} {'early' if r[it['i']] < 0 else 'late'}",
+    ex = [_ex(tk, it["i"], f"{_clock(it['t'])}, {'rushed' if r[it['i']] < 0 else 'dragged'}",
               tk.hand[it["i"]] if tk.hand[it["i"]] in ("L", "R") else None) for it in worst]
     drill = tk.practice_bpm
     return _finding(
         "timing_spread", sev,
-        f"Your notes are uneven by about {_ms(spread)}",
-        f"On average each note lands {_ms(spread)} away from an even grid"
-        f"{', even after allowing for the tempo change' if tk.drifted else ''}, "
-        f"and the worst ones are {_ms(float(np.abs(rc).max()))} off.",
+        f"Your notes are {_much(spread)} off the click",
+        "Some notes jump ahead of the click and some fall behind it. "
+        "Listen for the ones that do not sit in the pocket.",
         "Even spacing is what makes a rudiment sound clean and in time. Uneven notes blur the pattern even at the right tempo.",
         ["Slow down until every note feels the same distance apart, then speed up in small steps.",
          "Play with a click on every quarter note and listen for notes that jump ahead or fall behind it.",
@@ -382,9 +391,9 @@ def timing_bias(tk: _Take) -> dict | None:
     early = d < 0
     if best["kind"] == "hands":
         other = "R" if h == "L" else "L"
-        title = f"Your {HAND_WORD[h]} hand rushes about {_ms(d)} ahead of your {HAND_WORD[other]}"
-        saw = (f"On average your {HAND_WORD[h]} hand's notes landed {_ms(d)} earlier than your {HAND_WORD[other]} hand's, "
-               f"compared with an even grid fitted to your playing ({best['n']} notes).")
+        title = f"Your {HAND_WORD[h]} hand rushes {_much(d)} ahead of your {HAND_WORD[other]}"
+        saw = (f"Your {HAND_WORD[h]} hand is getting to the drum before your {HAND_WORD[other]} hand. "
+               "The two hands are not speaking at the same time.")
         why = ("When one hand runs ahead the notes pair up unevenly (long, short, long, short) and the rudiment "
                "stops sounding even, even at the right tempo.")
         fix = [f"Play 8th notes {HAND_WORD[h]} hand alone with a click and land exactly on it.",
@@ -395,9 +404,9 @@ def timing_bias(tk: _Take) -> dict | None:
     else:
         who = (f"Your {HAND_WORD[h]} hand {'rushes' if early else 'drags'}" if h else
                f"You {'rush' if early else 'drag'}")
-        title = f"{who} {best['word']} by about {_ms(d)}"
-        saw = (f"{('Your ' + HAND_WORD[h] + ' hand played ') if h else 'You played '}{best['word']} {_ms(d)} "
-               f"{'earlier' if early else 'later'} than your other notes on average ({best['n']} notes).")
+        title = f"{who} {best['word']} {_much(d)}"
+        saw = (f"{('Your ' + HAND_WORD[h] + ' hand is ') if h else 'You are '}"
+               f"{'rushing' if early else 'dragging'} {best['word']} compared with your other notes.")
         why = ("Early notes crowd the next note and make the rhythm feel rushed and uneven." if early else
                "Late notes squash the next note and make the rhythm limp.")
         fix = ["Play with a click and count 1 e & a out loud so every position gets the same space.",
@@ -510,11 +519,12 @@ def doubles(tk: _Take) -> list[dict]:
     if abs(g) >= tune.coach_double_gap_ms and abs(t) >= tune.coach_bias_t:
         squeezed = g < 0
         items = [{"t": float(tk.t[i]), "i": i, "e": float(-gp if squeezed else gp)} for i, gp in zip(pairs, gaps)]
-        ex = [_ex(tk, it["i"], f"{_clock(it['t'])}, {_ms(it['e'])} {'short' if squeezed else 'long'}", tk.expected[it["i"]]) for it in _worst(items, key=lambda it: it["e"])]
+        ex = [_ex(tk, it["i"], f"{_clock(it['t'])}, {'squeezed double' if squeezed else 'open double'}", tk.expected[it["i"]]) for it in _worst(items, key=lambda it: it["e"])]
         out.append(_finding(
             "double_spacing", "work_on",
-            f"Your doubles are {'squeezed' if squeezed else 'too open'} by about {_ms(g)}",
-            f"The two notes of each double were {_ms(g)} {'closer together' if squeezed else 'further apart'} than your other notes, over {len(pairs)} doubles.",
+            f"Your doubles are {'squeezed together' if squeezed else 'too open'}",
+            "The two notes of each double are not the same distance apart as the rest of the pattern. "
+            + ("They are bumping into each other." if squeezed else "There is a gap in the middle of the double."),
             "The doubles should sit exactly on the grid like every other note. Squeezed doubles sound like a flam or a drag."
             if squeezed else "Open doubles leave a gap and make the pattern stumble.",
             ["Count 1 e & a out loud: the double is the & and the a, each gets a full 16th note.",
@@ -687,6 +697,9 @@ def coach(report: dict) -> dict:
     """Coaching section for a report (see the module docstring for the shape)."""
     tune = tuning.current()
     tk = _Take(report)
+    from .profiles import profile as rudiment_profile
+    prof = rudiment_profile((report.get("params") or {}).get("rudiment"))
+    tk.allow_positions = prof is None or bool(prof.get("positions"))
     base = {"version": VERSION, "tempo_bpm": tk.tempo, "low_fps": tk.low_fps, "findings": [], "strengths": [], "notes": []}
     if len(tk.t) < tune.coach_min_hits or not tk.grid or not tk.tempo:
         return {**base, "status": "not_enough_data", "focus_finding": None,
@@ -694,7 +707,7 @@ def coach(report: dict) -> dict:
                            f"This one had {len(tk.t)}.",
                 "focus": "Record at least 10 seconds of steady playing with the drum or pad close to the phone."}
 
-    notes: list[str] = []
+    notes: list[str] = [prof["play"]] if prof else []
     findings: list[dict] = []
     strengths: list[dict] = []
 
@@ -734,8 +747,12 @@ def coach(report: dict) -> dict:
     if tk.low_fps:
         notes.append(f"Recorded at {_num(tk.fps)} fps. Timing advice comes from the sound and is not affected. Hand advice needs "
                      "bigger differences before it is shown. Record at 60 fps for the full check.")
-    if tk.position() is None:
-        notes.append("Beat positions (1 e & a) and doubles are only named for single paradiddles in 16th notes.")
+    if prof and prof["kind"] == "flam":
+        notes.append("The light grace note is part of the main hit. We score the notes you can hear as separate hits, not the grace note by itself.")
+    elif prof and not prof.get("positions"):
+        notes.append("Beat names (1 e & a) are used on the single paradiddle, where the double marks the &. This rudiment is scored on the sticking and the click.")
+    elif tk.position() is None:
+        notes.append("Beat positions (1 e & a) are named when the double in the paradiddle lines up with the &.")
     notes.append("Posture and elbow angles are not judged yet: a phone video from the front cannot measure them reliably.")
 
     findings.sort(key=lambda x: (SEVERITY_RANK[x["severity"]], x["confidence"] != "high", -x["_weight"]))
@@ -755,6 +772,8 @@ def coach(report: dict) -> dict:
     else:
         nxt = int(math.floor(tk.tempo / 10.0) * 10) + 10
         focus, focus_id = f"Everything we measured looks solid. Next take, try {nxt} BPM and keep it this clean.", None
+    if prof:
+        focus = f"{prof['name']}. {focus}"
     return {**base, "status": "ok", "message": None, "focus": focus, "focus_finding": focus_id,
             "findings": findings, "strengths": strengths, "notes": notes}
 

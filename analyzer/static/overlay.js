@@ -38,7 +38,8 @@ function unpack(data, i) {
     for (let k = 0; k < h.length; k += 2) pts.push({ x: h[k], y: h[k + 1] });
     return pts;
   });
-  return { pose: { landmarks: pose ? [pose] : [] }, hands: { landmarks: hands } };
+  const sticks = (data.sticks?.[i] || []).map(s => s ? { x: s[0], y: s[1] } : null);
+  return { pose: { landmarks: pose ? [pose] : [] }, hands: { landmarks: hands }, sticks, drum_pad: data.drum_pad };
 }
 
 const lerpPt = (a, b, f) => (a && b ? { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, visibility: Math.min(a.visibility ?? 1, b.visibility ?? 1) } : undefined);
@@ -70,7 +71,9 @@ export function playbackFrame(data, mediaTime) {
   const pose = pa.map((p, k) => lerpPt(p, pb[k], f));
   const hands = A.hands.landmarks.length === B.hands.landmarks.length
     ? A.hands.landmarks.map((h, j) => h.map((p, k) => lerpPt(p, B.hands.landmarks[j][k], f))) : [];
-  return { result: { pose: { landmarks: [pose] }, hands: { landmarks: hands } }, index: a, exact: false, interpolated: true };
+  const sticks = A.sticks.length === B.sticks.length
+    ? A.sticks.map((s, j) => lerpPt(s, B.sticks[j], f)) : [];
+  return { result: { pose: { landmarks: [pose] }, hands: { landmarks: hands }, sticks, drum_pad: data.drum_pad }, index: a, exact: false, interpolated: true };
 }
 
 /** Inference input size: the frame scaled so its long side is at most `longSide` px (even numbers). */

@@ -1,5 +1,5 @@
 import { escapeHtml, type Person } from './auth';
-import { lockReason, tierLocked } from './access';
+import { canPractice, lockReason, tierLocked } from './access';
 import type { Attempt, BoardRow, Challenge } from './challenges';
 import {
   ANCHOR_DIAMOND_BPM,
@@ -13,18 +13,19 @@ import {
   medalIndex,
   medalLabel,
   medalTarget,
+  nextTargetBpm,
   type DailyPick,
   type MedalTally,
   type Pattern,
   type PatternWithProgress,
   type SessionRow,
 } from './patterns';
-import { initials, levelSelect, profileComplete } from './profile';
+import { initials, LEVEL_LABELS, levelSelect, profileComplete, type PlayingLevel } from './profile';
 import type { StreakState } from './streaks';
 import { MILESTONES } from './streaks';
 import type { Broadcast, Contact, Domain, MetricsTotals, Segment, Suppression, Template, Topic } from './resend';
 import { STREAM_DASH } from './stream';
-import { shell } from './ui';
+import { APP_VERSION, shell } from './ui';
 
 export { shell } from './ui';
 
@@ -65,136 +66,38 @@ function boardMarkup(rows: BoardRow[], youId = '', empty = 'Nobody scored yet. M
   </ol>`;
 }
 
+function levelName(level: string | undefined): string {
+  return level && level in LEVEL_LABELS ? LEVEL_LABELS[level as PlayingLevel] : 'Beginner';
+}
+
 export function memberHome(
   base: string,
   user: Person,
   data: {
-    lessons: MemberLesson[];
-    challenge: Challenge | null;
-    board: BoardRow[];
-    attempt: Attempt | null;
     streak?: StreakState;
-    daily?: DailyPick | null;
-    medals?: MedalTally[];
     practiceDays?: string[];
+    daily?: DailyPick | null;
+    score: { score: number; medal: string };
   },
 ): string {
-  const waitlist = user.status === 'waitlist';
-  const gated = user.status !== 'founding' && user.status !== 'active';
   const first = (user.name || user.email.split('@')[0]).split(' ')[0];
-  const currentLesson = data.lessons.find((l) => !l.completed_at) || data.lessons[data.lessons.length - 1] || null;
-  const doneCount = data.lessons.filter((l) => l.completed_at).length;
-  const streak = data.streak;
   const daily = data.daily || null;
-  const dailyDone = Boolean(daily?.completed_at);
-
-  const medalRows = (data.medals || []).filter((m) => m.medal !== 'dirt');
-  const medalCount = medalRows.reduce((sum, m) => sum + m.n, 0);
-  const practiced = (data.medals || []).reduce((sum, m) => sum + m.n, 0);
-  const bestMedal = MEDALS.slice()
-    .reverse()
-    .find((m) => medalRows.some((row) => row.medal === m.id));
-
-  const heroCta = daily
-    ? `<a class="btn hero-cta" href="${base}/rudiments/${escapeHtml(daily.pattern.slug)}">${
-        dailyDone ? 'Practice again' : 'Start today'
-      }</a>`
-    : `<a class="btn hero-cta" href="${base}/rudiments">Open practice</a>`;
-
-  const hero = `<section class="panel hero-card dash-wide rise-in">
-    <div class="hero-copy">
-      <p class="label">${dailyDone ? 'Logged today' : 'Today'}</p>
-      <h1 class="display hero-title">${daily ? escapeHtml(daily.pattern.title) : `Hey ${escapeHtml(first)}.`}</h1>
-      ${daily ? stickingMarkup(daily.pattern.sticking) : ''}
-      <p class="muted hero-note">${
-        waitlist
-          ? "You're on the founding waitlist. Free patterns are open, logging unlocks with a spot."
-          : daily
-            ? `${medalLabel(daily.pattern.medal)} · target ${daily.pattern.bpm_goal} BPM`
-            : 'Pick a pattern and put in the work.'
-      }</p>
-      <div class="hero-actions">
-        ${heroCta}
-        ${currentLesson && !gated ? `<a class="btn ghost" href="${base}/library/${currentLesson.id}">Week ${currentLesson.week_index} lesson</a>` : ''}
-      </div>
-    </div>
-    ${streak ? streakRing(streak, data.practiceDays || []) : ''}
-  </section>`;
-
-  const challengeStat = data.attempt
-    ? data.attempt.score == null
-      ? 'Pending'
-      : String(data.attempt.score)
-    : data.challenge
-      ? 'Open'
-      : '--';
-
-  const tiles = `<div class="tiles dash-wide">
-    <a class="stat-tile rise-in" href="${base}/rudiments">
-      <span class="stat-label">Medals</span>
-      <span class="stat-num">${medalCount}</span>
-      <span class="stat-foot muted">${bestMedal ? `Best ${bestMedal.label}` : 'Log a session'}</span>
-    </a>
-    <a class="stat-tile rise-in" href="${base}/rudiments">
-      <span class="stat-label">Patterns</span>
-      <span class="stat-num">${practiced}</span>
-      <span class="stat-foot muted">practiced</span>
-    </a>
-    <a class="stat-tile rise-in" href="${base}/library">
-      <span class="stat-label">Weeks</span>
-      <span class="stat-num">${doneCount}</span>
-      <span class="stat-foot muted">of ${data.lessons.length} done</span>
-    </a>
-    <a class="stat-tile rise-in" href="${base}/challenges">
-      <span class="stat-label">Challenge</span>
-      <span class="stat-num">${escapeHtml(challengeStat)}</span>
-      <span class="stat-foot muted">${data.challenge ? escapeHtml(data.challenge.title) : 'none live'}</span>
-    </a>
-  </div>`;
-
-  const nextThumb =
-    currentLesson?.thumbnail && !gated
-      ? `<img src="${escapeHtml(currentLesson.thumbnail)}" alt="" />`
-      : `<div class="missing">${gated ? 'Locked' : 'Dark'}</div>`;
-
-  const nextUp = currentLesson
-    ? `<section class="panel next-card rise-in">
-        <div class="label">${currentLesson.completed_at ? 'Latest lesson' : 'Next up'}</div>
-        <a class="next-body" href="${gated ? `${base}/library` : `${base}/library/${currentLesson.id}`}">
-          <span class="next-thumb">${nextThumb}</span>
-          <span class="next-meta">
-            <span class="next-week">Week ${currentLesson.week_index}</span>
-            <strong>${escapeHtml(currentLesson.title)}</strong>
-            <span class="muted">${
-              gated
-                ? 'Unlocks with founding'
-                : currentLesson.completed_at
-                  ? 'Completed'
-                  : currentLesson.watched_at
-                    ? 'In progress'
-                    : 'Ready to watch'
-            }</span>
-          </span>
-        </a>
-      </section>`
-    : `<section class="panel next-card rise-in">
-        <div class="label">Next up</div>
-        <p class="empty">New weeks land here when Mike publishes them.</p>
-      </section>`;
-
-  const boardPanel = `<section class="panel rise-in">
-    <div class="label">Live board</div>
-    <h2 style="margin:0.15rem 0 0.5rem;">${data.challenge ? escapeHtml(data.challenge.title) : 'Leaderboard'}</h2>
-    ${boardMarkup(data.board, user.id)}
-    ${data.challenge ? `<p style="margin:0.8rem 0 0;"><a class="btn ghost" href="${base}/challenges">Open challenge</a></p>` : ''}
-  </section>`;
-
-  const quick = `<nav class="quick-row dash-wide" aria-label="Shortcuts">
-    <a href="${base}/rudiments">Practice</a>
-    <a href="${base}/library">Library</a>
-    <a href="${base}/challenges">Challenges</a>
-    <a href="${base}/profile">Profile</a>
-  </nav>`;
+  const pattern = daily?.pattern;
+  const nextMedal = pattern ? MEDALS[Math.min(medalIndex(pattern.medal) + 1, MEDALS.length - 1)] : null;
+  const nextBpm = pattern && nextMedal ? nextTargetBpm(pattern.medal, pattern) : null;
+  const scoreText = data.score.score.toFixed(1);
+  const atTop = Boolean(pattern && nextMedal && nextMedal.id === pattern.medal);
+  const gapLine = pattern ? `${medalLabel(pattern.medal)} now` : 'Practice will name it.';
+  const nextLine =
+    nextBpm && pattern && nextMedal && !atTop
+      ? `${nextBpm} BPM, clean, ${HOLD_SECONDS} seconds`
+      : 'This one is at the top of the ladder.';
+  const stageNote =
+    user.status === 'waitlist'
+      ? 'You can see the path. Logging a session unlocks with a founding spot.'
+      : pattern
+        ? `Next medal is ${nextMedal ? nextMedal.label : 'the next tier'}.`
+        : 'Open Practice when a rudiment is ready.';
 
   return shell({
     title: 'Home | Stick It Out',
@@ -204,21 +107,54 @@ export function memberHome(
     user,
     wide: true,
     body: `
-      <div class="page-tools">
-        <p class="greet muted">Hey ${escapeHtml(first)}${
-          doneCount ? ` · ${doneCount} week${doneCount === 1 ? '' : 's'} in` : ''
-        }</p>
-        ${streak ? streakRewards(streak, base) : ''}
-      </div>
-      <div class="dash-grid">
-        ${hero}
-        ${tiles}
-        ${nextUp}
-        ${boardPanel}
-        ${quick}
-      </div>
+      <header class="bench-mast">
+        <p class="greet">Hey ${escapeHtml(first)}</p>
+        <p class="bench-kicker muted">${escapeHtml(levelName(user.level))} · position on the ladder</p>
+      </header>
+      <section class="stage rise-in" aria-label="Where you stand">
+        <div class="stage-main">
+          <p class="label">The gap</p>
+          <h1 class="display stage-title">${pattern ? escapeHtml(pattern.title) : 'Your next step'}</h1>
+          <p class="stage-note">${escapeHtml(stageNote)}</p>
+          <div class="stage-actions">
+            <a class="btn" href="${base}/practice">Open practice</a>
+            ${pattern ? `<a class="btn ghost" href="${base}/rudiments/${escapeHtml(pattern.slug)}">Open the rudiment</a>` : ''}
+          </div>
+        </div>
+        <div class="stage-side">
+          ${data.streak ? streakRing(data.streak, data.practiceDays || []) : ''}
+          <p class="readout">
+            <span class="readout-num">${scoreText}</span>
+            <span class="muted">${escapeHtml(medalLabel(data.score.medal))} across your level</span>
+          </p>
+        </div>
+      </section>
+      <ol class="beats">
+        <li>
+          <p class="label"><span>01</span> Where you are</p>
+          <strong>${escapeHtml(levelName(user.level))}</strong>
+          <span class="muted">${scoreText} across the rudiments for your level. ${escapeHtml(medalLabel(data.score.medal))} territory.</span>
+        </li>
+        <li>
+          <p class="label"><span>02</span> The gap</p>
+          <strong>${pattern ? escapeHtml(pattern.title) : 'Pick a rudiment'}</strong>
+          <span class="muted">${escapeHtml(gapLine)}</span>
+        </li>
+        <li>
+          <p class="label"><span>03</span> Next medal</p>
+          <strong>${nextMedal && pattern && !atTop ? escapeHtml(nextMedal.label) : 'Hold the top'}</strong>
+          <span class="muted">${escapeHtml(nextLine)}</span>
+        </li>
+      </ol>
     `,
   });
+}
+
+function streakLine(streak: StreakState): string {
+  if (streak.current_days === 0) return 'Start your streak today';
+  if (streak.todayCredited) return 'Today is logged';
+  if (streak.atRisk) return `${streak.hoursLeft}h left to keep it`;
+  return 'Log anything today to keep it';
 }
 
 /** Seven day ring. Filled arc is the share of the last week with a logged practice. */
@@ -226,22 +162,28 @@ function streakRing(streak: StreakState, days: string[]): string {
   const hit = Math.max(0, Math.min(7, new Set(days).size));
   const pct = Math.round((hit / 7) * 100);
   const state = streak.current_days > 0 ? (streak.todayCredited ? 'is-safe' : 'is-open') : 'is-cold';
-  const line =
-    streak.current_days === 0
-      ? 'Start your streak today'
-      : streak.todayCredited
-        ? 'Today is logged'
-        : streak.atRisk
-          ? `${streak.hoursLeft}h left to keep it`
-          : 'Log anything today to keep it';
+  const line = streakLine(streak);
   return `<div class="streak-ring ${state}">
+    <p class="label">Stick with it</p>
     <div class="ring" style="--pct:${pct}%" role="img" aria-label="${hit} of the last 7 days practiced">
       <span class="ring-num">${streak.current_days}</span>
-      <span class="ring-unit">day${streak.current_days === 1 ? '' : 's'}</span>
+      <span class="ring-unit">${streak.current_days === 1 ? 'day' : 'days'}</span>
     </div>
     <p class="ring-line">${escapeHtml(line)}</p>
     <p class="ring-best muted">${hit}/7 this week · longest ${streak.longest_days}</p>
   </div>`;
+}
+
+/** Same streak facts, one line, so Practice can lead with the drill. */
+function streakSlim(streak: StreakState, days: string[]): string {
+  const hit = Math.max(0, Math.min(7, new Set(days).size));
+  const unit = streak.current_days === 1 ? 'day' : 'days';
+  return `<p class="streak-slim">
+    <span class="label">Stick with it</span>
+    <strong>${streak.current_days} ${unit}</strong>
+    <span>${escapeHtml(streakLine(streak))}</span>
+    <span class="muted">${hit}/7 this week · longest ${streak.longest_days}</span>
+  </p>`;
 }
 
 function streakRewards(streak: StreakState, base: string): string {
@@ -271,14 +213,14 @@ function streakRewards(streak: StreakState, base: string): string {
     : 'Every reward on the board is earned.';
   return `<div class="reward-slot">
     <button type="button" class="reward-bell${unseen ? ' is-new' : ''}" data-reward-open data-seen="${base}/streak-rewards/seen" aria-label="${
-      unseen ? 'New streak rewards' : 'Streak rewards'
+      unseen ? 'New Stick with it rewards' : 'Stick with it'
     }">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9.2a6 6 0 0 1 12 0c0 4.2 1.2 5.6 1.8 6.4H4.2C4.8 14.8 6 13.4 6 9.2Z"/><path d="M10 18.2a2 2 0 0 0 4 0"/></svg>
       ${unseen ? '<span class="reward-pip" aria-hidden="true"></span>' : ''}
     </button>
     <dialog class="reward-pop" data-reward-pop>
       <div class="reward-head">
-        <h2>Streak rewards</h2>
+        <h2>Stick with it</h2>
         <button type="button" class="btn ghost" data-reward-close>Close</button>
       </div>
       <p class="muted">${escapeHtml(head)} ${escapeHtml(next)}</p>
@@ -415,7 +357,12 @@ const FAMILY_LABELS: Record<string, string> = {
 };
 
 /** Profile badge case: a closed drawer with the summary, sliding open to every medal by rudiment and tier. */
-function badgeDrawer(medals: MedalTally[], streak: StreakState, patterns: PatternWithProgress[]): string {
+function badgeDrawer(
+  medals: MedalTally[],
+  streak: StreakState,
+  patterns: PatternWithProgress[],
+  score: { score: number; medal: string },
+): string {
   const tiers = MEDALS.filter((m) => m.at > 0);
   const tally = new Map(medals.map((row) => [row.medal, row.n]));
   const reached = (id: string) =>
@@ -428,8 +375,6 @@ function badgeDrawer(medals: MedalTally[], streak: StreakState, patterns: Patter
     : medals.reduce((sum, row) => sum + medalIndex(row.medal) * row.n, 0);
   const top = tiers.slice().reverse().find((m) => reached(m.id) > 0) || null;
   const earnedDays = new Set(streak.rewards.earnedDays);
-  const streakEarned = MILESTONES.filter((m) => earnedDays.has(m.days)).length;
-
   const tierItems = tiers
     .map((m) => {
       const n = reached(m.id);
@@ -495,8 +440,8 @@ function badgeDrawer(medals: MedalTally[], streak: StreakState, patterns: Patter
       <img class="drawer-mark${top && TOP_MEDALS.has(top.id) ? ' is-hot' : ''}" src="/img/badges/medal-${top ? top.id : 'dirt'}.png" alt="" width="56" height="56" />
       <span class="drawer-summary">
         <span class="label">Badge case</span>
-        <strong class="drawer-count">${medalCount} ${medalCount === 1 ? 'medal' : 'medals'}</strong>
-        <span class="muted">${top ? `Top tier ${escapeHtml(top.label)}` : 'No medals yet'} &middot; ${medaled.length} of ${patterns.length} patterns &middot; ${streakEarned} streak ${streakEarned === 1 ? 'badge' : 'badges'}</span>
+        <strong class="drawer-count">${score.score.toFixed(1)} <span class="drawer-unit">${escapeHtml(medalLabel(score.medal))}</span></strong>
+        <span class="muted">Across the rudiments for your level. ${medalCount} ${medalCount === 1 ? 'medal' : 'medals'} logged.</span>
       </span>
       <span class="drawer-cta" data-drawer-cta>Open</span>
       <span class="drawer-pull" aria-hidden="true"></span>
@@ -509,7 +454,7 @@ function badgeDrawer(medals: MedalTally[], streak: StreakState, patterns: Patter
           <p class="muted case-rule">Each medal needs a clean run of ${HOLD_SECONDS} seconds or more at its tempo. Singles set the bar: Diamond ${ANCHOR_DIAMOND_BPM}, Legendary 200, Insanity 220.</p>
           <h3>By rudiment</h3>
           ${groups || '<p class="empty">No patterns yet.</p>'}
-          <h3>Streak</h3>
+          <h3>Stick with it</h3>
           <ol class="badge-grid">${streakItems}</ol>
         </div>
       </div>
@@ -547,11 +492,51 @@ export function memberProfile(
     streak?: StreakState;
     medals?: MedalTally[];
     patterns?: PatternWithProgress[];
+    score?: { score: number; medal: string };
+    practiceDays?: string[];
   } = {},
 ): string {
-  const plan = user.plan ? `${user.plan}` : 'none yet';
+  const plan = user.plan === 'yearly' ? 'Yearly' : user.plan === 'monthly' ? 'Monthly' : user.plan ? user.plan : 'No plan yet';
   const setup = Boolean(opts.setup) && !profileComplete(user);
-  const drawer = !setup && opts.streak ? badgeDrawer(opts.medals || [], opts.streak, opts.patterns || []) : '';
+  const score = opts.score || { score: 0, medal: 'dirt' };
+  const drawer = !setup && opts.streak ? badgeDrawer(opts.medals || [], opts.streak, opts.patterns || [], score) : '';
+  const photo = user.avatar_key
+    ? `<img class="avatar-photo" src="${base}/profile/photo" alt="" width="88" height="88" />`
+    : `<div class="hero-mark" aria-hidden="true">${escapeHtml(initials(user))}</div>`;
+  const pass = `<section class="member-pass">
+        <p class="label">Membership</p>
+        <h2 class="display">${escapeHtml(plan)}</h2>
+        <p class="pass-status"><span class="pill ${escapeHtml(user.status)}">${escapeHtml(user.status)}</span></p>
+        <p class="pass-rate">Founding is $19.99 a month or $149 a year.</p>
+        ${
+          stripePortal
+            ? `<p class="pass-bill"><a class="btn" href="${escapeHtml(stripePortal)}">Manage billing</a></p>`
+            : `<p class="pass-bill">Billing is not connected yet. Your status above is what the app uses.</p>`
+        }
+      </section>`;
+  const settings = `<form class="panel stack settings-bench" method="post" action="${base}/profile" enctype="multipart/form-data">
+        <p class="label">Settings</p>
+        <div class="span-2"><label for="photo">Photo</label><input id="photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" /></div>
+        <div class="settings-grid">
+          <div><label for="name">Display name</label><input id="name" name="name" required autocomplete="name" value="${escapeHtml(user.name || '')}" /></div>
+          <div><label for="phone">Phone (optional)</label><input id="phone" name="phone" autocomplete="tel" value="${escapeHtml(user.phone || '')}" /></div>
+          <div class="span-2"><label for="kit">Kit setup</label><textarea id="kit" name="kit" required placeholder="4-piece, hats, two crashes">${escapeHtml(user.kit || '')}</textarea></div>
+          <div><label for="level">Playing level</label>${levelSelect('level', user.level || '')}</div>
+        </div>
+        <button class="btn" type="submit">${setup ? 'Save and enter' : 'Save settings'}</button>
+      </form>`;
+  const head = `<header class="id-strip">
+        ${photo}
+        <div>
+          <h1 class="display profile-title">${setup ? 'Before you sit down' : escapeHtml(user.name || 'Profile')}</h1>
+          <p class="muted id-meta">${escapeHtml(levelName(user.level))} · ${escapeHtml(user.email)}</p>
+        </div>
+        ${opts.streak ? streakRewards(opts.streak, base) : ''}
+      </header>`;
+  const notes = `${opts.error ? `<p class="err">${escapeHtml(opts.error)}</p>` : ''}${opts.note ? `<p class="flash">${escapeHtml(opts.note)}</p>` : ''}`;
+  const streakWell = opts.streak
+    ? `<section class="streak-well" aria-label="Stick with it">${streakRing(opts.streak, opts.practiceDays || [])}</section>`
+    : '';
   return shell({
     title: setup ? 'Set up your kit | Stick It Out' : 'Profile | Stick It Out',
     base,
@@ -559,35 +544,24 @@ export function memberProfile(
     path: '/profile',
     user,
     scripts: drawer ? drawerScript() : undefined,
-    body: `
-      <div class="row" style="align-items:center;margin-bottom:1rem;">
-        <div class="hero-mark" aria-hidden="true">${escapeHtml(initials(user))}</div>
-        <div>
-          <h1 class="display" style="font-size:3rem;line-height:0.9;">${setup ? 'Before you sit down' : 'Profile'}</h1>
-          <p class="muted" style="margin:0.35rem 0 0;">${setup ? 'Name, kit, and playing level. Phone is optional.' : escapeHtml(user.email)}</p>
-        </div>
-        ${opts.streak ? streakRewards(opts.streak, base) : ''}
+    body: setup
+      ? `
+      ${head}
+      ${notes}
+      ${settings}
+      ${pass}
+      <p class="foot-meta">Version ${APP_VERSION} · <a href="${base}/logout">Sign out</a></p>
+    `
+      : `
+      ${head}
+      ${notes}
+      <div class="profile-stage">
+        ${streakWell}
+        ${pass}
       </div>
       ${drawer}
-      ${opts.error ? `<p class="err">${escapeHtml(opts.error)}</p>` : ''}
-      ${opts.note ? `<p class="flash">${escapeHtml(opts.note)}</p>` : ''}
-      <form class="panel stack" method="post" action="${base}/profile">
-        <div><label for="name">Display name</label><input id="name" name="name" required autocomplete="name" value="${escapeHtml(user.name || '')}" /></div>
-        <div><label for="kit">Kit setup</label><textarea id="kit" name="kit" required placeholder="4-piece, hats, two crashes">${escapeHtml(user.kit || '')}</textarea></div>
-        <div><label for="level">Playing level</label>${levelSelect('level', user.level || '')}</div>
-        <div><label for="phone">Phone (optional)</label><input id="phone" name="phone" autocomplete="tel" value="${escapeHtml(user.phone || '')}" /></div>
-        <button class="btn" type="submit">${setup ? 'Save and enter' : 'Save profile'}</button>
-      </form>
-      <section class="panel stack" style="margin-top:1rem;">
-        <h2>Membership</h2>
-        <p><span class="pill ${escapeHtml(user.status)}">${escapeHtml(user.status)}</span> · ${escapeHtml(plan)}</p>
-        <p class="muted">Email is your login. ${escapeHtml(user.email)}</p>
-        ${
-          stripePortal
-            ? `<p><a class="btn" href="${escapeHtml(stripePortal)}">Manage billing</a></p>`
-            : `<p class="muted">Billing portal coming soon. Founding stays $19.99/mo or $149/yr.</p>`
-        }
-      </section>
+      ${settings}
+      <p class="foot-meta">Version ${APP_VERSION} · <a href="${base}/logout">Sign out</a></p>
     `,
   });
 }
@@ -729,43 +703,25 @@ export function memberRudiments(
       </section>`
     : '';
 
-  const sections = LEVELS.map((level) => ({ id: level, label: level }));
+  const focus =
+    user.level === 'advanced' || user.level === 'pro' ? 'advanced' : user.level === 'intermediate' ? 'intermediate' : 'beginner';
+  const sections = [focus, ...LEVELS.filter((level) => level !== focus)].map((level) => ({ id: level, label: level }));
   const groups = sections
     .map((section) => {
       const rows = data.patterns.filter(
         (p) => p.level === section.id && !((p.best_bpm || 0) > 0 || p.sessions > 0),
       );
       if (!rows.length) return '';
-      return `<section class="practice-group">
-      <h2 class="practice-head">${section.label} <span>${rows.length}</span></h2>
+      const yours = section.id === focus;
+      return `<section class="practice-group${yours ? ' is-yours' : ''}">
+      <h2 class="practice-head"><span class="head-title">${escapeHtml(levelName(section.id))}${yours ? '<i class="yours">Your level</i>' : ''}</span><span>${rows.length}</span></h2>
       <ul class="practice-list">${rows.map((p) => card(p)).join('')}</ul>
     </section>`;
     })
     .join('');
 
-  const daily = data.daily;
-  const hero = `<section class="panel hero-card daily-card">
-    <div class="hero-copy">
-      <p class="label">${daily ? (daily.completed_at ? 'Logged today' : 'Today') : 'Practice'}</p>
-      <h1 class="display hero-title">${daily ? escapeHtml(daily.pattern.title) : 'Pick a pattern.'}</h1>
-      ${daily ? stickingMarkup(daily.pattern.sticking) : '<p class="muted hero-note">Open one, run the click, log the tempo you held.</p>'}
-      <div class="hero-actions">
-        ${daily ? medalChip(daily.pattern.medal) : ''}
-        ${
-          daily
-            ? `<a class="btn hero-cta" href="${base}/rudiments/${escapeHtml(daily.pattern.slug)}">${
-                daily.completed_at ? 'Practice again' : 'Start'
-              }</a>`
-            : ''
-        }
-        ${daily?.completed_at ? '<span class="gel">Done</span>' : ''}
-      </div>
-    </div>
-    ${streakRing(data.streak, data.practiceDays)}
-  </section>`;
-
   return shell({
-    title: 'Practice | Stick It Out',
+    title: 'Rudiments | Stick It Out',
     base,
     kind: 'member',
     path: '/rudiments',
@@ -773,11 +729,99 @@ export function memberRudiments(
     wide: true,
     body: `
       ${data.note ? `<p class="flash">${escapeHtml(data.note)}</p>` : ''}
-      <div class="page-tools">${streakRewards(data.streak, base)}</div>
-      ${hero}
+      <header class="bench-mast">
+        <p class="label">Catalog</p>
+        <h1 class="display bench-title">Rudiments</h1>
+        <p class="muted">Hands, then hand-fill drills. ${escapeHtml(levelName(user.level))} opens first.</p>
+      </header>
       ${tabNav}
       ${goingBlock}
       ${groups || '<p class="empty">Nothing in this tab yet.</p>'}
+    `,
+  });
+}
+
+export function memberPractice(
+  base: string,
+  user: Person,
+  data: {
+    primary: DailyPick | null;
+    alternates: PatternWithProgress[];
+    streak: StreakState;
+    practiceDays: string[];
+  },
+): string {
+  const logging = canPractice(user);
+  const card = (p: PatternWithProgress, primary = false) => {
+    const bpm = nextTargetBpm(p.medal, p);
+    const next = MEDALS[Math.min(medalIndex(p.medal) + 1, MEDALS.length - 1)];
+    return `<li>
+      <a class="practice-card${primary ? ' is-hot' : ''}" href="${base}/rudiments/${escapeHtml(p.slug)}">
+        <span class="practice-top">
+          <span class="practice-name">${escapeHtml(p.title)}</span>
+          ${medalChip(p.medal)}
+        </span>
+        ${stickingMarkup(p.sticking, 8)}
+        <span class="practice-foot">
+          <span class="practice-bpm">${next.id === p.medal ? 'Top tier' : `${escapeHtml(next.label)} · ${bpm}`}</span>
+        </span>
+      </a>
+    </li>`;
+  };
+  const primary = data.primary?.pattern;
+  const note = logging
+    ? 'One main drill, then two that are further behind.'
+    : 'You can see the drills. Logging a session unlocks with a founding spot.';
+  const lead = primary
+    ? (() => {
+        const bpm = nextTargetBpm(primary.medal, primary);
+        const next = MEDALS[Math.min(medalIndex(primary.medal) + 1, MEDALS.length - 1)];
+        const topped = next.id === primary.medal;
+        const href = `${base}/rudiments/${escapeHtml(primary.slug)}`;
+        const action = logging
+          ? `<a class="btn" href="${href}">${data.primary?.completed_at ? 'Practice again' : 'Start'}</a>`
+          : `<p class="lock-line">Logging stays locked on the waitlist.</p><a class="btn ghost" href="${href}">Open the rudiment</a>`;
+        return `<article class="lead">
+          <div class="lead-core">
+            <img class="lead-medal" src="/img/badges/medal-${escapeHtml(primary.medal)}.png" alt="" width="88" height="88" />
+            <div class="lead-copy">
+              <p class="label">Main drill</p>
+              <h2 class="display lead-title">${escapeHtml(primary.title)}</h2>
+              ${medalChip(primary.medal)}
+              ${stickingMarkup(primary.sticking, 12)}
+            </div>
+            <div class="lead-read">
+              <p class="lead-bpm">${topped ? 'Top' : String(bpm)}<span>${topped ? ' tier' : ' BPM'}</span></p>
+              <p class="lead-next">${topped ? 'This one is at the top of the ladder.' : `Next medal ${escapeHtml(next.label)}. Clean for ${HOLD_SECONDS} seconds.`}</p>
+            </div>
+            <div class="lead-actions">${action}</div>
+          </div>
+        </article>`;
+      })()
+    : '<p class="empty">No hands rudiment is open at your level yet.</p>';
+  return shell({
+    title: 'Practice | Stick It Out',
+    base,
+    kind: 'member',
+    path: '/practice',
+    user,
+    wide: true,
+    body: `
+      <header class="bench-mast">
+        <p class="label">For ${escapeHtml(levelName(user.level).toLowerCase())} players</p>
+        <h1 class="display bench-title">Practice</h1>
+        <p class="muted">${note}</p>
+      </header>
+      ${data.streak ? streakSlim(data.streak, data.practiceDays) : ''}
+      ${lead}
+      ${
+        data.alternates.length
+          ? `<section class="practice-group">
+              <h2 class="practice-head">Also behind <span>${data.alternates.length}</span></h2>
+              <ul class="practice-list">${data.alternates.map((p) => card(p)).join('')}</ul>
+            </section>`
+          : ''
+      }
     `,
   });
 }
@@ -879,10 +923,12 @@ export function memberRudimentDetail(
     user,
     wide: true,
     body: `
-      <p class="crumb"><a href="${base}/rudiments?tab=${tabForDiscipline(p.discipline)}">${
-        tabForDiscipline(p.discipline) === 'drills' ? 'Hand fill drills' : 'Rudiments'
-      }</a> · ${escapeHtml(p.level)}</p>
-      <h1 class="display pattern-title">${escapeHtml(p.title)}</h1>
+      <header class="bench-mast">
+        <p class="crumb"><a href="${base}/rudiments?tab=${tabForDiscipline(p.discipline)}">${
+          tabForDiscipline(p.discipline) === 'drills' ? 'Hand fill drills' : 'Rudiments'
+        }</a> · ${escapeHtml(p.level)}</p>
+        <h1 class="display pattern-title">${escapeHtml(p.title)}</h1>
+      </header>
       <div class="pattern-stats">
         <div class="pattern-stat">
           <span class="label">Medal</span>
@@ -898,7 +944,7 @@ export function memberRudimentDetail(
         </div>
       </div>
       ${data.note ? `<p class="flash">${escapeHtml(data.note)}</p>` : ''}
-      <div class="room">
+      <div class="room kit-room">
         <div class="stack">
           <section class="panel stack sheet">
             <div class="label">Pattern</div>
@@ -1202,7 +1248,13 @@ function patternScripts(): string {
     }
   }
 
+  function useMediaVolume() {
+    var session = navigator.audioSession;
+    if (session) session.type = 'playback';
+  }
+
   function start() {
+    useMediaVolume();
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     if (ctx.state === 'suspended') ctx.resume();
     running = true;

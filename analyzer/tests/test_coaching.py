@@ -97,10 +97,13 @@ def test_rushing_left_hand(coaching_schema):
     check_shape(c, coaching_schema, 100)
     f = by_id(c, "timing_bias")
     assert f["hand"] == "L" and f["metric"]["kind"] == "hands"
-    assert f["title"].startswith("Your left hand rushes about 1") and "ahead of your right" in f["title"]
+    assert f["title"].startswith("Your left hand rushes") and "ahead of your right" in f["title"]
+    assert "ms" not in f["title"] and "ms" not in f["saw"]
     assert 11 <= abs(f["metric"]["diff_ms"]) <= 17
     assert len(f["examples"]) == 3 and all(e["hand"] == "L" for e in f["examples"])
-    assert c["findings"][0]["id"] == "timing_bias" and c["focus"] == f["focus"]
+    assert c["findings"][0]["id"] == "timing_bias" and c["focus"].endswith(f["focus"])
+    assert c["focus"].startswith("Single Paradiddle. ")
+    assert any("Single paradiddle" in n for n in c["notes"])
 
 
 def test_left_hand_rushes_offbeats():
@@ -108,7 +111,7 @@ def test_left_hand_rushes_offbeats():
     c = coaching.coach(make_report(offsets=lambda i, h, p: -18.0 if h == "L" and p in (1, 3) else 0.0))
     f = by_id(c, "timing_bias")
     assert f["metric"]["kind"] == "position" and f["hand"] == "L" and f["metric"]["position"] == "ea"
-    assert "left hand rushes the e's and a's by about" in f["title"]
+    assert "left hand rushes the e's and a's" in f["title"]
 
 
 def test_dragging_slows_down(coaching_schema):
@@ -137,7 +140,7 @@ def test_clean_take_gives_strengths_and_no_scary_findings(coaching_schema):
     assert not [f for f in c["findings"] if f["severity"] in ("fix_first", "work_on")], c["findings"]
     got = [s["id"] for s in c["strengths"]]
     assert got[0] == "tight_timing" and got[1] in ("clean_sticking", "even_volume")   # two different areas
-    assert c["focus"].startswith("Everything we measured looks solid") and "110 BPM" in c["focus"]
+    assert c["focus"].startswith("Single Paradiddle. Everything we measured looks solid") and "110 BPM" in c["focus"]
 
 
 def test_low_fps_widens_hand_thresholds_and_skips_wrists(coaching_schema):

@@ -20,7 +20,7 @@ const {
   canonical,
 } = Astro.props;
 
-const site = Astro.site ?? new URL('https://stickitoutbook.com');
+const site = Astro.site ?? new URL('https://stickitoutdrums.com');
 const canonicalUrl = new URL(canonical ?? Astro.url.pathname, site).href;
 const ogImageUrl = new URL(ogImage, site).href;
 ---

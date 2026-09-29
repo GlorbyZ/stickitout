@@ -1,6 +1,8 @@
 # Stick It Out Apache redirects (IONOS)
 RewriteEngine On
 
+AddType application/vnd.android.package-archive .apk
+
 # Legacy HTML → Astro routes
 RewriteRule ^membership\.html$ / [R=301,L]
 RewriteRule ^membership/?$ / [R=301,L]

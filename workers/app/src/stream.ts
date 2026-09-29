@@ -224,6 +224,20 @@ export async function putLessonPoster(
   return { key };
 }
 
+export async function putAvatar(
+  env: { MEDIA?: R2Bucket },
+  personId: string,
+  file: File,
+): Promise<{ key: string } | { error: string }> {
+  if (!env.MEDIA) return { error: 'Media bucket is not bound.' };
+  if (file.size > 4 * 1024 * 1024) return { error: 'Keep the photo under 4MB.' };
+  const ext = file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : '';
+  if (!ext) return { error: 'Use a JPG, PNG, or WebP photo.' };
+  const key = `avatars/${personId}.${ext}`;
+  await env.MEDIA.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+  return { key };
+}
+
 export async function readLessonPoster(
   env: { MEDIA?: R2Bucket },
   key: string,

@@ -1,8 +1,9 @@
-// Analyze page: Upload and Record modes, job progress polling, and the results
+﻿// Analyze page: Upload and Record modes, job progress polling, and the results
 // dashboard (Verified score, score dials, sticking, charts, stroke table, playback).
 import { initRecord } from "./record.js";
-import { drawSkeleton } from "./skeleton.js";
+import { drawSkeleton, jointAngle, motionTips, resetStickTrack } from "./skeleton.js";
 import { playbackFrame, overlaySize } from "./overlay.js";
+import { DiagnosticTimeline } from "./timeline.js";
 
 // Charts (audio waveform, wrist height, timing error spread, tempo over time) are hidden for now
 // so the playback video sits near the top. Set SHOW_CHARTS = true to bring them back.
@@ -77,7 +78,7 @@ const PIECE_TIMEOUT_MS = 120000;
 const STORE = "sio-upload:";
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const mb = (n) => (n / 1048576).toFixed(n < 10 * 1048576 ? 1 : 0);
-const fingerprint = (blob, name) => `${STORE}${name}|${blob.size}|${blob.lastModified || 0}`;
+const fingerprint = (blob, name) => `${STORE}v3:${name}|${blob.size}|${blob.lastModified || 0}`;
 
 function uploadProgress(loaded, total, note = "") {
   const pct = Math.min(100, Math.floor((100 * loaded) / total));
@@ -266,24 +267,17 @@ function render(r) {
   renderCoaching(r.coaching);
 
   const widened = v.window_widened ? ` <span class="small">(widened for ${Math.round(r.source.fps)} fps)</span>` : "";
-  const gate = r.confidence || { show_verified: s.verified != null, show_sticking: true, message: "", hint: "" };
-  const gateNote = gate.message
-    ? `<div class="confidence-note" role="note"><p>${esc(gate.message)}</p>${gate.hint ? `<p class="small">${esc(gate.hint)}</p>` : ""}</div>`
-    : "";
-  const savedFps = `<div class="saved-fps ${r.source.fps >= fullFps ? "good" : "warn"}" id="saved-fps">Saved video: <b>${r.source.fps >= slowFps ? `${fmt(r.source.fps, 0)} fps (slow motion)` : `${fmt(r.source.fps, 1)} fps`}</b>, measured by the server from the file</div>
-      ${r.time_remap?.message ? `<div class="saved-fps good" id="slowmo-line">${esc(r.time_remap.message)}${r.time_remap.remapped && r.audio?.tempo_bpm ? `. Real-time tempo: <b>${fmt(r.audio.tempo_bpm, 0)} BPM</b>` : ""}</div>` : ""}`;
-  $("verified-card").innerHTML = gate.show_verified
-    ? `${lowFpsNotice(r)}<div><div class="label">Verified</div><div class="big">${fmt(s.verified, 0, "%")}</div>
+  $("verified-card").innerHTML = `${lowFpsNotice(r)}<div><div class="label">Verified</div><div class="big">${fmt(s.verified, 0, "%")}</div>
     ${r.quality?.low_fps ? '<div class="est">estimate</div>' : ""}</div>
-    <div>${savedFps}
+    <div><div class="saved-fps ${r.source.fps >= fullFps ? "good" : "warn"}" id="saved-fps">Saved video: <b>${r.source.fps >= slowFps ? `${fmt(r.source.fps, 0)} fps (slow motion)` : `${fmt(r.source.fps, 1)} fps`}</b>, measured by the server from the file</div>
+      ${r.time_remap?.message ? `<div class="saved-fps good" id="slowmo-line">${esc(r.time_remap.message)}${r.time_remap.remapped && r.audio?.tempo_bpm ? `. Real-time tempo: <b>${fmt(r.audio.tempo_bpm, 0)} BPM</b>` : ""}</div>` : ""}
       <div class="vcounts"><span><b>${v.verified_stroke_count}</b> verified hits</span>
       <span><b>${v.unverified_onsets}</b> heard, not seen</span><span><b>${v.video_only_strikes}</b> seen, not heard</span>
       ${(v.video_only_no_sound || []).length ? `<span><b>${v.video_only_no_sound.length}</b> video only (slow motion section, no usable sound)</span>` : ""}
       <span>window plus or minus <b>${v.window_ms}</b> ms${widened}</span></div>
-      <div>Verified-only tempo <b>${fmt(v.verified_tempo_bpm, 1, " BPM")}</b>, timing error <b>${fmt(v.verified_timing.mean_abs_error_ms, 1, " ms")}</b>${v.median_av_delta_ms !== null ? `, median audio-to-video gap <b>${fmt(v.median_av_delta_ms, 1, " ms")}</b>` : ""}</div>
+      <div>Played ${r.audio?.grid?.metronome ? "with the click" : "to your own pulse"} at about <b>${fmt(audio.tempo_bpm, 0, " BPM")}</b>.</div>
       <div class="small" style="color:#bbb;margin-top:6px">A hit counts as verified when a wrist strike in the video lands within the window of the sound.
-      ${esc(v.note || "")}</div></div>`
-    : `${lowFpsNotice(r)}${gateNote}<div>${savedFps}</div>`;
+      ${esc(v.note || "")}</div></div>`;
 
   $("dials").innerHTML = [
     dial("Timing", s.timing), dial("Consistency", s.consistency), dial("Dynamics", s.dynamics),
@@ -298,9 +292,7 @@ function render(r) {
   ].join("");
 
   const breaks = st.breaks.slice(0, 40).map((b) => `<li>${fmt(b.t, 2)} s, stroke ${b.stroke_index + 1}: ${esc(b.note)}</li>`).join("");
-  $("sticking-card").innerHTML = !gate.show_sticking
-    ? gateNote
-    : `<h2>Sticking: ${esc(st.rudiment)}</h2>` + (st.checked
+  $("sticking-card").innerHTML = `<h2>Sticking: ${esc(st.rudiment)}</h2>` + (st.checked
     ? `<div class="stats">${stat("Sticking accuracy", fmt(st.sticking_accuracy_pct, 1, "%"))}${stat("Lead hand", st.leading_hand)}
         ${stat("Wrong hand", st.wrong_hand)}${stat("Lost place", st.resyncs)}</div>
        <p class="small muted">Expected ${esc(st.pattern)} (either hand may lead), checked over ${st.strokes_checked} strokes.</p>
@@ -308,7 +300,7 @@ function render(r) {
     : `<p class="muted">${esc(st.reason)}</p><p class="small muted">Expected pattern ${esc(st.pattern || "")}</p>`);
 
   const ph = s.per_hand, f = video.form;
-  $("hands-card").innerHTML = !gate.show_hand_metrics ? gateNote : `<h2>Left vs right</h2><div class="table-wrap"><table>
+  $("hands-card").innerHTML = `<h2>Left vs right</h2><div class="table-wrap"><table>
     <tr><th></th><th>Left</th><th>Right</th></tr>
     <tr><td>Strokes</td><td>${ph.L.strokes}</td><td>${ph.R.strokes}</td></tr>
     <tr><td>Timing score</td><td>${fmt(ph.L.timing, 0)}</td><td>${fmt(ph.R.timing, 0)}</td></tr>
@@ -324,8 +316,9 @@ function render(r) {
   if (SHOW_CHARTS) drawCharts(r);
   renderStrokes(r.strokes, 60);
   setupPlayback(r);
+  drawTimeline(r);
   renderHow();
-  $("results").scrollIntoView({ behavior: "smooth" });
+  $("playback-card").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function drawCharts(r) {
@@ -472,7 +465,100 @@ function renderCoaching(c) {
 }
 
 // Timestamp chip: pause the video on that moment with the skeleton drawn and the hand ringed.
-let playHighlight = null, playbackApi = null;
+let playHighlight = null, playbackApi = null, problemCursor = -1, exportingClip = false;
+const stickTrails = [[], []];
+let prevWrists = null, shoulderBase = null;
+
+function problemMarks(r) {
+  const marks = [];
+  for (const s of r?.strokes || []) {
+    const ms = s.timing_error_ms;
+    if (ms == null) continue;
+    if (Math.abs(ms) < 25 && s.verification === "verified") continue;
+    marks.push({ t: s.t, ms, hand: s.hand, label: feel(ms) });
+  }
+  for (const f of r?.coaching?.findings || []) {
+    for (const e of f.examples || []) {
+      if (!marks.some((m) => Math.abs(m.t - Number(e.t)) < 0.05)) {
+        marks.push({ t: Number(e.t), ms: 25, hand: e.hand || f.hand, label: e.label || f.title });
+      }
+    }
+  }
+  marks.sort((a, b) => a.t - b.t);
+  return marks;
+}
+
+function drawTrails(ctx, w, h, now) {
+  const ink = ["232,163,23", "79,209,255"];
+  const life = 0.42;
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  stickTrails.forEach((arr, side) => {
+    const pts = arr.filter((p) => now - p.t <= life);
+    if (pts.length < 2) return;
+    const samples = [];
+    for (let t = pts[0].t; t <= pts[pts.length - 1].t + 0.0001; t += 0.012) {
+      let i = 1;
+      while (i < pts.length - 1 && pts[i].t < t) i++;
+      const a = pts[i - 1], b = pts[i];
+      const span = b.t - a.t;
+      const u = span > 1e-4 ? Math.min(1, (t - a.t) / span) : 0;
+      samples.push({ x: (a.x + (b.x - a.x) * u) * w, y: (a.y + (b.y - a.y) * u) * h, t });
+    }
+    for (let i = 1; i < samples.length; i++) {
+      const fade = Math.max(0, Math.min(1, (samples[i].t - (now - life)) / life));
+      const prev = samples[i - 1], cur = samples[i];
+      const fromX = i === 1 ? prev.x : (samples[i - 2].x + prev.x) / 2;
+      const fromY = i === 1 ? prev.y : (samples[i - 2].y + prev.y) / 2;
+      ctx.strokeStyle = `rgba(${ink[side]},${0.08 + fade * 0.88})`;
+      ctx.lineWidth = 1.4 + 8 * fade * fade;
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.quadraticCurveTo(prev.x, prev.y, (prev.x + cur.x) / 2, (prev.y + cur.y) / 2);
+      ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
+function feel(ms) {
+  const a = Math.abs(ms);
+  if (a < 18) return "with the click";
+  if (a < 40) return ms < 0 ? "a little ahead" : "a little behind";
+  return ms < 0 ? "rushing" : "dragging";
+}
+
+function sticksByHand(result) {
+  const sticks = result.sticks || [];
+  const pose = result.pose?.landmarks?.[0];
+  const out = { L: null, R: null };
+  (result.hands?.landmarks || []).forEach((hand, i) => {
+    const tip = sticks[i];
+    if (!tip || !hand?.[0] || !pose?.[15] || !pose?.[16]) return;
+    const dl = Math.hypot(hand[0].x - pose[15].x, hand[0].y - pose[15].y);
+    const dr = Math.hypot(hand[0].x - pose[16].x, hand[0].y - pose[16].y);
+    out[dl <= dr ? "L" : "R"] = tip;
+  });
+  return out;
+}
+
+function estimatedSticks(result) {
+  if (result.sticks?.some((s) => s && Number.isFinite(s.x))) return result.sticks;
+  return (result.hands?.landmarks || []).map((hand) => {
+    const wrist = hand[0], mid = hand[9];
+    if (!wrist || !mid) return null;
+    return { x: mid.x + (mid.x - wrist.x) * 2.5, y: mid.y + (mid.y - wrist.y) * 2.5 };
+  });
+}
+
+function stickInches(tip, pad, data) {
+  if (!tip || !pad?.r || !data?.width || !data?.height) return null;
+  const inchesPerX = pad.diameter_in / (2 * pad.r);
+  const aspect = data.height / data.width;
+  return (pad.y - tip.y) * aspect * inchesPerX;
+}
+
 async function jumpTo(t, hand) {
   const pb = $("playback");
   pb.pause();
@@ -481,24 +567,77 @@ async function jumpTo(t, hand) {
   pb.currentTime = Math.max(0, t);
   $("playback-card").scrollIntoView({ behavior: "smooth", block: "center" });
   if (playbackApi && pb.readyState >= 2) playbackApi.redraw();
+  drawTimeline(report);
 }
 
 let playLoop = false, playData = null, playDataJob = null;
 function setupPlayback(r) {
-  const pb = $("playback"), cv = $("play-overlay"), ctx = cv.getContext("2d"), box = $("play-skel"), dbg = $("play-debug");
+  const pb = $("playback"), cv = $("play-overlay"), ctx = cv.getContext("2d"), dbg = $("play-debug");
   const debug = new URLSearchParams(location.search).has("debug") || $("show-stats")?.checked;
+  pb.preservesPitch = true;
+  const fitStage = () => {
+    const stage = pb.closest(".stage");
+    if (!stage || !pb.videoWidth || !pb.videoHeight) return;
+    const ratio = pb.videoWidth / pb.videoHeight;
+    stage.style.aspectRatio = `${pb.videoWidth} / ${pb.videoHeight}`;
+    stage.style.width = `min(100%, calc(72svh * ${ratio}))`;
+    stage.style.maxWidth = "100%";
+    stage.style.height = "auto";
+    stage.style.maxHeight = "none";
+  };
+  pb.onloadedmetadata = fitStage;
   pb.src = `/api/jobs/${r.job_id}/video`;
-  box.checked = false; playLoop = false; ctx.clearRect(0, 0, cv.width, cv.height); dbg.hidden = true;
+  const click = r.audio?.grid?.metronome;
+  $("tele-bpm").textContent = r.audio?.tempo_bpm ? `${Number(r.audio.tempo_bpm).toFixed(0)} BPM${click ? " click" : ""}` : "â€”";
+  playLoop = false; ctx.clearRect(0, 0, cv.width, cv.height); dbg.hidden = true;
+  stickTrails[0] = []; stickTrails[1] = []; resetStickTrack(); prevWrists = null; shoulderBase = null; problemCursor = -1;
   if (playDataJob !== r.job_id) { playData = null; playDataJob = r.job_id; }
   let drawn = 0, empty = 0, interp = 0;
+  const overlaysOn = () => $("ov-skel").checked || $("ov-sticks").checked || $("ov-joints").checked;
   const draw = (mediaTime) => {
+    fitStage();
     const rect = pb.getBoundingClientRect();
     const size = overlaySize(rect.width, rect.height, pb.videoWidth, pb.videoHeight, Math.min(3, window.devicePixelRatio || 1));
     if (size.width && (cv.width !== size.width || cv.height !== size.height)) { cv.width = size.width; cv.height = size.height; }
     const f = playbackFrame(playData, mediaTime);
-    if (f.result) { drawSkeleton(ctx, f.result, cv.width, cv.height); drawHighlight(f.result); drawn++; if (f.interpolated) interp++; }
-    else { ctx.clearRect(0, 0, cv.width, cv.height); empty++; }
-    if (debug) {
+    if (f.result) {
+      drawSkeleton(ctx, f.result, cv.width, cv.height, {
+        skeleton: $("ov-skel").checked, sticks: false, joints: $("ov-joints").checked, pad: false,
+      });
+      if ($("ov-sticks")?.checked) {
+        const pose = f.result.pose?.landmarks?.[0];
+        const headT = Math.max(
+          stickTrails[0].length ? stickTrails[0][stickTrails[0].length - 1].t : -1,
+          stickTrails[1].length ? stickTrails[1][stickTrails[1].length - 1].t : -1,
+        );
+        if (headT >= 0 && (mediaTime < headT - 0.04 || mediaTime > headT + 0.22)) {
+          stickTrails[0] = []; stickTrails[1] = []; resetStickTrack();
+        }
+        const tips = motionTips(pb, f.result.hands?.landmarks, pose, mediaTime);
+        tips.forEach((tip, side) => {
+          if (!tip) return;
+          const trail = stickTrails[side];
+          const prev = trail[trail.length - 1];
+          if (prev && Math.abs(mediaTime - prev.t) < 0.0001) { prev.x = tip.x; prev.y = tip.y; return; }
+          if (!prev || mediaTime > prev.t) trail.push({ x: tip.x, y: tip.y, t: mediaTime });
+          while (trail.length && mediaTime - trail[0].t > 0.45) trail.shift();
+        });
+        f.result.sticks = (f.result.hands?.landmarks || []).map((hand) => {
+          if (!hand?.[0] || !pose?.[15] || !pose?.[16]) return null;
+          const dl = Math.hypot(hand[0].x - pose[15].x, hand[0].y - pose[15].y);
+          const dr = Math.hypot(hand[0].x - pose[16].x, hand[0].y - pose[16].y);
+          return tips[dl <= dr ? 0 : 1];
+        });
+        drawTrails(ctx, cv.width, cv.height, mediaTime);
+        drawSkeleton(ctx, f.result, cv.width, cv.height, {
+          skeleton: false, sticks: true, joints: false, pad: false, clear: false,
+        });
+      }
+      drawHighlight(f.result);
+      updateTelemetry(f.result, mediaTime);
+      drawn++; if (f.interpolated) interp++;
+    } else { ctx.clearRect(0, 0, cv.width, cv.height); empty++; }
+    if (debug && playData) {
       dbg.hidden = false;
       const st = playData.stats || {};
       dbg.textContent = `frame ${f.index + 1} of ${playData.t.length} at ${mediaTime.toFixed(3)} s, ${f.exact ? "exact" : f.interpolated ? "interpolated" : "no data"} | ` +
@@ -506,7 +645,6 @@ function setupPlayback(r) {
         `drawn ${drawn}, empty ${empty}, interpolated ${interp}`;
     }
   };
-  // Ring the wrist a coaching finding is about (pose landmark 15 is the player's left wrist, 16 the right).
   const drawHighlight = (result) => {
     const pose = result?.pose?.landmarks?.[0];
     const p = playHighlight && pose ? pose[playHighlight === "L" ? 15 : 16] : null;
@@ -523,41 +661,198 @@ function setupPlayback(r) {
     ctx.fillStyle = "#ff6b4a"; ctx.fillText(label, x, y - rad - lw);
     ctx.restore();
   };
-  pb.onplay = () => { playHighlight = null; };
-  pb.onseeked = () => { if (playLoop && playData && pb.paused && pb.readyState >= 2) draw(pb.currentTime); };
-  playbackApi = {
-    showSkeleton: async () => { if (!box.checked) { box.checked = true; await box.onchange(); } },
-    redraw: () => { if (playLoop && playData) draw(pb.currentTime); },
-  };
-  box.onchange = async () => {
-    playLoop = box.checked;
-    if (!playLoop) { ctx.clearRect(0, 0, cv.width, cv.height); return; }
-    if (!playData) {
-      try {
-        const res = await fetch(`/api/jobs/${r.job_id}/landmarks`);
-        const body = await res.json();
-        if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-        playData = body;
-      } catch (e) {
-        box.checked = false; playLoop = false;
-        showError(`Could not load the skeleton for this video: ${e.message}`);
-        return;
+  const ensure = async () => {
+    if (playData) return true;
+    try {
+      const res = await fetch(`/api/jobs/${r.job_id}/landmarks`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      playData = body;
+      const ys = [];
+      for (const flat of playData.pose || []) {
+        if (!flat) continue;
+        const lsv = flat[5], rsv = flat[8];
+        if (lsv >= 0.5 && rsv >= 0.5) ys.push((flat[4] + flat[7]) / 2);
       }
+      ys.sort((a, b) => a - b);
+      shoulderBase = ys.length ? ys[ys.length >> 1] : null;
+      return true;
+    } catch (e) {
+      showError(`Could not load the skeleton for this video: ${e.message}`);
+      return false;
     }
+  };
+  const startLoop = () => {
+    if (playLoop) return;
+    playLoop = true;
     if ("requestVideoFrameCallback" in pb) {
-      const tick = (now, meta) => {
+      const tick = (_now, meta) => {
         if (!playLoop) return;
-        draw(meta.mediaTime);
+        try { draw(meta.mediaTime); } catch { /* keep the next frame coming */ }
         pb.requestVideoFrameCallback(tick);
       };
       pb.requestVideoFrameCallback(tick);
-      if (pb.readyState >= 2) draw(pb.currentTime);   // paused: draw the frame on screen now
+      if (pb.readyState >= 2) draw(pb.currentTime);
     } else {
-      // No requestVideoFrameCallback (older browsers): follow currentTime every animation frame.
       const tick = () => { if (!playLoop) return; if (pb.readyState >= 2) draw(pb.currentTime); requestAnimationFrame(tick); };
       tick();
     }
   };
+  playbackApi = {
+    showSkeleton: async () => { if (!(await ensure())) return; startLoop(); if (pb.readyState >= 2) draw(pb.currentTime); },
+    redraw: () => { if (playData && pb.readyState >= 2) draw(pb.currentTime); },
+  };
+  for (const id of ["ov-skel", "ov-sticks", "ov-joints"]) {
+    $(id).onchange = async () => {
+      if (!overlaysOn()) { playLoop = false; ctx.clearRect(0, 0, cv.width, cv.height); return; }
+      if (await ensure()) { startLoop(); if (pb.readyState >= 2) draw(pb.currentTime); }
+    };
+  }
+  pb.onplay = () => { playHighlight = null; };
+  pb.onseeked = () => { if (playData && pb.readyState >= 2 && overlaysOn()) draw(pb.currentTime); drawTimeline(r); };
+  pb.ontimeupdate = () => {
+    drawTimeline(r);
+    const pbSpeed = document.getElementById("playback-speed");
+  if (pbSpeed) {
+    pbSpeed.onchange = () => {
+      if (pb) pb.playbackRate = parseFloat(pbSpeed.value);
+    };
+  }
+  };
+  $("next-problem").onclick = () => {
+    const marks = problemMarks(r);
+    if (!marks.length) return;
+    problemCursor = (problemCursor + 1) % marks.length;
+    jumpTo(marks[problemCursor].t, marks[problemCursor].hand);
+  };
+  $("coach-clip").onclick = () => saveCoachClip(r);
+  $("timeline").onclick = (e) => {
+    const dur = r.audio?.waveform?.duration_s || pb.duration;
+    if (!dur) return;
+    const rect = $("timeline").getBoundingClientRect();
+    pb.currentTime = Math.max(0, Math.min(dur, ((e.clientX - rect.left) / rect.width) * dur));
+  };
+  if (overlaysOn()) playbackApi.showSkeleton();
+}
+
+function updateTelemetry(result, t) {
+  const pose = result?.pose?.landmarks?.[0];
+  const set = (id, text) => { const n = $(id); if (n) n.textContent = text; };
+  const wristPct = (id) => (pose && visiblePose(pose[id]) ? `${Math.round((1 - pose[id].y) * 100)}%` : "-");
+  set("tele-hl", wristPct(15));
+  set("tele-hr", wristPct(16));
+  const elbowText = (shoulder, elbow, wrist) => {
+    if (!pose) return "-";
+    const deg = jointAngle(pose[shoulder], pose[elbow], pose[wrist]);
+    return deg == null ? "-" : deg + "°";
+  };
+  set("tele-el", elbowText(11, 13, 15));
+  set("tele-er", elbowText(12, 14, 16));
+  const strokes = report?.strokes || [];
+  let nearest = null;
+  for (const s of strokes) {
+    if (nearest == null || Math.abs(s.t - t) < Math.abs(nearest.t - t)) nearest = s;
+  }
+  if (nearest && Math.abs(nearest.t - t) < 0.08 && nearest.timing_error_ms != null) {
+    const ms = nearest.timing_error_ms;
+    set("tele-hit", feel(ms));
+  } else set("tele-hit", "-");
+  if (report?.audio?.target_bpm) set("tele-bpm", report.audio.target_bpm + " BPM");
+}
+
+function visiblePose(p) { return p && (p.visibility === undefined || p.visibility >= 0.5); }
+
+function drawFulcrum(result) {
+  const pip = $("fulcrum"), pb = $("playback");
+  const on = $("ov-fulcrum").checked;
+  pip.hidden = !on;
+  if (!on || !pb.videoWidth) return;
+  const pts = (result.hands?.landmarks || []).flat().filter(Boolean);
+  if (pts.length < 4) { pip.hidden = true; return; }
+  let minX = 1, minY = 1, maxX = 0, maxY = 0;
+  for (const p of pts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+  minX = Math.max(0, minX - 0.06); minY = Math.max(0, minY - 0.06);
+  maxX = Math.min(1, maxX + 0.06); maxY = Math.min(1, maxY + 0.06);
+  pip.width = 320; pip.height = 200;
+  const c = pip.getContext("2d");
+  c.drawImage(pb, minX * pb.videoWidth, minY * pb.videoHeight, (maxX - minX) * pb.videoWidth, (maxY - minY) * pb.videoHeight, 0, 0, pip.width, pip.height);
+}
+
+let diagTimeline = null;
+function drawTimeline(r) {
+  const cv = $("timeline");
+  if (!cv || !r?.audio?.waveform) return;
+  if (!diagTimeline) {
+    diagTimeline = new DiagnosticTimeline(cv);
+    diagTimeline.onSeek = (t) => {
+      const pb = $("playback");
+      pb.currentTime = t;
+    };
+  }
+  if (diagTimeline.report !== r) diagTimeline.setReport(r);
+  diagTimeline.updatePlayhead($("playback")?.currentTime || 0);
+}
+
+async function saveCoachClip(r) {
+  const marks = problemMarks(r);
+  const worst = marks.slice().sort((a, b) => Math.abs(b.ms) - Math.abs(a.ms))[0];
+  const btn = $("coach-clip");
+  if (!worst) { btn.textContent = "No problem to clip"; return; }
+  const pb = $("playback");
+  if (typeof pb.captureStream !== "function" || typeof MediaRecorder === "undefined") {
+    btn.textContent = "This browser cannot record the clip";
+    return;
+  }
+  btn.disabled = true; btn.textContent = "Recordingâ€¦";
+  exportingClip = true; pb.preservesPitch = true;
+  if (playbackApi) await playbackApi.showSkeleton();
+  const start = Math.max(0, worst.t - 1), end = Math.min(pb.duration || start + 8, start + 8);
+  pb.pause();
+  if (Math.abs(pb.currentTime - start) > 0.05) {
+    await new Promise((res) => {
+      const done = () => { pb.removeEventListener("seeked", done); res(); };
+      pb.addEventListener("seeked", done);
+      pb.currentTime = start;
+    });
+  }
+  if (playbackApi) playbackApi.redraw();
+  const vw = pb.videoWidth || 1280, vh = pb.videoHeight || 720;
+  const fit = Math.min(1, 1280 / Math.max(vw, vh));
+  const out = document.createElement("canvas");
+  out.width = Math.max(2, Math.round(vw * fit / 2) * 2);
+  out.height = Math.max(2, Math.round(vh * fit / 2) * 2);
+  const octx = out.getContext("2d");
+  const stream = out.captureStream(30);
+  let audio;
+  try { audio = pb.captureStream().getAudioTracks()[0]; } catch { audio = null; }
+  if (audio) stream.addTrack(audio);
+  const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus") ? "video/webm;codecs=vp9,opus" : "video/webm";
+  const rec = new MediaRecorder(stream, { mimeType: mime });
+  const chunks = [];
+  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  const stopped = new Promise((res) => { rec.onstop = res; });
+  rec.start();
+  await pb.play();
+  await new Promise((res) => {
+    const tick = () => {
+      octx.drawImage(pb, 0, 0, out.width, out.height);
+      const ov = $("play-overlay");
+      if (ov.width) octx.drawImage(ov, 0, 0, out.width, out.height);
+      const labelW = Math.min(420, out.width - 32);
+      octx.fillStyle = "rgba(0,0,0,0.55)"; octx.fillRect(16, 16, labelW, 44);
+      octx.fillStyle = "#fff"; octx.font = "700 22px system-ui, sans-serif";
+      octx.fillText(worst.label, 28, 46);
+      if (pb.currentTime < end && !pb.paused) requestAnimationFrame(tick);
+      else res();
+    };
+    tick();
+  });
+  pb.pause(); rec.stop(); await stopped;
+  exportingClip = false;
+  const blob = new Blob(chunks, { type: "video/webm" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "coach-clip.webm"; a.click();
+  btn.disabled = false; btn.textContent = "Save coach clip";
 }
 
 function renderHow() {
@@ -606,3 +901,7 @@ function openFromHash() {
 }
 openFromHash();
 window.addEventListener("hashchange", openFromHash);
+
+
+
+

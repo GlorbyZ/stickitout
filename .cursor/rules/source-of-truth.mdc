@@ -1,0 +1,14 @@
+---
+description: Keep docs/source-of-truth.md current for every site behavior change
+alwaysApply: true
+---
+
+# Source of truth
+
+`docs/source-of-truth.md` is the live inventory of every user-facing function on Stick It Out.
+
+- Read it before changing product behavior.
+- Update it in the same turn you add, remove, ship, or break a feature. Status must match what is actually live, not what we planned.
+- Do not mark a path `live` if it only works locally, or if it writes somewhere the dashboard does not read.
+- Waitlist signups must land in D1 **and** Resend lists (`SIO Waitlist` / `SIO All`). Admin Members reads D1 only. IONOS `leads.json` is a backup, not the dashboard.
+- Do not invent Stripe URLs, reviews, or unpublished lessons. Founding rates stay $19.99/mo and $149/yr.

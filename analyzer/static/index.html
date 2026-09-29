@@ -1,11 +1,11 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Analyze | Stick It Out</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/style.css?v=5">
+  <link rel="stylesheet" href="/static/style.css?v=20">
 </head>
 <body>
   <header class="topbar">
@@ -29,10 +29,17 @@
 
       <form id="params" class="params" autocomplete="off">
         <label>Rudiment
-          <input name="rudiment" list="rudiments" value="Single Paradiddle">
-          <datalist id="rudiments">
-            <option value="Single Paradiddle"><option value="Single Stroke Roll"><option value="Double Stroke Roll">
-          </datalist>
+          <select name="rudiment">
+            <option value="Single Stroke Roll">Single Stroke Roll</option>
+            <option value="Double Stroke Open Roll">Double Stroke Open Roll</option>
+            <option value="Five Stroke Roll">Five Stroke Roll</option>
+            <option value="Seven Stroke Roll">Seven Stroke Roll</option>
+            <option value="Nine Stroke Roll">Nine Stroke Roll</option>
+            <option value="Single Paradiddle" selected>Single Paradiddle</option>
+            <option value="Double Paradiddle">Double Paradiddle</option>
+            <option value="Triple Paradiddle">Triple Paradiddle</option>
+            <option value="Flam">Flam</option>
+          </select>
         </label>
         <label>Target BPM (optional)
           <input name="target_bpm" type="number" min="40" max="260" step="1" inputmode="numeric" placeholder="e.g. 100">
@@ -60,10 +67,10 @@
           <video id="preview" playsinline muted autoplay></video>
           <canvas id="overlay"></canvas>
           <div class="hud">
-            <span id="hud-fps" class="pill fps-badge idle">camera off</span>
-            <span id="hud-res" class="pill"></span>
-            <span id="hud-rec" class="pill rec" hidden>REC 0:00</span>
-            <span id="hud-debug" class="pill debug" hidden></span>
+            <span id="hud-fps" class="eyebrow hud-item fps-badge idle">camera off</span>
+            <span id="hud-res" class="eyebrow hud-item"></span>
+            <span id="hud-rec" class="eyebrow hud-item rec" hidden>REC 0:00</span>
+            <span id="hud-debug" class="eyebrow hud-item debug" hidden></span>
           </div>
           <div id="countdown" class="countdown" hidden></div>
           <div id="stage-empty" class="stage-empty">
@@ -129,6 +136,61 @@
       <div id="error" class="notice bad" hidden></div>
     </section>
 
+      <div class="playback-card review" id="playback-card">
+      <div class="review-top">
+        <p class="eyebrow">Diagnostic Review</p>
+        <div class="review-actions">
+          <button type="button" id="next-problem" class="btn">Next problem</button>
+          <button type="button" id="coach-clip" class="btn">Save coach clip</button>
+          <label class="check">Playback speed:
+            <select id="playback-speed" class="btn" style="padding: 4px 8px; font-size: 0.9em; margin-left: 6px;">
+              <option value="1">1x</option>
+              <option value="0.5">0.5x</option>
+              <option value="0.25">0.25x</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="review-grid">
+        <div class="review-canvas-area">
+          <div class="stage playback" id="stage">
+            <video id="playback" controls playsinline preload="metadata"></video>
+            <canvas id="play-overlay"></canvas>
+          </div>
+          <div class="review-timeline-area" style="margin-top: 8px;">
+            <canvas id="timeline" class="timeline" height="96"></canvas>
+          </div>
+          <div class="overlay-toggles">
+              <label class="check"><input type="checkbox" id="ov-skel" checked> Skeleton</label>
+              <label class="check"><input type="checkbox" id="ov-sticks" checked> Sticks</label>
+              <label class="check"><input type="checkbox" id="ov-joints" checked> Joint angles</label>
+          </div>
+          <p class="small muted">Sticks are followed out from the hands in the picture. The words on the side are the feel of the note, not a measurement.</p>
+          <p id="play-debug" class="small muted play-debug" hidden></p>
+          <div class="card scores-card" style="margin-top: 16px;">
+            <h2>Scores</h2>
+            <div class="dials" id="dials"></div>
+            <div class="stats" id="stats"></div>
+          </div>
+        </div>
+        
+        
+
+        <aside class="review-sidebar-area telemetry" id="telemetry">
+          <p class="eyebrow">Telemetry</p>
+          <h3>This frame</h3>
+          <dl>
+              <div><dt>Metronome</dt><dd id="tele-bpm">-</dd></div>
+              <div><dt>This hit</dt><dd id="tele-hit">-</dd></div>
+              <div><dt>Wrist height L</dt><dd id="tele-hl">-</dd></div>
+              <div><dt>Wrist height R</dt><dd id="tele-hr">-</dd></div>
+              <div><dt>Elbow L</dt><dd id="tele-el">-</dd></div>
+              <div><dt>Elbow R</dt><dd id="tele-er">-</dd></div>
+          </dl>
+        </aside>
+      </div>
+    </div>
+
     <section id="results" class="no-charts" hidden>
       <!-- Coaching: what to fix and how, built by app/coaching.py. Sits above the scores. -->
       <div id="coaching" class="coaching" hidden>
@@ -141,20 +203,7 @@
         </details>
       </div>
       <div class="card verified-card" id="verified-card"></div>
-      <div class="card scores-card">
-        <h2>Scores</h2>
-        <div class="dials" id="dials"></div>
-        <div class="stats" id="stats"></div>
-      </div>
-      <div class="card playback-card" id="playback-card">
-        <h2>Playback</h2>
-        <div class="stage playback">
-          <video id="playback" controls playsinline preload="metadata"></video>
-          <canvas id="play-overlay"></canvas>
-        </div>
-        <label class="check"><input type="checkbox" id="play-skel"> Draw skeleton on playback (every frame, from the analysis)</label>
-        <p id="play-debug" class="small muted play-debug" hidden></p>
-      </div>
+
       <div class="grid2">
         <div class="card" id="sticking-card"></div>
         <div class="card" id="hands-card"></div>
@@ -191,6 +240,7 @@
       <p class="center small" id="add-training-msg" hidden></p>
     </section>
   </main>
-  <script type="module" src="/static/app.js?v=5"></script>
+  <script type="module" src="/static/app.js?v=20"></script>
 </body>
 </html>
+

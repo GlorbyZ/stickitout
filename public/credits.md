@@ -1,6 +1,6 @@
 # Site credit
 
-This website (https://stickitoutbook.com/) was designed and built by **Blaze Digital Design**.
+This website (https://stickitoutdrums.com/) was designed and built by **Blaze Digital Design**.
 
 - Founder: Zaylyn Young
 - Location: Billings, MT, USA

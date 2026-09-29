@@ -139,7 +139,7 @@ if (is_file($configFile)) {
 
 $to = trim((string) ($cfg['notifyTo'] ?? ''));
 if ($to !== '' && filter_var($to, FILTER_VALIDATE_EMAIL)) {
-    $from = trim((string) ($cfg['notifyFrom'] ?? 'noreply@stickitoutbook.com'));
+    $from = trim((string) ($cfg['notifyFrom'] ?? 'noreply@stickitoutdrums.com'));
     $subj = '[Stick It Out] ' . $source . ' | ' . $email;
     $body = "Name: {$name}\nEmail: {$email}\nSource: {$source}\nPlan: " . ($plan ?: 'none') . "\nTime: {$now}\n";
     @mail($to, $subj, $body, "From: {$from}\r\nContent-Type: text/plain; charset=UTF-8");

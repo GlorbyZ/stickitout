@@ -1,0 +1,18 @@
+{
+  "appId": "com.stickitoutdrums.app",
+  "appName": "Stick It Out",
+  "webDir": "www",
+  "server": {
+    "url": "https://member.stickitoutdrums.com",
+    "androidScheme": "https",
+    "allowNavigation": [
+      "member.stickitoutdrums.com",
+      "*.stickitoutdrums.com",
+      "stickitoutdrums.com",
+      "*.stripe.com"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

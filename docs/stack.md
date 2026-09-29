@@ -8,7 +8,7 @@ The process that is running on this PC was started from the older sibling folder
 
 Reference videos used to fit the temporary analyzer profile are not in git: `D:\Stickitout-dataset\reference-videos`.
 
-`stickitoutbook.com` does not resolve. Do not use it. The live public site is `stickitoutdrums.com`.
+The live public site is `stickitoutdrums.com`.
 
 ## Live hosts
 
@@ -108,8 +108,8 @@ What a take actually runs:
 
 1. Audio onsets and tempo from the clip (aubio). Timing is against a grid fitted to the player's own hits, not a click, unless they played to one.
 2. Body points from Google MediaPipe pose and hands (`models\`, public `.task` files). This model was trained on ordinary people, not drummers. Nothing in this repo fine-tunes those weights.
-3. A hit counts as verified when a wrist low point lands in the same window as an onset. Left versus right is which wrist that strike belongs to.
-4. Coaching text in `app/coaching.py` is rules on those numbers. It is not an LLM. It does not judge posture, elbow angle, flams, or stick height. Stick tips are not tracked. "Wrist travel" is how far the wrist moves up and down in the picture, so a side or three-quarter camera shows stroke height and a front camera mostly does not.
+3. A hit counts as verified when a video strike lands in the same window as an onset (default 40 ms, widened under 50 fps). A strike is a wrist low point. The checkout also adds a downward speed spike of the same wrist when that spike is not the descent into a dip already counted (`strike_speed_prominence` 0.6, `strike_same_stroke_ms` 90). That second rule is local code only. The process started from `Stickitout-analyzer` still uses low points alone, and the 60 stored `analysis.json` reports were written with that older detector. Left versus right is which wrist the strike belongs to.
+4. Coaching text in `app/coaching.py` is rules on those numbers. It is not an LLM. It does not judge posture, elbow angle, flams as separate notes, or stick height. Stick tips are not tracked. "Wrist travel" is how far the wrist moves up and down in the picture, so a side or three-quarter camera shows stroke height and a front camera mostly does not.
 5. Reports are files on this PC under the analyzer data dir. They are not in D1. They expire (`JOB_TTL_HOURS`, default 72). A job id is not tied to a member.
 
 Side view is the shot list default. A 45 degree angle is a label value (`side`, `front`, `45`, `overhead`, `other` in `app/labels.py`) but almost no reference clips use it. Pure side hides the far stick. Pure front loses stroke height.
@@ -132,4 +132,3 @@ Raw numbers: `analyzer/reports/temp-training.json` is gitignored (local only). T
 - Give waitlist or canceled members a Stream token.
 - Ship MediaPipe, OSMD, or Verovio weights to the marketing site. Notation in the portal stays VexFlow.
 - Commit `.env`, `workers/app/.dev.vars`, `.remote-token`, `.tunnel-token`, or `tuning` secrets.
-- Assume `stickitoutbook.com` works.

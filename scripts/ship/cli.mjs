@@ -24,11 +24,11 @@ async function main() {
   try {
     const webRoot = await resolveWebRoot(client);
     const remote = webRoot === '/' ? '/' : webRoot;
-    console.log(`🚀 Ship ${target} → ${remote || '/'} (stickitoutbook.com)`);
+    console.log(`🚀 Ship ${target} → ${remote || '/'} (stickitoutdrums.com)`);
     await uploadWithProgress(client, distPath(), remote);
     console.log('✅ Shipped');
-    console.log('   Live: https://stickitoutbook.com/');
-    console.log('   Capture: https://stickitoutbook.com/api/capture.php');
+    console.log('   Live: https://stickitoutdrums.com/');
+    console.log('   Capture: https://stickitoutdrums.com/api/capture.php');
   } finally {
     await client.end();
   }

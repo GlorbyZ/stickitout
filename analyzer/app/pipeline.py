@@ -59,7 +59,7 @@ def _cache_key(video_path: Path) -> dict:
     import mediapipe
     st = Path(video_path).stat()
     return {"size": st.st_size, "mtime": int(st.st_mtime), "max_width": MAX_PROCESS_WIDTH,
-            "mediapipe": mediapipe.__version__, "version": 2, "pose_model": POSE_MODEL}
+            "mediapipe": mediapipe.__version__, "version": 3, "pose_model": POSE_MODEL}
 
 
 def landmarks(video_path: Path, progress=None, cache: Path | None = None) -> dict:
@@ -110,7 +110,7 @@ def playback_landmarks(cache: Path) -> dict | None:
     if not frames or any(f.get("pts") is None for f in frames):
         return None
     w, h = float(raw["width"] or 1), float(raw["height"] or 1)
-    t, pose, hands = [], [], []
+    t, pose, hands, sticks = [], [], [], []
     n_pose = n_hand = n_two = 0
     for f in frames:
         t.append(round(float(f["pts"]), 5))
@@ -128,12 +128,26 @@ def playback_landmarks(cache: Path) -> dict | None:
         n_hand += bool(hs)
         n_two += len(hs) >= 2
         hands.append(hs)
+        # Handles None items added by the tracker when a stick is occluded
+        sts = []
+        for s in (f.get("sticks") or []):
+            if s is not None:
+                sts.append([round(s[0] / w, 4), round(s[1] / h, 4)])
+            else:
+                sts.append(None)
+        sticks.append(sts)
     n = len(frames)
     gaps = [b - a for a, b in zip(t, t[1:]) if b > a]
+    pad = raw.get("drum_pad") or {}
+    drum = None
+    if pad.get("detected") and pad.get("r"):
+        drum = {"x": round(pad["x"] / w, 4), "y": round(pad["y"] / h, 4),
+                "r": round(pad["r"] / w, 4), "diameter_in": 14}
     return {
-        "version": 1, "width": raw["width"], "height": raw["height"],
+        "version": 2, "width": raw["width"], "height": raw["height"],
         "pts_source": raw.get("pts_source", "decoder"), "pose_model": raw.get("pose_model"),
         "points": [i for _, i in PLAYBACK_POINTS], "t": t, "pose": pose, "hands": hands,
+        "sticks": sticks, "drum_pad": drum,
         "stats": {"frames": n, "pose_rate": round(n_pose / n, 4), "any_hand_rate": round(n_hand / n, 4),
                   "two_hands_rate": round(n_two / n, 4),
                   "median_frame_interval_s": round(sorted(gaps)[len(gaps) // 2], 6) if gaps else None},
@@ -251,7 +265,9 @@ def analyze_file(video_path: Path, params: dict, workdir: Path, stage=None,
         audio_wav = Path(workdir) / "audio_real.wav"      # sound on the real-time clock
         timeremap.write_wav(audio_wav, timeremap.real_time_audio(y, sr, tmap), sr)
     stage("analysing audio", 0.10)
-    audio = analyze_audio(audio_wav, params.get("target_bpm"))
+    from .profiles import profile as rudiment_profile
+    prof = rudiment_profile(params.get("rudiment"))
+    audio = analyze_audio(audio_wav, params.get("target_bpm"), subdivision=(prof or {}).get("subdivision"))
     stage("tracking pose and hands", 0.30)
     tracks, video = run_video_stage(video_path, lambda f: stage("tracking pose and hands", 0.30 + 0.55 * f),
                                     landmarks_cache, tmap)

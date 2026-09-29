@@ -1,0 +1,17 @@
+{
+  "name": "stick-it-out-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Capacitor wrapper that opens the Stick It Out member app.",
+  "scripts": {
+    "sync": "cap sync android",
+    "apk": "cap sync android && cd android && gradlew.bat assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}

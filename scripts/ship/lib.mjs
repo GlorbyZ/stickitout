@@ -106,7 +106,7 @@ function phpQuote(value) {
 /** Write notify + ingest config into dist before upload (not committed). */
 export async function writeCaptureConfig(distDir) {
   const to = (process.env.CAPTURE_NOTIFY_TO || '').trim();
-  const from = (process.env.CAPTURE_NOTIFY_FROM || 'noreply@stickitoutbook.com').trim();
+  const from = (process.env.CAPTURE_NOTIFY_FROM || 'noreply@stickitoutdrums.com').trim();
   const dataDir = path.join(distDir, 'data');
   await mkdir(dataDir, { recursive: true });
   const ingestUrl = (process.env.LEAD_INGEST_URL || 'https://member.stickitoutdrums.com/api/leads').trim();

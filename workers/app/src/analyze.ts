@@ -157,26 +157,37 @@ export function rewriteJs(code: string): string {
   return code.replace(/(["'`])\/api\//g, `$1${ANALYZE_PREFIX}/api/`);
 }
 
-/** Pull the analyzer's <main> markup out of its index.html. */
-export function extractMain(doc: string): string | null {
+/** Pull the analyzer's <main> markup and <script> tags out of its index.html. */
+export function extractParts(doc: string, base: string): { main: string, scripts: string } | null {
   const m = doc.match(/<main\b[^>]*>([\s\S]*)<\/main>/i);
-  return m ? m[1] : null;
+  if (!m) return null;
+  let scripts = '';
+  const scriptRegex = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
+  let match;
+  while ((match = scriptRegex.exec(doc)) !== null) {
+    let s = match[0].replace(/(src=["'])\/static\//g, `$1${base}${ANALYZE_PREFIX}/static/`);
+    scripts += s + '\n';
+  }
+  return { main: m[1], scripts };
 }
 
 export async function analyzePage(env: AnalyzeEnv, base: string, user: Person, path: string): Promise<Response> {
   const res = await upstream(env, '/', { method: 'GET', timeoutMs: PAGE_TIMEOUT_MS });
   let inner: string | null = null;
+  let extScripts = '';
   if (res && res.ok && (res.headers.get('Content-Type') || '').includes('text/html')) {
-    inner = extractMain(await res.text());
+    const parts = extractParts(await res.text(), base);
+    if (parts) {
+      inner = parts.main;
+      extScripts = parts.scripts;
+    }
   } else if (res) {
     console.log(JSON.stringify({ analyze: 'page-offline', status: res.status }));
   }
   const headers = { 'Permissions-Policy': 'camera=(self), microphone=(self), fullscreen=(self)' };
   if (!inner) return html(analyzeOffline(base, user, path), 503, { ...headers, 'Retry-After': '120' });
-  const body = `<style>${ANALYZE_CSS}</style>
-<div id="analyze" class="az">${inner}</div>`;
-  const scripts = `<script type="module" src="${base}${ANALYZE_PREFIX}/static/app.js"></script>`;
-  return html(shell({ title: 'Analyze | Stick It Out', base, kind: 'member', path, user, body, scripts }), 200, headers);
+  const body = `<style>${ANALYZE_CSS}</style>\n<div id="analyze" class="az">${inner}</div>`;
+  return html(shell({ title: 'Analyze | Stick It Out', base, kind: 'member', path, user, body, scripts: extScripts }), 200, headers);
 }
 
 export function analyzeOffline(base: string, user: Person, path: string): string {
@@ -363,9 +374,31 @@ header.bar, body.kind-member .dock { backdrop-filter: none !important; -webkit-b
 
 /* Playback: the video fits the screen. */
 .az .playback-card { padding: 0.9rem; }
-.az .stage.playback { aspect-ratio: auto; min-height: 0; }
-.az .stage.playback video { position: relative; display: block; width: 100%; height: auto; max-height: 72svh; background: #000; }
+.az .stage.playback { position: relative; width: 100%; max-width: 100%; margin-inline: auto; background: #000; touch-action: manipulation; }
+.az .stage.playback video {
+  position: relative; display: block; width: 100%; height: auto; max-height: 72svh;
+  object-fit: contain; background: #000;
+}
+.az .stage.playback #play-overlay {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  max-height: none; object-fit: fill; background: transparent;
+}
+.az .stage.playback #play-overlay { z-index: 2; }
 .az .playback-card .check { margin-top: 0.4rem; }
+.az .review-top { display: flex; justify-content: space-between; gap: 0.7rem; flex-wrap: wrap; align-items: center; }
+.az .review-top h2 { margin: 0; }
+.az .review-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+.az .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 0.8rem; margin-top: 0.7rem; }
+.az .overlay-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem 0.8rem; margin: 0.45rem 0; }
+.az .timeline { width: 100%; height: 96px; display: block; border-radius: 8px; cursor: pointer; background: #000; }
+.az .telemetry { background: var(--blackout); color: var(--cue); border: 1px solid var(--line); border-radius: 12px; padding: 0.8rem 0.9rem; }
+.az .telemetry h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+.az .telemetry dl { margin: 0; display: grid; gap: 0.45rem; }
+.az .telemetry dl div { display: flex; justify-content: space-between; gap: 0.5rem; border-bottom: 1px solid var(--line); padding-bottom: 0.35rem; }
+.az .telemetry dt { color: var(--chrome); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.az .telemetry dd { margin: 0; font-weight: 700; text-align: right; }
+.az .stage canvas.fulcrum { position: absolute; inset: auto 10px 10px auto; width: 168px; height: 112px; border: 2px solid var(--gel); border-radius: 8px; background: #000; z-index: 2; }
+@media (max-width: 860px) { .az .review-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* Sticking, hands, stroke table */
 .az .grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; margin-bottom: 1rem; }

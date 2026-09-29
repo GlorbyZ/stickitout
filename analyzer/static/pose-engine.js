@@ -5,8 +5,8 @@
 //
 // Every camera frame is offered (requestVideoFrameCallback). At most one frame is in flight;
 // if the worker is still busy, only the newest frame is kept and sent as soon as it is free.
-import { loadLandmarkers } from "./skeleton.js";
-import { inputSize } from "./overlay.js";
+import { loadLandmarkers } from "./skeleton.js?v=20";
+import { inputSize } from "./overlay.js?v=20";
 
 // Inference input, long side in px (?input=480 to try another size).
 export const INPUT_LONG_SIDE = Math.min(1280, Math.max(256, +new URLSearchParams(location.search).get("input") || 640));
@@ -34,7 +34,7 @@ export function createPoseEngine({ onResult }) {
   const tsOf = (meta) => (meta?.mediaTime ? meta.mediaTime * 1000 : meta?.presentationTime ?? performance.now());
 
   function spawn(tasks) {
-    const w = new Worker(new URL("./pose-worker.js", import.meta.url), { type: "module" });
+    const w = new Worker(new URL("./pose-worker.js?v=20", import.meta.url), { type: "module" });
     const ready = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("pose worker timed out")), 60000);
       w.onmessage = (e) => {

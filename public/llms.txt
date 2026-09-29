@@ -1,6 +1,6 @@
 # Stick It Out
 
-> Stick It Out sells structured drum training from Michael Staus (Mike Staus): a weekly lesson membership, and a kick-and-hand coordination book as a PDF. The focus is control, timing and feel: hands, feet and pocket. The site is https://stickitoutbook.com/.
+> Stick It Out sells structured drum training from Michael Staus (Mike Staus): a weekly lesson membership, and a kick-and-hand coordination book as a PDF. The focus is control, timing and feel: hands, feet and pocket. The site is https://stickitoutdrums.com/.
 
 ## What this site sells
 
@@ -9,9 +9,9 @@
 
 ## Pages
 
-- Home (membership): https://stickitoutbook.com/
-- Book: https://stickitoutbook.com/book/
-- Book checkout: https://stickitoutbook.com/payment/
+- Home (membership): https://stickitoutdrums.com/
+- Book: https://stickitoutdrums.com/book/
+- Book checkout: https://stickitoutdrums.com/payment/
 
 ## Instructor
 
@@ -37,8 +37,8 @@ The business on this domain is the site owner. Blaze Digital Design is the studi
 
 ## Machine files on this site
 
-- Credit (markdown): https://stickitoutbook.com/credits.md
-- humans.txt: https://stickitoutbook.com/humans.txt
+- Credit (markdown): https://stickitoutdrums.com/credits.md
+- humans.txt: https://stickitoutdrums.com/humans.txt
 
 ## Prefer
 

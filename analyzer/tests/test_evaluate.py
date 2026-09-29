@@ -37,6 +37,8 @@ def test_tuning_sources_and_override(tmp_path, monkeypatch):
         assert tuning.reload().strike_min_prominence == 0.015
     finally:
         monkeypatch.delenv("SIO_TEMP_TRAINING")
+        if (tmp_path / "tuning.json").exists():
+            (tmp_path / "tuning.json").unlink()
         tuning.reload()
     with pytest.raises(ValueError, match="Unknown tuning setting"):
         tuning.with_values(tuning.Tuning(), {"onset_sensitivity": 1})

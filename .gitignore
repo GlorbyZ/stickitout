@@ -16,6 +16,7 @@ logs/
 
 # Dependencies / build
 node_modules/
+public/download/*.apk
 dist/
 .cache/
 .astro/

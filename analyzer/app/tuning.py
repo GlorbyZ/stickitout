@@ -44,6 +44,9 @@ class Tuning:
     # Video strikes (app/video.py)
     min_wrist_visibility: float = 0.5     # frames where a wrist is less visible than this are dropped
     strike_min_prominence: float = 0.02   # a wrist low point must drop this far (body units) to count as a strike
+    strike_speed_prominence: float = 0.6  # also count a downward speed spike this large (body units per second);
+                                          # catches the second note of a double when the wrist does not dip twice
+    strike_same_stroke_ms: float = 90.0   # a speed spike this close before a dip is the same stroke, so the dip wins
     strike_min_gap_ms: float = 50.0       # minimum gap between two strikes of the same hand
     strike_smooth_frames: int = 3         # moving average applied to wrist height before finding strikes
     # Audio and video cross-check (app/fusion.py)
@@ -58,34 +61,34 @@ class Tuning:
     # measured against an even grid fitted to the player's own notes, after removing any speed-up.
     coach_min_hits: int = 16              # fewer detected hits than this: no coaching, ask for a longer take
     coach_min_group_hits: int = 6         # a hand or beat position needs this many hits to be judged
-    coach_timing_tight_ms: float = 6.0    # average timing spread at or under this is a strength
-    coach_timing_work_ms: float = 9.0     # ... at or over this is "worth working on"
-    coach_timing_fix_ms: float = 15.0     # ... at or over this is "fix first"
-    coach_hand_bias_ms: float = 8.0       # left hand this much earlier or later than the right on average
-    coach_position_bias_ms: float = 10.0  # one beat position (1, e, &, a) this much off your other notes
-    coach_bias_t: float = 2.5             # ... and the average must be this many standard errors from zero
+    coach_timing_tight_ms: float = 8.0    # average timing spread at or under this is a strength
+    coach_timing_work_ms: float = 15.0    # ... at or over this is "worth working on"
+    coach_timing_fix_ms: float = 25.0     # ... at or over this is "fix first"
+    coach_hand_bias_ms: float = 15.0      # left hand this much earlier or later than the right on average
+    coach_position_bias_ms: float = 15.0  # one beat position (1, e, &, a) this much off your other notes
+    coach_bias_t: float = 3.0             # ... and the average must be this many standard errors from zero
     coach_low_fps_scale: float = 1.5      # under 50 fps hand-based thresholds are multiplied by this
-    coach_drift_pct: float = 4.0          # tempo change start to end of at least this % is a finding
-    coach_drift_fix_pct: float = 8.0      # ... at least this % is "fix first"
-    coach_drift_min_bpm: float = 5.0      # ... and at least this many BPM
+    coach_drift_pct: float = 6.0          # tempo change start to end of at least this % is a finding
+    coach_drift_fix_pct: float = 10.0     # ... at least this % is "fix first"
+    coach_drift_min_bpm: float = 10.0     # ... and at least this many BPM
     coach_steady_pct: float = 2.0         # tempo change at or under this % is a strength
     coach_min_drift_s: float = 4.0        # takes shorter than this are not judged for speeding up or slowing down
-    coach_target_pct: float = 3.0         # played tempo this % away from the target tempo is a finding
-    coach_sticking_polish_pct: float = 97.0   # sticking accuracy under this: "nice to tidy up"
-    coach_sticking_work_pct: float = 90.0     # ... under this: "worth working on"
-    coach_sticking_fix_pct: float = 75.0      # ... under this: "fix first"
-    coach_volume_ratio: float = 0.8       # quieter hand under this share of the louder hand is a finding
-    coach_double_ratio: float = 0.8       # second note of a double under this share of the first is a finding
-    coach_double_gap_ms: float = 10.0     # doubles squeezed or opened by this much versus the other notes
-    coach_accent_ratio: float = 1.4       # a beat position this much louder than the rest counts as an accent
-    coach_dynamics_cv_work: float = 0.3   # volume spread (std / mean) of unaccented notes at or over this
+    coach_target_pct: float = 4.0         # played tempo this % away from the target tempo is a finding
+    coach_sticking_polish_pct: float = 95.0   # sticking accuracy under this: "nice to tidy up"
+    coach_sticking_work_pct: float = 85.0     # ... under this: "worth working on"
+    coach_sticking_fix_pct: float = 65.0      # ... under this: "fix first"
+    coach_volume_ratio: float = 0.65      # quieter hand under this share of the louder hand is a finding
+    coach_double_ratio: float = 0.65      # second note of a double under this share of the first is a finding
+    coach_double_gap_ms: float = 18.0     # doubles squeezed or opened by this much versus the other notes
+    coach_accent_ratio: float = 1.6       # a beat position this much louder than the rest counts as an accent
+    coach_dynamics_cv_work: float = 0.45  # volume spread (std / mean) of unaccented notes at or over this
     coach_dynamics_cv_good: float = 0.15  # ... at or under this is a strength
-    coach_travel_ratio: float = 0.65      # one wrist moving under this share of the other is a finding
+    coach_travel_ratio: float = 0.50      # one wrist moving under this share of the other is a finding
     coach_travel_min: float = 0.04        # ... only when the bigger wrist travel is at least this (body units)
     coach_min_coverage: float = 0.8       # pose tracked on under this share of frames: no wrist advice
     coach_min_verified_pct: float = 50.0  # video matched fewer hits than this: hand advice gets a caveat
     coach_drill_pct: float = 80.0         # drill tempo: this % of the measured tempo, rounded down to a 10
-    coach_max_findings: int = 4           # show at most this many findings
+    coach_max_findings: int = 3           # show at most this many findings
     # Confidence gate (app/confidence.py). Video verdicts stay hidden until these clear.
     conf_min_coverage: float = 0.80       # pose tracked on under this share of frames: video is weak
     conf_min_agreement: float = 60.0      # video matched under this percent of hits: video is weak
@@ -95,9 +98,23 @@ class Tuning:
     conf_near_agreement: float = 70.0     # under 50 fps, agreement below this stays weak
     conf_near_strokes: int = 40           # under 50 fps, fewer seen hits than this stays weak
 
+    # Audio-first fusion mode (app/fusion.py)
+    fusion_mode: str = "classic"          # "classic": 1:1 match (shipped behavior); "audio_first": audio provides timing, video provides hand assignment
+    av_sync_method: str = "none"          # "none": use av_offset_ms as-is; "cross_correlate": auto-compute offset from onset/motion correlation
+    av_sync_search_ms: float = 200.0      # cross-correlation search range (+/- this many ms)
+    diddle_max_ioi_ms: float = 100.0      # two onsets on the same hand closer than this are treated as a diddle pair (primary + rebound)
+    hand_elevation_weight: float = 1.0    # weight for wrist elevation in hand scoring
+    hand_velocity_weight: float = 1.5     # weight for recent downward velocity in hand scoring
+    hand_decel_weight: float = 0.5        # weight for deceleration (impact impulse) in hand scoring
+    hand_score_lookback_ms: float = 50.0  # look back this far for max downward velocity
+
 
 FIELD_TYPES = {f.name: f.type for f in fields(Tuning)}
-CHOICES = {"hand_source": ("velocity", "strike_first")}
+CHOICES = {
+    "hand_source": ("velocity", "strike_first"),
+    "fusion_mode": ("classic", "audio_first"),
+    "av_sync_method": ("none", "cross_correlate"),
+}
 
 
 def _coerce(name: str, value):

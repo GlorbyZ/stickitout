@@ -21,8 +21,9 @@ MIN_STROKES = 8
 
 
 def applies_to(rudiment: str | None) -> bool:
-    name = (rudiment or "").lower()
-    return "paradiddle" in name and not any(w in name for w in ("double", "triple", "paradiddle-diddle", "paradiddle diddle"))
+    from . import rudiments as rm
+    r = rm.find(rudiment or "") if rudiment else None
+    return bool(r and r.get("supported"))
 
 
 def _align(seq: list, pattern: str, resync_cost: float) -> tuple[float, list[int], list[bool]]:
@@ -60,12 +61,26 @@ def _orientations(pattern: str) -> list[str]:
 
 
 def check_sticking(strokes: list[dict], rudiment: str | None, pattern: str | None = None) -> dict:
-    """Compare detected hands with the paradiddle (default) or with an explicit full-stroke pattern."""
-    shown = pattern.strip() if pattern else "RLRR LRLL"
+    """Compare detected hands with the rudiment's pattern or with an explicit full-stroke pattern."""
+    from . import rudiments as rm
+    r_info = rm.find(rudiment or "") if rudiment else None
+    
+    if pattern:
+        shown = pattern.strip()
+    elif r_info and r_info.get("supported"):
+        shown = r_info["sticking"]
+    else:
+        shown = "RLRR LRLL"  # fallback for completely unknown names (if not blocked below)
+
     base = {"checked": False, "rudiment": rudiment, "pattern": shown, "sticking_accuracy_pct": None,
             "strokes_checked": 0, "wrong_hand": 0, "resyncs": 0, "leading_hand": None, "breaks": [], "reason": None}
-    if pattern is None and not applies_to(rudiment):
-        return {**base, "pattern": None, "reason": "The sticking check covers Single Paradiddle only."}
+            
+    if pattern is None:
+        if not r_info:
+            return {**base, "pattern": None, "reason": "Unknown rudiment; cannot check sticking."}
+        if not r_info.get("supported"):
+            return {**base, "pattern": None, "reason": r_info.get("note") or "This rudiment is not supported for sticking checks."}
+
     if pattern is not None and (not pattern.replace(" ", "") or set(pattern.replace(" ", "")) - {"R", "L"}):
         raise ValueError(f"pattern must be R and L only, got {pattern!r}")
     seq = [(i, s) for i, s in enumerate(strokes) if s["hand"] in ("L", "R")]

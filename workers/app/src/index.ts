@@ -32,6 +32,7 @@ import {
   memberChallenges,
   memberHome,
   memberLibrary,
+  memberPractice,
   memberProfile,
   memberRudimentDetail,
   memberRudiments,
@@ -44,6 +45,7 @@ import {
   allPatterns,
   bandStartBpm,
   dailyPatternFor,
+  practicePlan,
   disciplinesForTab,
   HOLD_SECONDS,
   isDiscipline,
@@ -79,6 +81,7 @@ import {
   ingestFromUrl,
   lessonPoster,
   probeStream,
+  putAvatar,
   putLessonPoster,
   readLessonPoster,
   signedIframeSrc,
@@ -98,8 +101,6 @@ export default {
         env.ADMIN_ORIGIN,
         'https://stickitoutdrums.com',
         'https://www.stickitoutdrums.com',
-        'https://stickitoutbook.com',
-        'https://www.stickitoutbook.com',
         'http://127.0.0.1:8787',
         'http://localhost:8787',
         'http://127.0.0.1:4325',
@@ -117,6 +118,19 @@ export default {
     }
     const ctx = requestCtx(request, env);
     if (ctx.path === '/api/health' && (request.method === 'GET' || request.method === 'HEAD')) return healthFetch(env);
+    if (ctx.kind === 'member' && ctx.path === '/.well-known/assetlinks.json' && (request.method === 'GET' || request.method === 'HEAD')) {
+      const body = JSON.stringify([{
+        relation: ['delegate_permission/common.handle_all_urls'],
+        target: {
+          namespace: 'android_app',
+          package_name: 'com.stickitoutdrums.app',
+          sha256_cert_fingerprints: ['FB:DA:88:BE:F2:32:7C:42:D4:51:B3:D9:8E:11:92:B5:36:BB:17:C7:2B:1A:AC:94:8B:D1:B0:9E:2B:87:0C:D7'],
+        },
+      }]);
+      return new Response(request.method === 'HEAD' ? null : body, {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
+      });
+    }
     const brand = await serveBrandAsset(request, env, ctx.path);
     if (brand) return brand;
     try {
@@ -201,15 +215,40 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
   if (media) return media;
 
   if (path === '/profile' && request.method === 'POST') {
-    const body = await readForm(request);
+    const fd = await request.formData();
+    const body: Record<string, string> = {};
+    for (const [key, value] of fd.entries()) if (typeof value === 'string') body[key] = value;
     const parsed = parseProfile(body);
     const setup = !profileComplete(user);
-    if (parsed.error) {
-      return html(memberProfile(base, { ...user, name: parsed.name, kit: parsed.kit, level: parsed.level, phone: parsed.phone }, env.STRIPE_PORTAL_URL.trim(), { setup, error: parsed.error }));
+    const photo = fd.get('photo');
+    let photoError = '';
+    let avatarKey = user.avatar_key || null;
+    if (photo instanceof File && photo.size > 0) {
+      const saved = await putAvatar(env, user.id, photo);
+      if ('error' in saved) photoError = saved.error;
+      else {
+        avatarKey = saved.key;
+        await env.DB.prepare('UPDATE people SET avatar_key = ? WHERE id = ?').bind(saved.key, user.id).run();
+      }
+    }
+    if (parsed.error || photoError) {
+      return html(memberProfile(base, { ...user, name: parsed.name, kit: parsed.kit, level: parsed.level, phone: parsed.phone, avatar_key: avatarKey }, env.STRIPE_PORTAL_URL.trim(), { setup, error: parsed.error || photoError }));
     }
     await saveProfile(env.DB, user.id, parsed);
     if (setup) return redirect(`${base}/`);
-    return redirect(`${base}/profile?n=${encodeURIComponent('Profile saved.')}`);
+    return redirect(`${base}/profile?n=${encodeURIComponent('Settings saved.')}`);
+  }
+
+  if (path === '/profile/photo') {
+    if (!user.avatar_key) return new Response('Not found', { status: 404 });
+    const obj = await readLessonPoster(env, user.avatar_key);
+    if (!obj) return new Response('Not found', { status: 404 });
+    return new Response(obj.body, {
+      headers: {
+        'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg',
+        'Cache-Control': 'private, max-age=300',
+      },
+    });
   }
 
   if (path === '/streak-rewards/seen' && request.method === 'POST') {
@@ -218,10 +257,12 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
   }
 
   if (path === '/profile') {
-    const [streak, medals, patterns] = await Promise.all([
+    const [streak, medals, patterns, plan, practiceDays] = await Promise.all([
       streakState(env.DB, user.id),
       medalTally(env.DB, user.id),
       listPatterns(env.DB, user.id, ['hands', 'four-limb']),
+      practicePlan(env.DB, user),
+      recentPracticeDays(env.DB, user.id),
     ]);
     return html(
       memberProfile(base, user, env.STRIPE_PORTAL_URL.trim(), {
@@ -230,6 +271,8 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
         streak,
         medals,
         patterns,
+        score: plan.score,
+        practiceDays,
       }),
     );
   }
@@ -239,30 +282,21 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
   }
 
   if (path === '/' || path === '') {
-    const [lessonRows, challenge, streak, daily, medals, practiceDays] = await Promise.all([
-      env.DB.prepare(
-        `SELECT l.id, l.title, l.week_index, l.video_url, l.stream_uid, l.poster_key, l.summary, lp.watched_at, lp.completed_at
-         FROM lessons l
-         LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.person_id = ?
-         WHERE l.published_at IS NOT NULL
-         ORDER BY l.week_index ASC, l.published_at DESC`,
-      )
-        .bind(user.id)
-        .all<MemberLesson>(),
-      liveChallenge(env.DB),
+    const [streak, plan, practiceDays] = await Promise.all([
       streakState(env.DB, user.id),
-      dailyPatternFor(env.DB, user),
-      medalTally(env.DB, user.id),
+      practicePlan(env.DB, user),
       recentPracticeDays(env.DB, user.id),
     ]);
-    const lessons = await Promise.all(
-      (lessonRows.results || []).map(async (l) => ({ ...l, thumbnail: await lessonPoster(env, l, base) })),
-    );
-    const board = challenge ? await leaderboard(env.DB, challenge.id, 5) : [];
-    const mine = challenge ? await attemptFor(env.DB, challenge.id, user.id) : null;
-    return html(
-      memberHome(base, user, { lessons, challenge, board, attempt: mine, streak, daily, medals, practiceDays }),
-    );
+    return html(memberHome(base, user, { streak, daily: plan.primary, score: plan.score, practiceDays }));
+  }
+
+  if (path === '/practice') {
+    const [streak, plan, practiceDays] = await Promise.all([
+      streakState(env.DB, user.id),
+      practicePlan(env.DB, user),
+      recentPracticeDays(env.DB, user.id),
+    ]);
+    return html(memberPractice(base, user, { primary: plan.primary, alternates: plan.alternates, streak, practiceDays }));
   }
 
   const rudSlug = path.match(/^\/rudiments\/([a-z0-9-]+)$/i);
@@ -455,7 +489,7 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
     );
   }
 
-  return html(memberHome(base, user, { lessons: [], challenge: null, board: [], attempt: null }), 404);
+  return html(memberHome(base, user, { score: { score: 0, medal: 'dirt' } }), 404);
 }
 
 async function requireAdmin(request: Request, env: Env, ctx: ReturnType<typeof requestCtx>): Promise<Person | Response> {

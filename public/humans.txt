@@ -9,7 +9,7 @@ Site: https://blazedigitaldesign.com/
 
 /* SITE */
 
-Site: https://stickitoutbook.com/
+Site: https://stickitoutdrums.com/
 Owner: Stick It Out (Michael Staus)
 Sells: Weekly drum lesson membership, plus the Stick It Out coordination book (PDF)
 Standards: HTML5, CSS, JavaScript

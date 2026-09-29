@@ -1,0 +1,25 @@
+# Long-term host. Listens on this machine only. The named Cloudflare tunnel is the way in.
+services:
+  analyzer:
+    container_name: sio-analyzer
+    build: .
+    image: sio-analyzer:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8800:8800"
+    env_file:
+      - /etc/sio/analyzer.env
+    environment:
+      PORT: "8800"
+      DATA_DIR: /data/jobs
+      DATASET_DIR: /data/dataset
+      TORCH_HOME: /data/models
+      SIO_DRUMSEP: "1"
+      MAX_UPLOAD_MB: "1024"
+      JOB_TTL_HOURS: "72"
+      IMAGEIO_FFMPEG_EXE: /usr/bin/ffmpeg
+    volumes:
+      - /var/sio/analyzer/jobs:/data/jobs
+      - /var/sio/analyzer/dataset:/data/dataset
+      - /var/sio/analyzer/models:/data/models
+    mem_limit: 12g

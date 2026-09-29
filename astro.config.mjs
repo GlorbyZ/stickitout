@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 const base = process.env.PUBLIC_BASE_PATH || '/';
 
 export default defineConfig({
-  site: process.env.PUBLIC_SITE_URL || 'https://stickitoutbook.com',
+  site: process.env.PUBLIC_SITE_URL || 'https://stickitoutdrums.com',
   base,
   devToolbar: { enabled: false },
   redirects: {

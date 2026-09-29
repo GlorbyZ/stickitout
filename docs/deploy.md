@@ -13,7 +13,7 @@ npm install
 ```bash
 npm run dev          # local http://localhost:4325
 npm run build        # → dist/
-npm run shipit       # build + ship-check + SFTP to stickitoutbook.com
+npm run shipit       # build + ship-check + SFTP to stickitoutdrums.com
 npm run shipit:only  # upload existing dist/
 ```
 

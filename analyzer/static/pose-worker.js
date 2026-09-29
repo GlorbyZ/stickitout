@@ -4,7 +4,7 @@
 // pose-engine.js normally starts two of these, one for pose and one for hands, so the two
 // models run in parallel.
 //           {type:"frame", id, ts, mediaTime, bitmap} (bitmap transferred) -> {type:"result", ...}
-import { CDN, POSE_MODEL, HAND_MODEL } from "./skeleton.js";
+import { CDN, POSE_MODEL, HAND_MODEL } from "./skeleton.js?v=20";
 
 // Module workers have no working importScripts(), which the MediaPipe loader uses inside
 // workers to load its wasm glue script. Load it with a synchronous request and evaluate it in

@@ -1,6 +1,6 @@
 # Member + Admin portals
 
-Marketing stays on IONOS: https://stickitoutbook.com/
+Marketing stays on IONOS: https://stickitoutdrums.com/
 
 Portals run on a Cloudflare Worker (`stickitout-portals`) with D1 `stickitout`.
 
@@ -97,7 +97,11 @@ Under 840px the member portal uses a bottom SVG dock (Home, Practice, Library, A
 
 ## Analyze tab
 
-`/analyze` proxies to the Stick It Out analyzer on the studio PC through the named tunnel `analyzer-origin.stickitoutdrums.com` (see `src/analyze.ts` and `docs/source-of-truth.md` mem-analyze). Secrets:
+`/analyze` proxies to the Stick It Out analyzer on the studio PC through the named tunnel `analyzer-origin.stickitoutdrums.com` (see `src/analyze.ts` and `docs/source-of-truth.md` mem-analyze).
+
+What Cloudflare actually serves: the Worker `stickitout-portals` owns `member.stickitoutdrums.com` and `admin.stickitoutdrums.com`. A deploy updates that Worker. It does not upload the Analyze screen. On each logged-in visit to `/analyze`, the Worker fetches `https://analyzer-origin.stickitoutdrums.com/` (header `X-Access-Token`, not the browser), takes the `<main>` block, and draws it in the portal shell. The portal CSS and the script URL live in the Worker. The markup, `app.js`, and the other static files live on the studio PC. Restart the analyzer from `analyzer/` or the member page keeps the previous screen. Confirm with the origin HTML (`review-grid` in the body, `CF-Cache-Status: DYNAMIC`). A logged-out request to the member host is a 303 to `/login`, so the public URL never shows the player.
+
+Secrets:
 
 ```bash
 echo https://analyzer-origin.stickitoutdrums.com | npx wrangler secret put ANALYZER_ORIGIN --config workers/app/wrangler.jsonc

@@ -109,6 +109,14 @@ def extract_landmarks(video_path: Path, progress: Callable[[float], None] | None
     decoded_index = []                           # source frame number of every processed frame
     next_due = -1.0e9
     min_gap_ms = (1000.0 / MAX_POSE_FPS - 1.0) if MAX_POSE_FPS > 0 else 0.0
+    
+    image_quality = None
+    drum_pad = None
+    
+    # Import the ray-cast stick tracker
+    from .stick_tracker import StickTracker
+    tracker = StickTracker()
+    
     try:
         while True:
             if not cap.grab():
@@ -126,10 +134,33 @@ def extract_landmarks(video_path: Path, progress: Callable[[float], None] | None
             t_ms = int(round(t_raw))
             t_ms = max(t_ms, last_ms + 1)            # Tasks VIDEO mode needs strictly increasing timestamps
             last_ms = t_ms
+            
+            # Grayscale for stick tracker, lighting, and pad detection
+            gray_full = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+            
+            # Analyze image quality on the first processed frame
+            if image_quality is None:
+                b, c = float(np.mean(gray_full)), float(np.std(gray_full))
+                image_quality = {"brightness": b, "contrast": c, "bad_lighting": b < 40.0 or c < 20.0}
+                
+            # Attempt to find drum pad once
+            if drum_pad is None and index > total // 4:
+                blur = cv2.GaussianBlur(gray_full, (9, 9), 2)
+                h, w = gray_full.shape
+                sy = int(h * 0.4)
+                edges = cv2.Canny(blur[sy:, :], 50, 150)
+                circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, dp=1, minDist=50,
+                                           param1=150, param2=30, minRadius=20, maxRadius=int(h/2))
+                if circles is not None:
+                    c = circles[0, 0]
+                    drum_pad = {"x": float(c[0]), "y": float(c[1] + sy), "r": float(c[2]), "detected": True}
+                else:
+                    drum_pad = {"detected": False}
+            
             if scale < 1.0:
                 bgr = cv2.resize(bgr, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
             image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
-            frame = {"t": t_ms / 1000.0, "pts": None, "pose": None, "body": None, "hands": []}
+            frame = {"t": t_ms / 1000.0, "pts": None, "pose": None, "body": None, "hands": [], "sticks": []}
             res = pose.detect_for_video(image, t_ms)
             if res.pose_landmarks:
                 lm = res.pose_landmarks[0]
@@ -138,8 +169,52 @@ def extract_landmarks(video_path: Path, progress: Callable[[float], None] | None
                 frame["body"] = {k: (lm[i].x * width, lm[i].y * height, float(lm[i].visibility or 0.0))
                                  for k, i in BODY_IDS.items()}
             hres = hands.detect_for_video(image, t_ms)
+            
+            hand_arrays = []
             for hand in hres.hand_landmarks:
-                frame["hands"].append([(p.x * width, p.y * height) for p in hand])
+                hand_xy = [(p.x * width, p.y * height) for p in hand]
+                frame["hands"].append(hand_xy)
+                hand_arrays.append(np.asarray(hand_xy))
+            
+            # Ray-cast stick tracking: use the full-resolution grayscale and hand landmarks
+            if hand_arrays and frame["pose"]:
+                # Downscale gray for tracker (match frontend: max 480px wide)
+                tracker_w = min(width, 480)
+                tracker_scale = tracker_w / width
+                tracker_h = max(2, int(height * tracker_scale))
+                if tracker_scale < 1.0:
+                    tracker_gray = cv2.resize(gray_full, (tracker_w, tracker_h), interpolation=cv2.INTER_AREA).astype(np.float32)
+                else:
+                    tracker_gray = gray_full.astype(np.float32)
+                    tracker_w, tracker_h = width, height
+                
+                # Scale hand landmarks to tracker resolution
+                scaled_hands = [h * tracker_scale for h in hand_arrays]
+                pose_wrists = {
+                    "lw": (frame["pose"]["lw"][0] * tracker_scale, frame["pose"]["lw"][1] * tracker_scale),
+                    "rw": (frame["pose"]["rw"][0] * tracker_scale, frame["pose"]["rw"][1] * tracker_scale),
+                }
+                tips = tracker.track_frame(tracker_gray, scaled_hands, pose_wrists, t_ms / 1000.0)
+                
+                # Scale tip coordinates back to full resolution
+                for side in ("L", "R"):
+                    if tips[side] is not None:
+                        tx, ty = tips[side]
+                        frame["sticks"].append((tx / tracker_scale, ty / tracker_scale))
+                    else:
+                        frame["sticks"].append(None)
+            else:
+                # No hands detected: still give the tracker a frame to update prev_gray
+                if frame["pose"]:
+                    tracker_w = min(width, 480)
+                    tracker_scale = tracker_w / width
+                    tracker_h = max(2, int(height * tracker_scale))
+                    if tracker_scale < 1.0:
+                        tracker_gray = cv2.resize(gray_full, (tracker_w, tracker_h), interpolation=cv2.INTER_AREA).astype(np.float32)
+                    else:
+                        tracker_gray = gray_full.astype(np.float32)
+                    tracker.track_frame(tracker_gray, [], {"lw": (0, 0), "rw": (0, 0)}, t_ms / 1000.0)
+                
             frames.append(frame)
             index += 1
             if progress and index % 30 == 0:
@@ -157,8 +232,12 @@ def extract_landmarks(video_path: Path, progress: Callable[[float], None] | None
         offset = (pts[0] - frames[0]["t"]) if pts else 0.0
         for frame in frames:
             frame["pts"] = round(frame["t"] + offset, 6)
+            
+    if drum_pad is None:
+        drum_pad = {"detected": False}
+        
     return {"frames": frames, "width": width, "height": height, "pts_source": pts_source,
-            "pose_model": POSE_MODEL}
+            "pose_model": POSE_MODEL, "image_quality": image_quality, "drum_pad": drum_pad}
 
 
 @dataclass
@@ -167,6 +246,9 @@ class Tracks:
     t: np.ndarray
     pts: dict[str, np.ndarray]                      # key -> (n, 2) pixel coords for ls, rs, le, re, lw, rw
     hands: dict[str, list] = field(default_factory=dict)   # "L"/"R" -> list of (21, 2) arrays
+    stick_tips: dict[str, list] = field(default_factory=dict) # "L"/"R" -> list of (2,) arrays
+    drum_pad: dict = field(default_factory=dict)    # "x", "y", "r"
+    image_quality: dict = field(default_factory=dict) # "brightness", "contrast", "bad_lighting"
     scale: float = 1.0
     normalization: str = "shoulder_width"
     total_frames: int = 0
@@ -186,23 +268,89 @@ class Tracks:
         cos = np.sum(v1 * v2, axis=1) / (np.linalg.norm(v1, axis=1) * np.linalg.norm(v2, axis=1) + 1e-9)
         return np.degrees(np.arccos(np.clip(cos, -1.0, 1.0)))
 
+    def velocity(self, key: str) -> np.ndarray:
+        """Vertical velocity (downward positive) in normalised units per second."""
+        y = self.y(key)
+        return np.gradient(y, self.t) if len(y) > 1 else np.zeros_like(y)
+
+    def acceleration(self, key: str) -> np.ndarray:
+        """Vertical acceleration in normalised units per second squared."""
+        v = self.velocity(key)
+        return np.gradient(v, self.t) if len(v) > 1 else np.zeros_like(v)
+
+    def interp_y(self, key: str, times: np.ndarray) -> np.ndarray:
+        """Interpolated normalised Y at arbitrary timestamps."""
+        return np.interp(times, self.t, self.y(key))
+
+    def interp_velocity(self, key: str, times: np.ndarray) -> np.ndarray:
+        """Interpolated vertical velocity at arbitrary timestamps."""
+        return np.interp(times, self.t, self.velocity(key))
+
+    def interp_acceleration(self, key: str, times: np.ndarray) -> np.ndarray:
+        """Interpolated vertical acceleration at arbitrary timestamps."""
+        return np.interp(times, self.t, self.acceleration(key))
+
 
 def build_tracks(raw: dict) -> Tracks:
-    """Drop frames without both wrists visible, attach hands to wrists, pick the normalisation scale."""
+    """Drop frames without both wrists visible, attach hands and sticks to wrists, pick the normalisation scale.
+    
+    Hand-to-wrist assignment uses the Hungarian algorithm (bipartite matching) so that when
+    two hands are detected, each is assigned to a different wrist even if both are closer to
+    the same one.
+    """
+    from scipy.optimize import linear_sum_assignment
+
     vis = tuning.current().min_wrist_visibility
     kept = [f for f in raw["frames"] if f["pose"]
             and f["pose"]["lw"][2] >= vis and f["pose"]["rw"][2] >= vis]
     t = np.array([f["t"] for f in kept])
     pts = {k: np.array([f["pose"][k][:2] for f in kept]).reshape(-1, 2) for k in POSE_IDS}
     hands: dict[str, list] = {"L": [], "R": []}
+    stick_tips: dict[str, list] = {"L": [], "R": []}
     for f in kept:
-        for hand in f["hands"]:
-            arr = np.asarray(hand)
-            # Hand labels from MediaPipe assume a mirrored selfie image, so match hands to pose wrists instead.
-            dl = np.linalg.norm(arr[0] - np.asarray(f["pose"]["lw"][:2]))
-            dr = np.linalg.norm(arr[0] - np.asarray(f["pose"]["rw"][:2]))
-            hands["L" if dl <= dr else "R"].append(arr)
-    tracks = Tracks(t=t, pts=pts, hands=hands, total_frames=len(raw["frames"]))
+        hands["L"].append(None)
+        hands["R"].append(None)
+        stick_tips["L"].append(None)
+        stick_tips["R"].append(None)
+
+        frame_hands = list(f["hands"])
+        frame_sticks = list(f.get("sticks", []))
+        # Pad sticks to match hands length if needed
+        while len(frame_sticks) < len(frame_hands):
+            frame_sticks.append(None)
+
+        if not frame_hands:
+            continue
+
+        lw = np.asarray(f["pose"]["lw"][:2])
+        rw = np.asarray(f["pose"]["rw"][:2])
+
+        if len(frame_hands) == 1:
+            arr = np.asarray(frame_hands[0])
+            dl = np.linalg.norm(arr[0] - lw)
+            dr = np.linalg.norm(arr[0] - rw)
+            side = "L" if dl <= dr else "R"
+            hands[side][-1] = arr
+            if frame_sticks[0] is not None:
+                stick_tips[side][-1] = np.asarray(frame_sticks[0])
+        elif len(frame_hands) >= 2:
+            # Bipartite matching: build cost matrix (num_hands x 2) where columns are [L, R]
+            hand_arrays = [np.asarray(h) for h in frame_hands[:2]]
+            costs = np.array([
+                [np.linalg.norm(h[0] - lw), np.linalg.norm(h[0] - rw)]
+                for h in hand_arrays
+            ])
+            row_idx, col_idx = linear_sum_assignment(costs)
+            for r, c in zip(row_idx, col_idx):
+                side = "L" if c == 0 else "R"
+                hands[side][-1] = hand_arrays[r]
+                if frame_sticks[r] is not None:
+                    stick_tips[side][-1] = np.asarray(frame_sticks[r])
+
+    tracks = Tracks(t=t, pts=pts, hands=hands, stick_tips=stick_tips,
+                    drum_pad=raw.get("drum_pad", {}),
+                    image_quality=raw.get("image_quality", {}),
+                    total_frames=len(raw["frames"]))
     if len(t):
         shoulder = float(np.median(np.linalg.norm(pts["ls"] - pts["rs"], axis=1)))
         upper_arm = float(np.median(np.concatenate([np.linalg.norm(pts["ls"] - pts["le"], axis=1),
@@ -215,19 +363,83 @@ def build_tracks(raw: dict) -> Tracks:
 
 
 def detect_strikes(tracks: Tracks) -> list[dict]:
-    """Video strikes: low points of each wrist (local maxima of downward position)."""
-    strikes = []
+    """Video strikes from stick tip Y-position peaks, with wrist dips as fallback.
+
+    When stick tips are available (from the ray-cast tracker), they provide the primary
+    signal because the tip moves independently of the wrist during rebounds and diddles.
+    Wrist dips are used as fallback for frames where no stick tip was tracked.
+    Events from both signals within strike_same_stroke_ms are deduplicated, keeping
+    the stick tip event (it is more temporally precise).
+    """
     if len(tracks.t) < 5:
-        return strikes
+        return []
     tune = tuning.current()
     dt = float(np.median(np.diff(tracks.t)))
+    gap = max(1, int(tune.strike_min_gap_ms / 1000.0 / dt))
     k = max(1, int(tune.strike_smooth_frames))
-    for hand, key in (("L", "lw"), ("R", "rw")):
-        y = np.convolve(tracks.y(key), np.ones(k) / k, mode="same")
-        peaks, _ = find_peaks(y, prominence=tune.strike_min_prominence,
-                              distance=max(1, int(tune.strike_min_gap_ms / 1000.0 / dt)))
-        strikes += [{"t": float(tracks.t[p]), "hand": hand} for p in peaks]
-    return sorted(strikes, key=lambda s: s["t"])
+    kernel = np.ones(k) / k
+    min_gap_s = tune.strike_min_gap_ms / 1000.0
+    same_stroke_s = tune.strike_same_stroke_ms / 1000.0
+
+    tip_events: list[tuple[float, str]] = []
+    wrist_events: list[tuple[float, str]] = []
+
+    for side in ("L", "R"):
+        # Primary: stick tip Y peaks
+        tips = tracks.stick_tips.get(side, [])
+        valid_indices = [i for i in range(len(tips)) if tips[i] is not None]
+        if len(valid_indices) >= 5:
+            tip_t = np.array([tracks.t[i] for i in valid_indices])
+            tip_y = np.array([tips[i][1] for i in valid_indices])
+            smoothed = np.convolve(tip_y, kernel, mode="same")
+            # Prominence in pixels scaled by shoulder width
+            prominence = max(5.0, tune.strike_min_prominence * tracks.scale)
+            tip_gap = max(1, int(tune.strike_min_gap_ms / 1000.0 / (float(np.median(np.diff(tip_t))) + 1e-9)))
+            lows, _ = find_peaks(smoothed, prominence=prominence, distance=tip_gap)
+            tip_events += [(float(tip_t[p]), side) for p in lows]
+
+        # Fallback: wrist Y peaks (always computed)
+        wrist_key = "lw" if side == "L" else "rw"
+        y = np.convolve(tracks.y(wrist_key), kernel, mode="same")
+        lows, _ = find_peaks(y, prominence=tune.strike_min_prominence, distance=gap)
+        wrist_events += [(float(tracks.t[p]), side) for p in lows]
+        # Speed spikes (second note of diddles via wrist)
+        if tune.strike_speed_prominence > 0 and len(tracks.t) > 2:
+            xy = tracks.pts[wrist_key] / tracks.scale
+            speed = np.linalg.norm(np.gradient(xy, tracks.t, axis=0), axis=1)
+            downward = np.gradient(y, tracks.t) > 0
+            speed = np.where(downward, speed, 0.0)
+            speed = np.convolve(speed, kernel, mode="same")
+            spikes, _ = find_peaks(speed, prominence=tune.strike_speed_prominence, distance=gap)
+            wrist_events += [(float(tracks.t[p]), side) for p in spikes]
+
+    # Merge: prefer tip events, add wrist events only when no tip event is nearby
+    kept: list[dict] = []
+    taken: list[tuple[float, str]] = []
+
+    def near_taken(t: float, hand: str) -> bool:
+        return any(other == hand and abs(t - prev) < min_gap_s for prev, other in taken)
+
+    # First pass: all tip events
+    for t, hand in sorted(tip_events):
+        if near_taken(t, hand):
+            continue
+        kept.append({"t": t, "hand": hand, "source": "tip"})
+        taken.append((t, hand))
+
+    # Second pass: wrist events that are not near any tip event
+    for t, hand in sorted(wrist_events):
+        if near_taken(t, hand):
+            continue
+        # Skip if a tip event already covers this stroke
+        if any(other == hand and abs(t - prev) <= same_stroke_s for prev, other in
+               [(e[0], e[1]) for e in tip_events]):
+            continue
+        kept.append({"t": t, "hand": hand, "source": "wrist"})
+        taken.append((t, hand))
+
+    kept.sort(key=lambda s: s["t"])
+    return kept
 
 
 def symmetry(tracks: Tracks) -> float | None:
@@ -264,7 +476,7 @@ def grip_proxy(tracks: Tracks) -> dict:
     out = {"experimental": True}
     for hand in ("L", "R"):
         vals = [float(np.mean(np.linalg.norm(h[list(FINGERTIPS)] - h[list(PALM)].mean(axis=0), axis=1)))
-                for h in tracks.hands.get(hand, [])]
+                for h in tracks.hands.get(hand, []) if h is not None]
         out[hand] = round(float(np.mean(vals)) / tracks.scale, 4) if vals else None
     return out
 
@@ -293,6 +505,8 @@ def session_metrics(tracks: Tracks) -> dict:
                             "Check the camera guide: full torso, both arms and the pad in frame, good light.")
                            if degraded else None,
         "normalization": tracks.normalization,
+        "image_quality": tracks.image_quality,
+        "drum_pad": tracks.drum_pad,
         "form": {
             "symmetry": None if degraded else _round(symmetry(tracks)),
             **({"posture_drift_per_min": None, "shoulder_line_angle_deg": None} if degraded else posture(tracks)),

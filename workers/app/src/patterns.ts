@@ -274,16 +274,56 @@ export async function logSession(
 
 export type DailyPick = { pattern: PatternWithProgress; completed_at: string | null };
 
-/** Hands on even days, four-limb fills on odd days. */
-function disciplineForDay(day: string): Discipline[] {
-  const dayNum = Number(day.slice(-2)) || 1;
-  if (dayNum % 2 === 0) return ['hands'];
-  return ['four-limb'];
+/** Pattern catalog levels a playing level is ready for. Pro uses the full hands set. */
+export function levelsForPlayer(playing: string | undefined): Level[] {
+  if (playing === 'intermediate') return ['beginner', 'intermediate'];
+  if (playing === 'advanced' || playing === 'pro') return ['beginner', 'intermediate', 'advanced'];
+  return ['beginner'];
+}
+
+/** Mean medal rank (dirt 0 … insanity 7) across the level window. Unplayed counts as dirt. */
+export function badgeAverage(patterns: PatternWithProgress[]): { score: number; medal: string } {
+  if (!patterns.length) return { score: 0, medal: 'dirt' };
+  const score = patterns.reduce((sum, p) => sum + medalIndex(p.medal || 'dirt'), 0) / patterns.length;
+  const nearest = MEDALS[Math.min(MEDALS.length - 1, Math.max(0, Math.round(score)))];
+  return { score, medal: nearest.id };
+}
+
+export type PracticePlan = {
+  primary: DailyPick | null;
+  alternates: PatternWithProgress[];
+  window: PatternWithProgress[];
+  score: { score: number; medal: string };
+};
+
+/** Hands rudiments inside the member's playing level, with progress. */
+export async function levelWindow(db: D1Database, person: Person): Promise<PatternWithProgress[]> {
+  const allowed = new Set(levelsForPlayer(person.level));
+  const hands = await listPatterns(db, person.id, ['hands']);
+  return hands.filter((p) => allowed.has(p.level as Level));
 }
 
 /**
- * Today's pattern. Admin override wins, otherwise the weakest medal then the
- * stalest practice inside the member's tiers. Persisted so it holds all day.
+ * Today's pattern plus the next two weakest. The primary pick is stored for the
+ * Denver day so it does not change mid-session. Alternates are not stored.
+ */
+export async function practicePlan(db: D1Database, person: Person, day = denverDay()): Promise<PracticePlan> {
+  const window = await levelWindow(db, person);
+  const primary = await dailyPatternFor(db, person, day);
+  const ranked = window.slice().sort((a, b) => {
+    const medal = medalIndex(a.medal) - medalIndex(b.medal);
+    if (medal) return medal;
+    const sessions = (a.sessions || 0) - (b.sessions || 0);
+    if (sessions) return sessions;
+    return (a.last_practiced_at || '').localeCompare(b.last_practiced_at || '');
+  });
+  const alternates = ranked.filter((p) => p.id !== primary?.pattern.id).slice(0, 2);
+  return { primary, alternates, window, score: badgeAverage(window) };
+}
+
+/**
+ * Today's pattern. Admin override wins, otherwise the weakest hands rudiment in
+ * the member's level window. Persisted so it holds all day.
  */
 export async function dailyPatternFor(
   db: D1Database,
@@ -309,11 +349,12 @@ export async function dailyPatternFor(
   if (override) {
     chosen = await patternById(db, person.id, override.pattern_id);
   }
+  const levels = levelsForPlayer(person.level);
   if (!chosen) {
-    chosen = await pickWeakest(db, person.id, tiers, disciplineForDay(day));
+    chosen = await pickWeakest(db, person.id, tiers, ['hands'], levels);
   }
   if (!chosen) {
-    chosen = await pickWeakest(db, person.id, tiers, ['hands', 'four-limb']);
+    chosen = await pickWeakest(db, person.id, tiers, ['hands'], LEVELS);
   }
   if (!chosen) return null;
 
@@ -334,25 +375,28 @@ async function pickWeakest(
   personId: string,
   tiers: Tier[],
   disciplines: Discipline[],
+  levels: Level[],
 ): Promise<PatternWithProgress | null> {
   const tierMarks = tiers.map(() => '?').join(', ');
   const discMarks = disciplines.map(() => '?').join(', ');
+  const levelMarks = levels.map(() => '?').join(', ');
   const row = await db
     .prepare(
       `SELECT ${PATTERN_COLS}, ${PROGRESS_COLS}
        FROM patterns p
        LEFT JOIN pattern_progress pr ON pr.pattern_id = p.id AND pr.person_id = ?
-       WHERE p.tier IN (${tierMarks}) AND p.discipline IN (${discMarks})
+       WHERE p.tier IN (${tierMarks}) AND p.discipline IN (${discMarks}) AND p.level IN (${levelMarks})
        ORDER BY
          CASE IFNULL(pr.medal, 'dirt')
            WHEN 'dirt' THEN 0 WHEN 'bronze' THEN 1 WHEN 'silver' THEN 2
            WHEN 'gold' THEN 3 WHEN 'platinum' THEN 4 WHEN 'diamond' THEN 5
            WHEN 'legendary' THEN 6 WHEN 'insanity' THEN 7 ELSE 8 END ASC,
+         IFNULL(pr.sessions, 0) ASC,
          IFNULL(pr.last_practiced_at, '') ASC,
          p.sort_index ASC
        LIMIT 1`,
     )
-    .bind(personId, ...tiers, ...disciplines)
+    .bind(personId, ...tiers, ...disciplines, ...levels)
     .first<PatternWithProgress>();
   return row || null;
 }

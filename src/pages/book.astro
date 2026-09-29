@@ -1,8 +1,8 @@
 ---
 import BookLayout from '../layouts/BookLayout.astro';
 
-const ORG = 'https://stickitoutbook.com/#org';
-const MIKE = 'https://stickitoutbook.com/#mike';
+const ORG = 'https://stickitoutdrums.com/#org';
+const MIKE = 'https://stickitoutdrums.com/#mike';
 
 const schema = {
   '@context': 'https://schema.org',
@@ -11,8 +11,8 @@ const schema = {
       '@type': 'Organization',
       '@id': ORG,
       name: 'Stick It Out',
-      url: 'https://stickitoutbook.com/',
-      logo: 'https://stickitoutbook.com/icons/icon-512.png',
+      url: 'https://stickitoutdrums.com/',
+      logo: 'https://stickitoutdrums.com/icons/icon-512.png',
     },
     {
       '@type': 'Person',
@@ -30,20 +30,20 @@ const schema = {
       inLanguage: 'en-US',
       description:
         'A kick-and-hand coordination system for drummers. Patterns, independence, and how to practice them.',
-      url: 'https://stickitoutbook.com/book/',
+      url: 'https://stickitoutdrums.com/book/',
       offers: {
         '@type': 'Offer',
         price: '19.99',
         priceCurrency: 'USD',
         availability: 'https://schema.org/InStock',
-        url: 'https://stickitoutbook.com/payment/',
+        url: 'https://stickitoutdrums.com/payment/',
       },
     },
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://stickitoutbook.com/' },
-        { '@type': 'ListItem', position: 2, name: 'Book', item: 'https://stickitoutbook.com/book/' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://stickitoutdrums.com/' },
+        { '@type': 'ListItem', position: 2, name: 'Book', item: 'https://stickitoutdrums.com/book/' },
       ],
     },
   ],

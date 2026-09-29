@@ -10,8 +10,6 @@ Drum book and lessons membership. Three live sites share one repo.
 
 The live inventory, with status for every path, is [docs/source-of-truth.md](docs/source-of-truth.md). Portal setup is [docs/portals.md](docs/portals.md). Shipping the public site is [docs/deploy.md](docs/deploy.md).
 
-`stickitoutbook.com` does not resolve. Do not use it.
-
 ## Public site
 
 The homepage collects waitlist emails. The header button goes to that form. There is no Log in link on the marketing site.

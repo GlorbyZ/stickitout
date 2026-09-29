@@ -1,6 +1,6 @@
 User-agent: *
 Allow: /
-Sitemap: https://stickitoutbook.com/sitemap.xml
+Sitemap: https://stickitoutdrums.com/sitemap.xml
 Allow: /llms.txt
 Allow: /humans.txt
 Allow: /credits.md

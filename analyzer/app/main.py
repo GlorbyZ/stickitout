@@ -141,8 +141,12 @@ def _number(raw: str | None, name: str, lo: float, hi: float, default: float | N
 
 
 def _params(rudiment, target_bpm, av_offset_ms, verify_window_ms) -> dict:
+    from .profiles import profile as rudiment_profile
+    chosen = rudiment_profile(rudiment) or rudiment_profile(DEFAULT_RUDIMENT)
+    if rudiment and str(rudiment).strip() and rudiment_profile(rudiment) is None:
+        raise ValueError("That rudiment is not one we have recorded takes for yet.")
     return {
-        "rudiment": (rudiment or DEFAULT_RUDIMENT).strip()[:80] or DEFAULT_RUDIMENT,
+        "rudiment": chosen["name"],
         "target_bpm": _number(target_bpm, "target_bpm", 20, 400, None),
         "av_offset_ms": _number(av_offset_ms, "av_offset_ms", -2000, 2000, 0.0),
         "verify_window_ms": _number(verify_window_ms, "verify_window_ms", 5, 200,
@@ -576,14 +580,28 @@ def healthz():
     return {"ok": True}
 
 
+from fastapi.responses import HTMLResponse
+
+def html_with_cache_buster(path: Path) -> HTMLResponse:
+    content = path.read_text("utf-8")
+    def replacer(m):
+        filename = m.group(1)
+        filepath = STATIC_DIR / filename
+        if filepath.exists():
+            t = int(filepath.stat().st_mtime)
+            return f'/static/{filename}?t={t}'
+        return m.group(0)
+    
+    content = re.sub(r'/static/([a-zA-Z0-9_\-\.]+\.(?:js|css))(?:\?v=[0-9]+)?', replacer, content)
+    return HTMLResponse(content)
+
 @app.get("/")
 def index():
-    return FileResponse(STATIC_DIR / "index.html")
-
+    return html_with_cache_buster(STATIC_DIR / "index.html")
 
 @app.get("/label")
 def label_page():
-    return FileResponse(STATIC_DIR / "label.html")
+    return html_with_cache_buster(STATIC_DIR / "label.html")
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

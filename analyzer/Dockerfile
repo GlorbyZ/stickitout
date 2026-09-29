@@ -24,6 +24,12 @@ WORKDIR /app
 COPY --from=build /wheels /wheels
 COPY requirements.txt .
 RUN pip install --no-cache-dir /wheels/aubio-*.whl -r requirements.txt && rm -rf /wheels
+# The CPU wheel is copied in so a slow link can resume outside this build.
+COPY wheels/torch-2.14.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl /tmp/torch-2.14.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl
+RUN pip install --no-cache-dir "/tmp/torch-2.14.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl" \
+    && rm -f /tmp/torch-*.whl \
+    && pip install --no-cache-dir "demucs==4.1.0" \
+    && python -c "import torch, demucs; assert torch.version.cuda is None, torch.__version__"
 COPY app ./app
 COPY scripts ./scripts
 COPY schema ./schema
@@ -35,6 +41,9 @@ RUN useradd --create-home --uid 10001 analyzer && mkdir -p /data && chown analyz
 USER analyzer
 ENV PORT=8800 \
     DATA_DIR=/data/jobs \
+    DATASET_DIR=/data/dataset \
+    TORCH_HOME=/data/models \
+    SIO_DRUMSEP=1 \
     MAX_UPLOAD_MB=1024 \
     JOB_TTL_HOURS=72 \
     IMAGEIO_FFMPEG_EXE=/usr/bin/ffmpeg \

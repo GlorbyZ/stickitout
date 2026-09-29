@@ -33,7 +33,11 @@ def synthetic_tracks(strikes, duration, fps=FPS):
         "lw": np.column_stack([np.full(n, 380.0), y["L"]]),
         "rw": np.column_stack([np.full(n, 220.0), y["R"]]),
     }
-    return Tracks(t=t, pts=pts, hands={"L": [], "R": []}, scale=SHOULDER_PX, total_frames=n)
+    stick_tips = {
+        "L": [np.array([380.0, yval]) for yval in y["L"]],
+        "R": [np.array([220.0, yval]) for yval in y["R"]]
+    }
+    return Tracks(t=t, pts=pts, hands={"L": [], "R": []}, stick_tips=stick_tips, scale=SHOULDER_PX, total_frames=n)
 
 
 @pytest.fixture(scope="module")
@@ -123,4 +127,112 @@ def test_sticking_left_lead_and_other_rudiments():
     strokes = [{"t": i * 0.15, "hand": h} for i, h in enumerate("LRLLRLRR" * 2)]
     res = check_sticking(strokes, "single paradiddle")
     assert res["sticking_accuracy_pct"] == 100.0 and res["leading_hand"] == "L"
-    assert check_sticking(strokes, "Double Paradiddle")["checked"] is False
+    assert check_sticking(strokes, "Flam")["checked"] is False
+
+
+def test_audio_first_all_verified(paradiddle_audio):
+    """In audio-first mode every audio onset is verified, since audio is ground truth."""
+    from app import tuning
+    onsets = [o["t"] for o in paradiddle_audio["onsets"]]
+    hands = [PATTERN[i % 8] for i in range(len(onsets))]
+    # Only give video strikes for HALF the onsets (simulating missed diddles)
+    strikes = [(t, h) for i, (t, h) in enumerate(zip(onsets, hands)) if i % 2 == 0]
+    tracks = synthetic_tracks(strikes, onsets[-1] + 1.0)
+    video = session_metrics(tracks)
+    params = {"rudiment": "Single Paradiddle", "target_bpm": 100.0, "av_offset_ms": 0.0}
+    # Classic mode: many unverified
+    classic = analyse(paradiddle_audio, tracks, video, params)
+    assert classic["verification"]["unverified_onsets"] > 0
+    # Audio-first mode: all verified
+    with tuning.override({"fusion_mode": "audio_first"}):
+        af = analyse(paradiddle_audio, tracks, video, params)
+    assert af["verification"]["unverified_onsets"] == 0
+    assert af["verification"]["verified_stroke_count"] == len(onsets)
+    assert af["verification"]["agreement_pct"] > 90
+    # Also check that fusion_mode is reported
+    assert af["verification"].get("fusion_mode") == "audio_first"
+
+
+def test_audio_first_diddle_continuity(paradiddle_audio):
+    """Two onsets within diddle_max_ioi_ms should get assigned to the same hand."""
+    from app import tuning
+    from app.fusion import fuse
+    onsets = [o["t"] for o in paradiddle_audio["onsets"]]
+    # Build double stroke pattern: RRLL at 100 BPM 16ths
+    # Each pair is close together (the second is a diddle rebound)
+    # Only create wrist dips for the FIRST of each pair
+    hands_full = []
+    for i in range(len(onsets)):
+        hands_full.append("R" if (i // 2) % 2 == 0 else "L")
+    strikes = [(onsets[i], hands_full[i]) for i in range(0, len(onsets), 2)]  # only first of each pair
+    tracks = synthetic_tracks(strikes, onsets[-1] + 1.0)
+    with tuning.override({"fusion_mode": "audio_first", "diddle_max_ioi_ms": 200.0}):
+        strokes, verification, _ = fuse(paradiddle_audio, tracks, False, 0.0, fps=60.0)
+    # Check that consecutive pairs have the same hand
+    for i in range(0, len(strokes) - 1, 2):
+        if strokes[i]["hand"] and strokes[i + 1]["hand"]:
+            assert strokes[i]["hand"] == strokes[i + 1]["hand"], (
+                f"Diddle pair at index {i}: expected same hand, got {strokes[i]['hand']} and {strokes[i+1]['hand']}"
+            )
+
+
+def test_audio_first_hand_assignment_accuracy(paradiddle_audio):
+    """When every onset has a clear wrist dip, audio-first hand assignment should be accurate."""
+    from app import tuning
+    from app.fusion import fuse
+    onsets = [o["t"] for o in paradiddle_audio["onsets"]]
+    hands = [PATTERN[i % 8] for i in range(len(onsets))]
+    strikes = list(zip(onsets, hands))
+    tracks = synthetic_tracks(strikes, onsets[-1] + 1.0)
+    with tuning.override({"fusion_mode": "audio_first"}):
+        strokes, verification, _ = fuse(paradiddle_audio, tracks, False, 0.0, fps=60.0)
+    assigned = [s["hand"] for s in strokes]
+    correct = sum(a == h for a, h in zip(assigned, hands) if a is not None)
+    total_assigned = sum(1 for a in assigned if a is not None)
+    accuracy = correct / total_assigned if total_assigned else 0
+    assert accuracy >= 0.90, f"Hand assignment accuracy {accuracy:.1%} is below 90%"
+
+
+def test_compute_av_offset(paradiddle_audio):
+    """Cross-correlation should detect a nonzero offset when video lags audio,
+    and applying it as av_offset_ms should improve match quality."""
+    from app.fusion import compute_av_offset, match_strikes
+    from app.video import detect_strikes
+    onsets = [o["t"] for o in paradiddle_audio["onsets"]]
+    hands = [PATTERN[i % 8] for i in range(len(onsets))]
+    # Offset video by 50 ms: strikes happen 50 ms after audio onsets
+    offset_s = 0.050
+    strikes_data = [(t + offset_s, h) for t, h in zip(onsets, hands)]
+    tracks = synthetic_tracks(strikes_data, onsets[-1] + 1.0)
+    detected_offset = compute_av_offset(paradiddle_audio, tracks, search_ms=150.0)
+    # The detected offset should be nonzero (the algorithm sees the misalignment)
+    assert abs(detected_offset) > 5.0, (
+        f"Expected a nonzero offset, got {detected_offset:.1f} ms"
+    )
+    # Applying the offset should improve 1:1 matching compared to no offset
+    video_strikes = [{"t": s["t"], "hand": s["hand"]} for s in detect_strikes(tracks)]
+    matches_raw, _ = match_strikes(onsets, video_strikes, 80.0)
+    shifted = [{"t": s["t"] + detected_offset / 1000.0, "hand": s["hand"]} for s in video_strikes]
+    matches_corrected, _ = match_strikes(onsets, shifted, 80.0)
+    assert len(matches_corrected) >= len(matches_raw), (
+        f"Offset correction should not reduce matches: {len(matches_corrected)} vs {len(matches_raw)}"
+    )
+
+
+def test_classic_mode_unchanged(paradiddle_audio):
+    """Classic fusion mode must produce identical results to the existing code path."""
+    from app import tuning
+    onsets = [o["t"] for o in paradiddle_audio["onsets"]]
+    hands = [PATTERN[i % 8] for i in range(len(onsets))]
+    strikes = list(zip(onsets, hands))
+    tracks = synthetic_tracks(strikes, onsets[-1] + 1.0)
+    video = session_metrics(tracks)
+    params = {"rudiment": "Single Paradiddle", "target_bpm": 100.0, "av_offset_ms": 0.0}
+    # Default mode (should be classic)
+    result_default = analyse(paradiddle_audio, tracks, video, params)
+    # Explicit classic mode
+    with tuning.override({"fusion_mode": "classic"}):
+        result_classic = analyse(paradiddle_audio, tracks, video, params)
+    # Same verification counts
+    assert result_default["verification"]["verified_stroke_count"] == result_classic["verification"]["verified_stroke_count"]
+    assert result_default["verification"]["unverified_onsets"] == result_classic["verification"]["unverified_onsets"]

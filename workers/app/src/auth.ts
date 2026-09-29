@@ -104,9 +104,10 @@ export type Person = {
   last_seen_at?: string | null;
   kit?: string;
   level?: string;
+  avatar_key?: string | null;
 };
 
-const PERSON_COLS = `p.id, p.email, p.name, p.created_at, p.phone, p.source, p.last_seen_at, p.kit, p.level, m.plan, m.status`;
+const PERSON_COLS = `p.id, p.email, p.name, p.created_at, p.phone, p.source, p.last_seen_at, p.kit, p.level, p.avatar_key, m.plan, m.status`;
 
 export async function getPersonByEmail(db: D1Database, email: string): Promise<Person | null> {
   const row = await db
