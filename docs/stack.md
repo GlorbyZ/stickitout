@@ -4,7 +4,7 @@ Briefing for agents. Status of every user-facing path is `docs/source-of-truth.m
 
 There is one git repo. The analyzer is the `analyzer/` directory in this checkout. On disk that repo lives at `C:\Users\epicn\Documents\sites\Stickitout`. GitHub: `GlorbyZ/stickitout` (public).
 
-The process that is running on this PC was started from the older sibling folder `C:\Users\epicn\Documents\sites\Stickitout-analyzer`. That folder is the same snapshot that was imported here. New analyzer edits belong in `analyzer/` inside this repo, then restart from that folder when you want the running server to match.
+Git has one branch: `main`. New analyzer edits belong in `analyzer/` inside this repo. The process that serves members is Docker on the Ubuntu host `bdd-secure-server` (`192.168.1.123` on the home LAN), not the studio PC.
 
 Reference videos used to fit the temporary analyzer profile are not in git: `D:\Stickitout-dataset\reference-videos`.
 
@@ -18,9 +18,9 @@ The live public site is `stickitoutdrums.com`.
 | https://member.stickitoutdrums.com/ | Cloudflare Worker `stickitout-portals` |
 | https://admin.stickitoutdrums.com/ | Same Worker, host decides member vs admin |
 | https://stickitout-portals.zayyo.workers.dev/ | Worker fallback. Local admin path is `/_admin` |
-| https://analyzer-origin.stickitoutdrums.com/ | Named tunnel `sio-analyzer-origin` to this PC, port 8800 |
+| https://analyzer-origin.stickitoutdrums.com/ | Named tunnel `sio-analyzer-origin` to Docker on the Ubuntu server, `127.0.0.1:8800` |
 
-The analyzer origin answers only while this PC is on and `Stickitout-analyzer\start-remote.ps1` is running. If it is down, the member Analyze tab says the analyzer is offline.
+The tunnel service on that server is `cloudflared-analyzer`. Do not start `start-remote.ps1` on the studio PC while that service is up. If the origin is down, the member Analyze tab says the analyzer is offline.
 
 ## Request paths
 
@@ -36,7 +36,7 @@ A form signup does not make someone a paying member. Founding and active are an 
 Member Analyze:
 
 1. Browser talks only to `member.stickitoutdrums.com/analyze` and `/analyze/api/...`.
-2. `workers/app/src/analyze.ts` checks the member session, then fetches the studio PC.
+2. `workers/app/src/analyze.ts` checks the member session, then fetches the Ubuntu analyzer origin.
 3. The Worker adds `X-Access-Token` from secret `ANALYZER_TOKEN`. The browser never sees that key. Portal cookies are not forwarded.
 4. Allowed upstream paths: static JS/CSS/images except `label.*`, `GET /api/config`, `POST /api/analyze`, resumable upload (`POST /api/uploads`, `GET /api/uploads/:id`, `PUT .../pieces/:n`, `POST .../finish`), `GET /api/jobs/:id`, `/video`, `/landmarks`, `GET /api/results/:id`.
 5. Label page, dataset intake, and every other analyzer path are 404 on the portal.
@@ -61,11 +61,11 @@ npm run shipit
 
 Code: `workers/app`. One Worker, two hosts. D1 database name `stickitout`. Lessons video is Cloudflare Stream. Custom posters are R2 bucket `stickitout-media`.
 
-Member tabs: Home, Practice, Library, Analyze, Profile. Challenges still exist at `/challenges` but are hidden from the nav (`SHOW_CHALLENGES_IN_NAV` in `workers/app/src/ui.ts`).
+Member tabs, in `workers/app/src/ui.ts` and the screen HTML in `workers/app/src/html.ts`: Home, Practice (`/practice`), Rudiments (`/rudiments`, gold circle in the phone dock), Analyze, Profile. Library and Challenges stay routed and are hidden from the nav and from Home.
 
-Practice (`/rudiments`): Rudiments are hands only. Hand fill drills are four-limb only. Feet patterns stay in D1 and admin, not on the member tab. Staff drawing is client-side VexFlow. Notation strings in D1 start with `drum:`. Sticking text must stay on the page even if the staff script fails.
+Home shows the playing level, the weakest rudiment, and the next medal. Practice recommends one hands drill plus two alternates from `practicePlan` in `workers/app/src/patterns.ts`, filtered by `people.level` (beginner, intermediate, advanced, pro). Rudiments is the catalog. Hands, then hand-fill drills. Feet stay in D1 and admin. Staff drawing is client-side VexFlow. Notation strings in D1 start with `drum:`. Sticking text must stay on the page even if the staff script fails.
 
-Medals run dirt through insanity from each pattern's Diamond BPM. A medal moves only on a clean session of at least 30 seconds. Streak days are America/Denver.
+Medals run dirt through insanity from each pattern's Diamond BPM. A medal moves only on a clean session of at least 30 seconds. The profile score is the average of those ranks across the hands rudiments for the member's level. Unplayed counts as dirt. Streak days are America/Denver and the UI calls the streak Stick with it. Profile photos go to R2 as `avatars/{personId}` (`people.avatar_key`, migration 0012).
 
 Library video plays only for founding or active members. Waitlist and canceled members must never get a Stream playback token.
 
@@ -88,7 +88,7 @@ Mail from `noreply@stickitoutdrums.com` can fail until Resend DKIM and SPF are f
 
 ## Analyzer
 
-Code in this repo: `analyzer/`. FastAPI app in `analyzer/app`, port 8800. The server currently running on this PC was launched from `C:\Users\epicn\Documents\sites\Stickitout-analyzer` and still reads that folder.
+Code in this repo: `analyzer/`. The live process is the `sio-analyzer` container from `analyzer/docker-compose.host.yml`, bound to `127.0.0.1:8800` on the Ubuntu server. Drum separation is Demucs `htdemucs` on CPU (`SIO_DRUMSEP=1`). When a steady click and dull snare hits are both present, tempo stays on the click and scored notes come from the drum stem. Coaching in `app/coaching.py` is rules, versioned, and speaks in plain language. The Analyze menu offers only the nine recorded rudiments in `app/profiles.py`. An upload of any other name is rejected. Flam is a grace note and is not scored as two even hits.
 
 Recording clips are not planted into a folder by hand. Set `CLIP_SHARE` to the shared-drive directory and `DATASET_DIR` (use `D:\Stickitout-dataset\clips`, not C:) before starting. Every 30 seconds the server copies videos that have finished arriving. The originals stay on the share. Then label them at `http://127.0.0.1:8800/label`. Do not send these takes through the member Analyze tab: those jobs are deleted after 72 hours.
 
@@ -106,11 +106,11 @@ The older sibling folder still starts with `C:\Users\epicn\Documents\sites\Stick
 
 What a take actually runs:
 
-1. Audio onsets and tempo from the clip (aubio). Timing is against a grid fitted to the player's own hits, not a click, unless they played to one.
-2. Body points from Google MediaPipe pose and hands (`models\`, public `.task` files). This model was trained on ordinary people, not drummers. Nothing in this repo fine-tunes those weights.
-3. A hit counts as verified when a video strike lands in the same window as an onset (default 40 ms, widened under 50 fps). A strike is a wrist low point. The checkout also adds a downward speed spike of the same wrist when that spike is not the descent into a dip already counted (`strike_speed_prominence` 0.6, `strike_same_stroke_ms` 90). That second rule is local code only. The process started from `Stickitout-analyzer` still uses low points alone, and the 60 stored `analysis.json` reports were written with that older detector. Left versus right is which wrist the strike belongs to.
-4. Coaching text in `app/coaching.py` is rules on those numbers. It is not an LLM. It does not judge posture, elbow angle, flams as separate notes, or stick height. Stick tips are not tracked. "Wrist travel" is how far the wrist moves up and down in the picture, so a side or three-quarter camera shows stroke height and a front camera mostly does not.
-5. Reports are files on this PC under the analyzer data dir. They are not in D1. They expire (`JOB_TTL_HOURS`, default 72). A job id is not tied to a member.
+1. Audio onsets and tempo. When a click and dull snare hits are both present, the tempo stays on the click and the scored notes are the drum stem.
+2. Body points from Google MediaPipe pose and hands. This model was trained on ordinary people, not drummers. Nothing in this repo fine-tunes those weights.
+3. A hit counts as verified when a video strike lands in the same window as an onset. A strike is a wrist low point, plus a downward speed spike that is not the descent into a dip already counted. Left versus right is which wrist the strike belongs to.
+4. Coaching text in `app/coaching.py` is rules on those numbers, rewritten for the rudiment the member picked. It is not an LLM. Playback can draw a skeleton, elbow degrees, and stick trails. Scoring does not use the drawn stick tip.
+5. Reports are files in the container volume `/var/sio/analyzer/jobs`. They are not in D1. They expire (`JOB_TTL_HOURS`, default 72). A job id is not tied to a member.
 
 Side view is the shot list default. A 45 degree angle is a label value (`side`, `front`, `45`, `overhead`, `other` in `app/labels.py`) but almost no reference clips use it. Pure side hides the far stick. Pure front loses stroke height.
 

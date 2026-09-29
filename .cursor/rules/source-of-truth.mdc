@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Source of truth
 
-`docs/source-of-truth.md` is the live inventory of every user-facing function on Stick It Out.
+`docs/source-of-truth.md` is the live inventory of every user-facing function on Stick It Out. `docs/stack.md` is how the hosts, the member screens, and the analyzer fit together. Read both before changing product behavior. `README.md` is the short map other agents see first.
 
 - Read it before changing product behavior.
 - Update it in the same turn you add, remove, ship, or break a feature. Status must match what is actually live, not what we planned.
