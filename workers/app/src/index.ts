@@ -46,12 +46,15 @@ import {
   bandStartBpm,
   dailyPatternFor,
   practicePlan,
+  practiceEvidence,
+  medalIndex,
   disciplinesForTab,
   HOLD_SECONDS,
   isDiscipline,
   listPatterns,
   practiceTabFromQuery,
   logSession,
+  MEDALS,
   medalLabel,
   medalTally,
   nextTargetBpm,
@@ -75,7 +78,7 @@ import {
   upsertAttempt,
 } from './challenges';
 import { parseProfile, profileComplete, saveProfile } from './profile';
-import { ANALYZE_PREFIX, analyzePage, analyzeProxy } from './analyze';
+import { ANALYZE_PREFIX, analyzePage, analyzeProxy, analyzerOnline } from './analyze';
 import {
   canWatch,
   ingestFromUrl,
@@ -282,12 +285,33 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
   }
 
   if (path === '/' || path === '') {
-    const [streak, plan, practiceDays] = await Promise.all([
+    const today = denverDay();
+    const [streak, plan, practiceDays, evidence, analyzer] = await Promise.all([
       streakState(env.DB, user.id),
-      practicePlan(env.DB, user),
+      practicePlan(env.DB, user, today),
       recentPracticeDays(env.DB, user.id),
+      practiceEvidence(env.DB, user.id, today),
+      analyzerOnline(env),
     ]);
-    return html(memberHome(base, user, { streak, daily: plan.primary, score: plan.score, practiceDays }));
+    // Closest medals: the two rudiments outside today's pick with the smallest BPM gap.
+    const closest = plan.window
+      .filter((p) => p.id !== plan.primary?.pattern.id && medalIndex(p.medal) < MEDALS.length - 1)
+      .map((p) => ({ p, left: Math.max(0, nextTargetBpm(p.medal, p) - Math.round(p.best_bpm || 0)) }))
+      .sort((a, b) => a.left - b.left)
+      .slice(0, 2)
+      .map((row) => row.p);
+    return html(
+      memberHome(base, user, {
+        streak,
+        daily: plan.primary,
+        score: plan.score,
+        practiceDays,
+        evidence,
+        closest,
+        analyzer,
+        today,
+      }),
+    );
   }
 
   if (path === '/practice') {
@@ -489,7 +513,7 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
     );
   }
 
-  return html(memberHome(base, user, { score: { score: 0, medal: 'dirt' } }), 404);
+  return html(memberHome(base, user, { score: { score: 0, medal: 'dirt' }, today: denverDay() }), 404);
 }
 
 async function requireAdmin(request: Request, env: Env, ctx: ReturnType<typeof requestCtx>): Promise<Person | Response> {

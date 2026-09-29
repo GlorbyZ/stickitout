@@ -57,7 +57,7 @@ export function denverDay(date: Date = new Date()): string {
   }).format(date);
 }
 
-function shiftDay(day: string, deltaDays: number): string {
+export function shiftDay(day: string, deltaDays: number): string {
   const [y, m, d] = day.split('-').map(Number);
   const base = Date.UTC(y, (m || 1) - 1, d || 1);
   return denverDayFromUtcNoon(base + deltaDays * DAY_MS);

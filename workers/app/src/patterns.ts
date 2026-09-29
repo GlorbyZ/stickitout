@@ -1,6 +1,6 @@
 import { nowIso, type Person } from './auth';
 import { allowedTiers, type Tier } from './access';
-import { denverDay, touchStreak, type Milestone } from './streaks';
+import { denverDay, shiftDay, touchStreak, type Milestone } from './streaks';
 
 export type Discipline = 'hands' | 'feet' | 'four-limb';
 export type Level = 'beginner' | 'intermediate' | 'advanced';
@@ -199,6 +199,97 @@ export async function recentSessions(
     .bind(personId, patternId, limit)
     .all<SessionRow>();
   return results || [];
+}
+
+/** One practice day: total time on the kit and the best clean tempo held that day. */
+export type PracticeDay = { day: string; seconds: number; bestClean: number | null };
+
+/**
+ * What Home shows under "Since you were here": the last session, this week
+ * against last week, and the daily bars. All of it comes from pattern_sessions,
+ * so nothing new is stored. Days are the same substr(at, 1, 10) buckets the
+ * streak strip already uses.
+ */
+export type PracticeEvidence = {
+  last: { title: string; slug: string; bpm: number | null; seconds: number; clean: boolean; day: string } | null;
+  days: PracticeDay[];
+  thisWeek: { seconds: number; bestClean: number | null };
+  lastWeek: { seconds: number; bestClean: number | null };
+};
+
+type EvidenceDayRow = { day: string; seconds: number | null; best_clean: number | null };
+type LastSessionRow = { title: string; slug: string; bpm: number | null; seconds: number; clean: number; at: string };
+
+function emptyWeek(): { seconds: number; bestClean: number | null } {
+  return { seconds: 0, bestClean: null };
+}
+
+export async function practiceEvidence(
+  db: D1Database,
+  personId: string,
+  today = denverDay(),
+): Promise<PracticeEvidence> {
+  const since = shiftDay(today, -13);
+  const [dayRows, lastRow] = await Promise.all([
+    db
+      .prepare(
+        `SELECT substr(at, 1, 10) AS day,
+                SUM(IFNULL(seconds, 0)) AS seconds,
+                MAX(CASE WHEN clean = 1 THEN bpm END) AS best_clean
+         FROM pattern_sessions
+         WHERE person_id = ? AND substr(at, 1, 10) >= ?
+         GROUP BY day
+         ORDER BY day ASC`,
+      )
+      .bind(personId, since)
+      .all<EvidenceDayRow>(),
+    db
+      .prepare(
+        `SELECT p.title AS title, p.slug AS slug, s.bpm AS bpm, s.seconds AS seconds, s.clean AS clean, s.at AS at
+         FROM pattern_sessions s
+         JOIN patterns p ON p.id = s.pattern_id
+         WHERE s.person_id = ?
+         ORDER BY s.at DESC
+         LIMIT 1`,
+      )
+      .bind(personId)
+      .first<LastSessionRow>(),
+  ]);
+
+  const byDay = new Map<string, PracticeDay>();
+  for (const row of dayRows.results || []) {
+    byDay.set(row.day, { day: row.day, seconds: Number(row.seconds || 0), bestClean: row.best_clean ?? null });
+  }
+  const days: PracticeDay[] = [];
+  for (let i = 13; i >= 0; i -= 1) {
+    const day = shiftDay(today, -i);
+    days.push(byDay.get(day) || { day, seconds: 0, bestClean: null });
+  }
+
+  const roll = (slice: PracticeDay[]) =>
+    slice.reduce(
+      (acc, d) => ({
+        seconds: acc.seconds + d.seconds,
+        bestClean: d.bestClean != null ? Math.max(acc.bestClean ?? 0, d.bestClean) : acc.bestClean,
+      }),
+      emptyWeek(),
+    );
+
+  return {
+    last: lastRow
+      ? {
+          title: lastRow.title,
+          slug: lastRow.slug,
+          bpm: lastRow.bpm ?? null,
+          seconds: Number(lastRow.seconds || 0),
+          clean: lastRow.clean === 1,
+          day: lastRow.at.slice(0, 10),
+        }
+      : null,
+    days,
+    thisWeek: roll(days.slice(7)),
+    lastWeek: roll(days.slice(0, 7)),
+  };
 }
 
 export type LoggedSession = {

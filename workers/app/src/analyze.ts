@@ -21,6 +21,8 @@ export const ANALYZE_PREFIX = '/analyze';
 const OFFLINE = 'Analyzer is offline right now, try again later.';
 const PAGE_TIMEOUT_MS = 8000;
 const API_TIMEOUT_MS = 25000;
+/** Home only asks whether the origin answers, so it waits far less than a real call. */
+const STATUS_TIMEOUT_MS = 1500;
 const JOB = '[0-9a-f]{32}';
 
 /** Member-facing analyzer routes. Anything else (label page, dataset intake, tools) is 404 here. */
@@ -100,6 +102,17 @@ const PASS_HEADERS = [
   'Content-Disposition',
 ];
 const FORWARD_HEADERS = ['Content-Type', 'Range', 'If-Range', 'If-None-Match', 'If-Modified-Since', 'Accept'];
+
+/**
+ * Is the analyzer reachable right now? Home shows a chip off this. Null means the
+ * analyzer is not configured for this Worker, and the chip is left off the page
+ * entirely — Home must never look broken because the Ubuntu box is asleep.
+ */
+export async function analyzerOnline(env: AnalyzeEnv): Promise<boolean | null> {
+  if (!configured(env)) return null;
+  const res = await upstream(env, '/api/config', { method: 'GET', timeoutMs: STATUS_TIMEOUT_MS });
+  return !looksOffline(res);
+}
 
 /** Proxy one /analyze/* request (not the page itself). Caller has already checked the member session. */
 export async function analyzeProxy(request: Request, env: AnalyzeEnv, sub: string): Promise<Response> {

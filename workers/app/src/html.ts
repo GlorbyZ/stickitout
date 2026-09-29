@@ -16,6 +16,8 @@ import {
   nextTargetBpm,
   type DailyPick,
   type MedalTally,
+  type PracticeDay,
+  type PracticeEvidence,
   type Pattern,
   type PatternWithProgress,
   type SessionRow,
@@ -70,6 +72,167 @@ function levelName(level: string | undefined): string {
   return level && level in LEVEL_LABELS ? LEVEL_LABELS[level as PlayingLevel] : 'Beginner';
 }
 
+/** "Saturday", "Yesterday", "Today" — Denver days, the same buckets the streak uses. */
+function dayLabel(day: string, today: string): string {
+  if (day === today) return 'Today';
+  const [y, m, d] = day.split('-').map(Number);
+  const at = Date.UTC(y, (m || 1) - 1, d || 1, 12);
+  const [ty, tm, td] = today.split('-').map(Number);
+  const now = Date.UTC(ty, (tm || 1) - 1, td || 1, 12);
+  const back = Math.round((now - at) / 86400000);
+  if (back === 1) return 'Yesterday';
+  if (back < 7) return new Date(at).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+  return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+function minutes(seconds: number): number {
+  return Math.round(seconds / 60);
+}
+
+/** Seven bars, one per Denver day. Tallest bar is the best day in the window. */
+function weekBars(days: PracticeDay[]): string {
+  const top = Math.max(1, ...days.map((d) => d.seconds));
+  const bars = days
+    .map((d) => {
+      if (d.seconds <= 0) return '<i class="rest"></i>';
+      const pct = Math.round((d.seconds / top) * 100);
+      return `<i style="--h:${Math.max(14, pct)}%"></i>`;
+    })
+    .join('');
+  return `<div class="bars" aria-hidden="true">${bars}</div>`;
+}
+
+/** Best clean tempo per day, as a line. Flat until there are two points. */
+function tempoLine(days: PracticeDay[]): string {
+  const points = days.filter((d) => d.bestClean != null);
+  if (points.length < 2) return '';
+  const values = points.map((d) => d.bestClean as number);
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const span = high - low || 1;
+  const coords = values
+    .map((v, i) => `${Math.round((i / (values.length - 1)) * 200)},${Math.round(30 - ((v - low) / span) * 26)}`)
+    .join(' ');
+  return `<svg class="spark" viewBox="0 0 200 34" aria-hidden="true"><polyline points="${coords}" fill="none" stroke="var(--gel)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+/** Up is always the member's direction: more minutes, more tempo. A down week is quiet, never red. */
+function delta(now: number, before: number, unit: string, word: string): string {
+  if (before <= 0 && now <= 0) return '';
+  const diff = Math.round(now - before);
+  if (before <= 0) return `<span class="muted step">First ${word} logged</span>`;
+  if (diff > 0) return `<span class="step up">▲ ${diff} ${unit} ${word}</span>`;
+  if (diff === 0) return `<span class="muted step">Same as last week</span>`;
+  return `<span class="muted step">${Math.abs(diff)} ${unit} less than last week</span>`;
+}
+
+/** The one number a member can move tonight: best clean tempo against the next medal. */
+function gapBar(pattern: PatternWithProgress, atTop: boolean, nextBpm: number | null, nextMedal: string): string {
+  const best = Math.round(pattern.best_bpm || 0);
+  if (atTop || !nextBpm) {
+    return `<p class="gap-note">Top of the ladder. Your best clean run is ${best || '—'} BPM.</p>`;
+  }
+  const pct = Math.max(4, Math.min(100, Math.round((best / nextBpm) * 100)));
+  const left = Math.max(0, nextBpm - best);
+  const line = best
+    ? `${left} BPM to go — clean, click on, ${HOLD_SECONDS} seconds.`
+    : `No clean run yet — the first one sets the mark. ${nextBpm} BPM, clean, ${HOLD_SECONDS} seconds.`;
+  return `<div class="gap-bar">
+    <p class="gap-read"><span>Your best clean <strong>${best ? `${best} BPM` : 'not set'}</strong></span><span class="muted">${escapeHtml(nextMedal)} at ${nextBpm}</span></p>
+    <div class="gap-track"><i style="width:${best ? pct : 0}%"></i></div>
+    <p class="gap-note">${escapeHtml(line)}</p>
+  </div>`;
+}
+
+/** Since you were here: last session, minutes this week, best clean tempo. A snap rail on the phone. */
+function evidenceRail(evidence: PracticeEvidence | null, today: string, canLog: boolean): string {
+  if (!evidence || !evidence.last) {
+    const line = canLog
+      ? 'Log your first session and this row fills in: what you played, minutes on the kit, and your best clean tempo.'
+      : 'Your first session lands here once a founding spot opens.';
+    return `<p class="rail-empty muted">${escapeHtml(line)}</p>`;
+  }
+  const last = evidence.last;
+  const week = evidence.thisWeek;
+  const prev = evidence.lastWeek;
+  const lastBits = [last.title, last.seconds ? `${minutes(last.seconds)} min` : '', last.clean ? 'clean' : 'rough']
+    .filter(Boolean)
+    .join(' · ');
+  return `<div class="rail">
+    <article class="fact">
+      <p class="fact-head">Last session · ${escapeHtml(dayLabel(last.day, today))}</p>
+      <p class="fact-num">${last.bpm ? Math.round(last.bpm) : '—'}<i>${last.bpm ? 'BPM' : ''}</i></p>
+      <p class="fact-sub muted">${escapeHtml(lastBits)}</p>
+    </article>
+    <article class="fact">
+      <p class="fact-head">This week on the kit</p>
+      <p class="fact-num">${minutes(week.seconds)}<i>MIN</i></p>
+      ${delta(minutes(week.seconds), minutes(prev.seconds), 'min', 'vs last week')}
+      ${weekBars(evidence.days.slice(7))}
+    </article>
+    <article class="fact">
+      <p class="fact-head">Best clean tempo</p>
+      <p class="fact-num">${week.bestClean ? Math.round(week.bestClean) : '—'}<i>${week.bestClean ? 'BPM' : ''}</i></p>
+      ${week.bestClean ? delta(Math.round(week.bestClean), Math.round(prev.bestClean || 0), 'BPM', 'since last week') : '<span class="muted step">No clean run this week</span>'}
+      ${tempoLine(evidence.days)}
+    </article>
+  </div>`;
+}
+
+/** The medal ladder for the gap rudiment. Phone shows the rungs around the member, desktop all of them. */
+function ladderStrip(
+  base: string,
+  pattern: PatternWithProgress,
+  score: { score: number; medal: string },
+  closest: PatternWithProgress[],
+): string {
+  const here = medalIndex(pattern.medal || 'dirt');
+  // Phone shows five rungs. Keep the member inside that window even at either end of the ladder.
+  const windowStart = Math.max(0, Math.min(here - 2, MEDALS.length - 5));
+  const rungs = MEDALS.map((medal, i) => {
+    const bpm = medal.at > 0 ? medalTarget(pattern.bpm_goal, medal.id) : null;
+    const state = i < here ? 'done' : i === here ? 'now' : '';
+    const near = i >= windowStart && i < windowStart + 5 ? '' : ' is-far';
+    return `<li class="rung ${state}${near}">
+      <span class="cap"></span>
+      <small>${escapeHtml(medal.label)}${bpm ? `<b>${bpm}</b>` : ''}</small>
+    </li>`;
+  }).join('');
+  const next = closest
+    .map((p) => {
+      const target = nextTargetBpm(p.medal, p);
+      const left = Math.max(0, target - Math.round(p.best_bpm || 0));
+      const label = medalLabel(MEDALS[Math.min(medalIndex(p.medal) + 1, MEDALS.length - 1)].id);
+      return `<a href="${base}/rudiments/${escapeHtml(p.slug)}"><strong>${escapeHtml(p.title)}</strong> — ${left} BPM from ${escapeHtml(label)}</a>`;
+    })
+    .join('<span class="dot-sep">·</span>');
+  return `<section class="panel ladder-panel" aria-label="Your ladder">
+    <div class="panel-head">
+      <p class="label">Your ladder · ${escapeHtml(pattern.title)}</p>
+      <p class="muted panel-note">Badge score ${score.score.toFixed(1)} of ${MEDALS.length - 1} tiers · ${escapeHtml(medalLabel(score.medal))} territory</p>
+    </div>
+    <ol class="ladder">${rungs}</ol>
+    ${next ? `<p class="ladder-next muted">Next closest: ${next}</p>` : ''}
+  </section>`;
+}
+
+/** Analyze is the thing a video library cannot do. Home is where a member finds out it exists. */
+function analyzeStrip(base: string, pattern: PatternWithProgress | undefined, online: boolean | null): string {
+  const what = pattern ? pattern.title.toLowerCase() : 'a rudiment';
+  const note =
+    online === false
+      ? 'Analyzer is offline right now — practice tools still work.'
+      : 'Never tried it — most members start here.';
+  return `<section class="panel strip" aria-label="Check yourself">
+    <div>
+      <p class="label">Check yourself</p>
+      <p class="strip-copy">Film ${HOLD_SECONDS} seconds of ${escapeHtml(what)} and get timing, drift and a coaching line back.</p>
+      <p class="muted strip-note">${escapeHtml(note)}</p>
+    </div>
+    <a class="btn ghost" href="${base}/analyze">Open Analyze</a>
+  </section>`;
+}
+
 export function memberHome(
   base: string,
   user: Person,
@@ -78,6 +241,10 @@ export function memberHome(
     practiceDays?: string[];
     daily?: DailyPick | null;
     score: { score: number; medal: string };
+    evidence?: PracticeEvidence | null;
+    closest?: PatternWithProgress[];
+    analyzer?: boolean | null;
+    today: string;
   },
 ): string {
   const first = (user.name || user.email.split('@')[0]).split(' ')[0];
@@ -85,19 +252,20 @@ export function memberHome(
   const pattern = daily?.pattern;
   const nextMedal = pattern ? MEDALS[Math.min(medalIndex(pattern.medal) + 1, MEDALS.length - 1)] : null;
   const nextBpm = pattern && nextMedal ? nextTargetBpm(pattern.medal, pattern) : null;
-  const scoreText = data.score.score.toFixed(1);
   const atTop = Boolean(pattern && nextMedal && nextMedal.id === pattern.medal);
-  const gapLine = pattern ? `${medalLabel(pattern.medal)} now` : 'Practice will name it.';
-  const nextLine =
-    nextBpm && pattern && nextMedal && !atTop
-      ? `${nextBpm} BPM, clean, ${HOLD_SECONDS} seconds`
-      : 'This one is at the top of the ladder.';
+  const daysHit = new Set(data.practiceDays || []).size;
   const stageNote =
     user.status === 'waitlist'
       ? 'You can see the path. Logging a session unlocks with a founding spot.'
       : pattern
-        ? `Next medal is ${nextMedal ? nextMedal.label : 'the next tier'}.`
+        ? `Next medal is ${nextMedal && !atTop ? nextMedal.label : 'the top of the ladder'}.`
         : 'Open Practice when a rudiment is ready.';
+  const chip =
+    data.analyzer === null || data.analyzer === undefined
+      ? ''
+      : `<span class="chip ${data.analyzer ? 'is-on' : 'is-off'}"><i aria-hidden="true"></i>${
+          data.analyzer ? 'Analyzer online' : 'Analyzer offline'
+        }</span>`;
 
   return shell({
     title: 'Home | Stick It Out',
@@ -107,45 +275,46 @@ export function memberHome(
     user,
     wide: true,
     body: `
-      <header class="bench-mast">
-        <p class="greet">Hey ${escapeHtml(first)}</p>
-        <p class="bench-kicker muted">${escapeHtml(levelName(user.level))} · position on the ladder</p>
+      <header class="bench-mast home-mast">
+        <div>
+          <p class="greet">Hey ${escapeHtml(first)}</p>
+          <p class="bench-kicker muted">${escapeHtml(levelName(user.level))} · ${daysHit} of the last 7 days</p>
+        </div>
+        ${chip}
       </header>
-      <section class="stage rise-in" aria-label="Where you stand">
+      <section class="stage rise-in" aria-label="Work on this today">
         <div class="stage-main">
-          <p class="label">The gap</p>
+          <p class="label">Work on this today</p>
           <h1 class="display stage-title">${pattern ? escapeHtml(pattern.title) : 'Your next step'}</h1>
-          <p class="stage-note">${escapeHtml(stageNote)}</p>
+          ${pattern?.sticking ? `<p class="stage-sticking">${escapeHtml(pattern.sticking)}</p>` : ''}
+          ${pattern ? gapBar(pattern, atTop, nextBpm, nextMedal ? nextMedal.label : '') : `<p class="stage-note">${escapeHtml(stageNote)}</p>`}
           <div class="stage-actions">
-            <a class="btn" href="${base}/practice">Open practice</a>
-            ${pattern ? `<a class="btn ghost" href="${base}/rudiments/${escapeHtml(pattern.slug)}">Open the rudiment</a>` : ''}
+            <a class="btn" href="${base}/practice">Start practice</a>
+            <a class="btn ghost" href="${base}/analyze">Record a take</a>
           </div>
+          ${pattern && user.status === 'waitlist' ? `<p class="stage-note">${escapeHtml(stageNote)}</p>` : ''}
         </div>
         <div class="stage-side">
           ${data.streak ? streakRing(data.streak, data.practiceDays || []) : ''}
-          <p class="readout">
-            <span class="readout-num">${scoreText}</span>
-            <span class="muted">${escapeHtml(medalLabel(data.score.medal))} across your level</span>
-          </p>
         </div>
       </section>
-      <ol class="beats">
-        <li>
-          <p class="label"><span>01</span> Where you are</p>
-          <strong>${escapeHtml(levelName(user.level))}</strong>
-          <span class="muted">${scoreText} across the rudiments for your level. ${escapeHtml(medalLabel(data.score.medal))} territory.</span>
-        </li>
-        <li>
-          <p class="label"><span>02</span> The gap</p>
-          <strong>${pattern ? escapeHtml(pattern.title) : 'Pick a rudiment'}</strong>
-          <span class="muted">${escapeHtml(gapLine)}</span>
-        </li>
-        <li>
-          <p class="label"><span>03</span> Next medal</p>
-          <strong>${nextMedal && pattern && !atTop ? escapeHtml(nextMedal.label) : 'Hold the top'}</strong>
-          <span class="muted">${escapeHtml(nextLine)}</span>
-        </li>
-      </ol>
+      <h2 class="label section-label">Since you were here</h2>
+      ${evidenceRail(data.evidence || null, data.today, canPractice(user))}
+      ${pattern ? ladderStrip(base, pattern, data.score, data.closest || []) : ''}
+      ${analyzeStrip(base, pattern, data.analyzer ?? null)}
+      <nav class="home-foot" aria-label="More">
+        <a href="${base}/rudiments">All rudiments</a>
+        <a href="${base}/library">Library</a>
+        <a href="${base}/challenges">Challenge board</a>
+        <a href="${base}/profile">Profile</a>
+      </nav>
+      <p class="muted home-status">${
+        user.status === 'waitlist'
+          ? 'Waitlist — founding spots open soon'
+          : user.status === 'canceled'
+            ? 'Membership canceled — practice tools stay open'
+            : 'Founding member · $19.99/mo locked'
+      }</p>
     `,
   });
 }
