@@ -1,6 +1,6 @@
 # Stick It Out stack
 
-Briefing for agents. Status of every user-facing path is `docs/source-of-truth.md` in the Stickitout repo. This file is how the pieces fit together. If you change product behavior, update source-of-truth in the same turn. Do not mark something `live` if it only works on this PC.
+Briefing for agents. Status of every user-facing path is `docs/source-of-truth.md`. Which folder is current and which is leftover is `docs/code-map.md`. This file is how the pieces fit together. If you change product behavior, update source-of-truth in the same turn. Do not mark something `live` if it only works on this PC.
 
 There is one git repo. The analyzer is the `analyzer/` directory in this checkout. On disk that repo lives at `C:\Users\epicn\Documents\sites\Stickitout`. GitHub: `GlorbyZ/stickitout` (public).
 

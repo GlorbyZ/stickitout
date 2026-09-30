@@ -16,7 +16,7 @@ services:
       TORCH_HOME: /data/models
       SIO_DRUMSEP: "1"
       MAX_UPLOAD_MB: "1024"
-      JOB_TTL_HOURS: "72"
+      JOB_TTL_HOURS: "0"
       IMAGEIO_FFMPEG_EXE: /usr/bin/ffmpeg
     volumes:
       - /var/sio/analyzer/jobs:/data/jobs

@@ -58,12 +58,15 @@ class StickTracker:
         
         speed = math.hypot(s["dx"], s["dy"])
         a = one_euro_alpha(1.15 + speed * 7.0, dt)
-        s["x"] += a * (raw["x"] - s["x"])
-        s["y"] += a * (raw["y"] - s["y"])
         s["t"] = t
-        s["angle"] += angle_delta(raw["angle"], s["angle"]) * 0.55
-        s["length"] += (raw["length"] - s["length"]) * 0.45
-        
+        # Angle and length follow slowly. The tip is then placed on that rigid shaft
+        # so a bad frame cannot slide the tip off the stick.
+        s["angle"] += angle_delta(raw["angle"], s["angle"]) * 0.40
+        s["length"] += (raw["length"] - s["length"]) * 0.05
+        gx = raw["x"] - raw["length"] * math.cos(raw["angle"])
+        gy = raw["y"] - raw["length"] * math.sin(raw["angle"])
+        s["x"] = gx + s["length"] * math.cos(s["angle"])
+        s["y"] = gy + s["length"] * math.sin(s["angle"])
         return (s["x"], s["y"])
         
     def _score_ray(self, gray: np.ndarray, previous: Optional[np.ndarray], w: int, h: int, ox: float, oy: float, ang: float, hand_len: float, prior: Optional[dict]) -> Optional[dict]:

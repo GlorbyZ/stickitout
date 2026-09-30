@@ -35,6 +35,7 @@ import {
   memberPractice,
   memberProfile,
   memberRudimentDetail,
+  memberUpgrade,
   memberRudiments,
   memberWatch,
   type AdminLesson,
@@ -164,8 +165,46 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
   const { base, path, origin } = ctx;
 
   if (path === '/api/leads') return ingestLeadFetch(request, env);
+  if (path === '/api/founders-count') {
+    const adminEmails = env.ADMIN_EMAILS ? env.ADMIN_EMAILS.split(',').map((e: string) => e.trim().toLowerCase()) : [];
+    let countQuery = "SELECT COUNT(*) as c FROM memberships m JOIN people p ON m.person_id = p.id WHERE m.status = 'active'";
+    let count = 0;
+    if (adminEmails.length > 0) {
+        const placeholders = adminEmails.map(() => '?').join(',');
+        countQuery += ` AND p.email NOT IN (${placeholders})`;
+        const res = await env.DB.prepare(countQuery).bind(...adminEmails).first<{ c: number }>();
+        count = res?.c || 0;
+    } else {
+        const res = await env.DB.prepare(countQuery).first<{ c: number }>();
+        count = res?.c || 0;
+    }
+    const remaining = Math.max(0, 20 - count);
+    return new Response(JSON.stringify({ remaining, total_founders: 20 }), {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
 
   const user = await getSessionPerson(env.DB, request, MEMBER_COOKIE);
+    const adminEmails = env.ADMIN_EMAILS ? env.ADMIN_EMAILS.split(',').map((e: string) => e.trim().toLowerCase()) : [];
+    const isAdmin = adminEmails.includes(user?.email?.toLowerCase() || '');
+    let currentViewAs = '';
+    if (user && isAdmin) {
+      const cookieHeader = request.headers.get('Cookie') || '';
+      const match = cookieHeader.match(/view_as_tier=([^;]+)/);
+      if (match) {
+        currentViewAs = match[1];
+        if (currentViewAs === 'free') {
+          user.status = 'waitlist';
+          user.plan = 'free';
+        } else if (currentViewAs === 'member') {
+          user.status = 'active';
+          user.plan = 'monthly';
+        } else if (currentViewAs === 'founder') {
+          user.status = 'founding';
+          user.plan = 'monthly';
+        }
+      }
+    }
 
   if (path === '/logout') {
     return redirect(`${base}/login`, { 'Set-Cookie': clearCookie(MEMBER_COOKIE, origin.startsWith('https')) });
@@ -217,6 +256,27 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
   const media = await serveLessonPoster(request, env, ctx.path, user);
   if (media) return media;
 
+
+  if (path === '/toggle-view-as-member' && request.method === 'POST') {
+    if (!isAdmin) return new Response('Forbidden', { status: 403 });
+    const body = await readForm(request);
+    const viewAs = (body.view_as || '').trim();
+    const maxAge = (!viewAs || viewAs === 'admin') ? 0 : 31536000;
+    const cookieVal = (!viewAs || viewAs === 'admin') ? 'admin' : viewAs;
+    const newCookie = `view_as_tier=${cookieVal}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
+    return new Response(null, {
+      status: 303,
+      headers: {
+        'Location': `${base}/profile`,
+        'Set-Cookie': newCookie,
+      }
+    });
+  }
+
+  if (path === '/upgrade') {
+    return html(memberUpgrade(base, user));
+  }
+
   if (path === '/profile' && request.method === 'POST') {
     const fd = await request.formData();
     const body: Record<string, string> = {};
@@ -234,9 +294,12 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
         await env.DB.prepare('UPDATE people SET avatar_key = ? WHERE id = ?').bind(saved.key, user.id).run();
       }
     }
-    if (parsed.error || photoError) {
-      return html(memberProfile(base, { ...user, name: parsed.name, kit: parsed.kit, level: parsed.level, phone: parsed.phone, avatar_key: avatarKey }, env.STRIPE_PORTAL_URL.trim(), { setup, error: parsed.error || photoError }));
-    }
+    const adminEmails = env.ADMIN_EMAILS ? env.ADMIN_EMAILS.split(',').map((e: string) => e.trim().toLowerCase()) : [];
+      const isAdmin = adminEmails.includes(user.email.toLowerCase());
+      const viewAsMember = (request.headers.get('Cookie') || '').includes('view_as_member=1');
+      if (parsed.error || photoError) {
+        return html(memberProfile(base, { ...user, name: parsed.name, kit: parsed.kit, level: parsed.level, phone: parsed.phone, avatar_key: avatarKey }, env.STRIPE_PORTAL_URL.trim(), { setup, error: parsed.error || photoError, isAdmin, viewAsMember, currentViewAs }));
+      }
     await saveProfile(env.DB, user.id, parsed);
     if (setup) return redirect(`${base}/`);
     return redirect(`${base}/profile?n=${encodeURIComponent('Settings saved.')}`);
@@ -267,17 +330,20 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
       practicePlan(env.DB, user),
       recentPracticeDays(env.DB, user.id),
     ]);
-    return html(
-      memberProfile(base, user, env.STRIPE_PORTAL_URL.trim(), {
-        setup: !profileComplete(user),
-        note: ctx.url.searchParams.get('n') || '',
-        streak,
-        medals,
-        patterns,
-        score: plan.score,
-        practiceDays,
-      }),
-    );
+    const adminEmails = env.ADMIN_EMAILS ? env.ADMIN_EMAILS.split(',').map((e: string) => e.trim().toLowerCase()) : [];
+      const isAdmin = adminEmails.includes(user.email.toLowerCase());
+      const viewAsMember = (request.headers.get('Cookie') || '').includes('view_as_member=1');
+      return html(
+        memberProfile(base, user, env.STRIPE_PORTAL_URL.trim(), {
+          setup: !profileComplete(user),
+          note: ctx.url.searchParams.get('n') || '',
+          streak,
+          medals,
+          patterns,
+          score: plan.score,
+          practiceDays,
+          isAdmin, viewAsMember, currentViewAs }),
+      );
   }
 
   if (!profileComplete(user)) {
@@ -315,6 +381,7 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
   }
 
   if (path === '/practice') {
+    if (!canPractice(user)) return redirect(`${base}/upgrade`);
     const [streak, plan, practiceDays] = await Promise.all([
       streakState(env.DB, user.id),
       practicePlan(env.DB, user),
@@ -401,7 +468,7 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
 
   if (path === '/library') {
     const { results } = await env.DB.prepare(
-      `SELECT l.id, l.title, l.week_index, l.video_url, l.stream_uid, l.poster_key, l.summary, lp.watched_at, lp.completed_at
+      `SELECT l.id, l.title, l.week_index, l.video_url, l.stream_uid, l.poster_key, l.summary, l.is_free, lp.watched_at, lp.completed_at
        FROM lessons l
        LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.person_id = ?
        WHERE l.published_at IS NOT NULL
@@ -443,7 +510,7 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
 
   if (watch) {
     const lesson = await env.DB.prepare(
-      `SELECT l.id, l.title, l.week_index, l.video_url, l.stream_uid, l.poster_key, l.summary, lp.watched_at, lp.completed_at
+      `SELECT l.id, l.title, l.week_index, l.video_url, l.stream_uid, l.poster_key, l.summary, l.is_free, lp.watched_at, lp.completed_at
        FROM lessons l
        LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.person_id = ?
        WHERE l.id = ? AND l.published_at IS NOT NULL`,
@@ -476,7 +543,10 @@ async function memberFetch(request: Request, env: Env, ctx: ReturnType<typeof re
     } else if (!canWatch(user.status)) {
       player = { src: '', ready: false, error: 'Membership required.' };
     }
-    return html(memberWatch(base, user, lesson, player, ctx.url.searchParams.get('n') || ''));
+    const today = denverDay();
+      const plan = await practicePlan(env.DB, user, today);
+      const testPattern = plan.primary?.pattern || null;
+      return html(memberWatch(base, user, lesson, player, ctx.url.searchParams.get('n') || '', testPattern));
   }
 
   if (path === ANALYZE_PREFIX || path === `${ANALYZE_PREFIX}/`) {
@@ -769,13 +839,13 @@ async function adminFetch(request: Request, env: Env, ctx: ReturnType<typeof req
       await audit(env.DB, admin.email, `lessons.stream-ingest ${id} ${ingested.id}`);
       return redirect(`${base}/lessons/${id}?n=${encodeURIComponent('Ingest started. Refresh when Stream is ready.')}`);
     }
-    const current = await env.DB.prepare('SELECT stream_uid, video_url, title, week_index, summary FROM lessons WHERE id = ?')
+    const current = await env.DB.prepare('SELECT stream_uid, video_url, title, week_index, summary, is_free FROM lessons WHERE id = ?')
       .bind(id)
-      .first<{ stream_uid: string | null; video_url: string | null; title: string; week_index: number; summary: string }>();
+      .first<{ stream_uid: string | null; video_url: string | null; title: string; week_index: number; summary: string; is_free: number | null }>();
     if (!current) return redirect(`${base}/lessons?n=${encodeURIComponent('Lesson not found.')}`);
     const keepIds = !('stream_uid' in body) && !('video_url' in body);
     await env.DB.prepare(
-      'UPDATE lessons SET title = ?, week_index = ?, video_url = ?, stream_uid = ?, summary = ? WHERE id = ?',
+      'UPDATE lessons SET title = ?, week_index = ?, video_url = ?, stream_uid = ?, summary = ?, is_free = ? WHERE id = ?',
     )
       .bind(
         (body.title || current.title).trim(),
@@ -783,6 +853,7 @@ async function adminFetch(request: Request, env: Env, ctx: ReturnType<typeof req
         keepIds ? current.video_url : (body.video_url || '').trim() || null,
         keepIds ? current.stream_uid : (body.stream_uid || '').trim() || null,
         'summary' in body ? (body.summary || '').trim() : current.summary,
+        'is_free' in body ? (body.is_free === '1' ? 1 : 0) : (current.is_free ?? 0),
         id,
       )
       .run();
@@ -864,6 +935,24 @@ async function adminFetch(request: Request, env: Env, ctx: ReturnType<typeof req
   }
 
   if (path === '/api/leads') return ingestLeadFetch(request, env);
+  if (path === '/api/founders-count') {
+    const adminEmails = env.ADMIN_EMAILS ? env.ADMIN_EMAILS.split(',').map((e: string) => e.trim().toLowerCase()) : [];
+    let countQuery = "SELECT COUNT(*) as c FROM memberships m JOIN people p ON m.person_id = p.id WHERE m.status = 'active'";
+    let count = 0;
+    if (adminEmails.length > 0) {
+        const placeholders = adminEmails.map(() => '?').join(',');
+        countQuery += ` AND p.email NOT IN (${placeholders})`;
+        const res = await env.DB.prepare(countQuery).bind(...adminEmails).first<{ c: number }>();
+        count = res?.c || 0;
+    } else {
+        const res = await env.DB.prepare(countQuery).first<{ c: number }>();
+        count = res?.c || 0;
+    }
+    const remaining = Math.max(0, 20 - count);
+    return new Response(JSON.stringify({ remaining, total_founders: 20 }), {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
 
   if (path === '/financials') {
     return html(
@@ -972,7 +1061,7 @@ async function renderLessonDetail(
   upload: { id: string; uploadURL: string } | null = null,
 ): Promise<Response> {
   const lesson = await env.DB.prepare(
-    'SELECT id, slug, title, week_index, published_at, video_url, stream_uid, poster_key, summary FROM lessons WHERE id = ?',
+    'SELECT id, slug, title, week_index, published_at, video_url, stream_uid, poster_key, summary, is_free FROM lessons WHERE id = ?',
   )
     .bind(id)
     .first<AdminLesson>();

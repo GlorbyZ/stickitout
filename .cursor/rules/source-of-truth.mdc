@@ -12,3 +12,11 @@ alwaysApply: true
 - Do not mark a path `live` if it only works locally, or if it writes somewhere the dashboard does not read.
 - Waitlist signups must land in D1 **and** Resend lists (`SIO Waitlist` / `SIO All`). Admin Members reads D1 only. IONOS `leads.json` is a backup, not the dashboard.
 - Do not invent Stripe URLs, reviews, or unpublished lessons. Founding rates stay $19.99/mo and $149/yr.
+
+## Finish check (every turn that changes anything)
+
+- Before saying a task is done, reopen `docs/source-of-truth.md` and confirm it matches what you just shipped. If it does not, fix it first.
+- When something moves (host, server, tunnel, folder), search the doc for the old place and fix every mention.
+- Keep numbered Known gaps items in order, bump "Last updated", and record the newest applied D1 migration and Worker version.
+- Never put keys or tokens in the doc or the repo. It is public.
+- The full list is in "Rules for keeping this file true" at the top of the doc.

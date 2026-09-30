@@ -87,6 +87,34 @@ def onset_velocities(y: np.ndarray, sr: int, times: list[float]) -> np.ndarray:
     return rms / rms.max() if rms.size and rms.max() > 0 else rms
 
 
+def detect_template_metronome(y: np.ndarray, sr: int, template_path: Path) -> tuple[float, list[float]] | None:
+    """Match the take against data/stickitout_click.wav when that file is present.
+
+    Returns (bpm, beat times) or None. Missing file, a quiet match, or an unsteady
+    peak train all fall through to beat tracking. This does not replace drum separation.
+    """
+    if not template_path.is_file():
+        return None
+    import scipy.signal
+    ty, tsr = load_wav(template_path)
+    if tsr != sr:
+        ty = librosa.resample(ty, orig_sr=tsr, target_sr=sr)
+    sos = scipy.signal.butter(6, 800, "hp", fs=sr, output="sos")
+    corr = scipy.signal.correlate(scipy.signal.sosfilt(sos, y), scipy.signal.sosfilt(sos, ty), mode="valid", method="fft")
+    if corr.size == 0 or float(np.max(corr)) <= 0:
+        return None
+    peaks, _ = scipy.signal.find_peaks(corr, height=float(np.max(corr)) * 0.25, distance=int(sr * 0.15))
+    if len(peaks) < 4:
+        return None
+    times = peaks / sr
+    locked = steady_beat([float(t) for t in times])
+    if locked is None:
+        return None
+    first_beat, period = locked
+    grid = [first_beat + i * period for i in range(int((times[-1] - first_beat) / period) + 2)]
+    return float(np.clip(60.0 / period, TEMPO_MIN, TEMPO_MAX)), grid
+
+
 def estimate_tempo(y: np.ndarray, sr: int) -> tuple[float, list[float]]:
     """librosa beat tracking on the onset envelope, clamped to 40-260 BPM."""
     env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=ENV_HOP)
@@ -213,7 +241,9 @@ def analyze_audio(wav_path: Path, target_bpm: float | None = None, subdivision: 
 
     times = np.array([o["t"] for o in onsets])
     heard = y
-    raw_bpm, beat_times = estimate_tempo(y, sr)
+    click = Path(__file__).resolve().parent.parent / "data" / "stickitout_click.wav"
+    matched = detect_template_metronome(y, sr, click)
+    raw_bpm, beat_times = matched if matched else estimate_tempo(y, sr)
     locked = steady_beat(beat_times)
     if locked is not None:
         from .drums import drum_stem, has_drums_besides_click
