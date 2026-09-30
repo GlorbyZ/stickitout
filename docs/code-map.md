@@ -31,7 +31,7 @@ Founding prices stay $19.99/mo and $149/yr. Do not invent Stripe URLs.
 | Path | What it is |
 | --- | --- |
 | `C:\Users\epicn\Documents\sites\Stickitout-analyzer\` | Older checkout outside this repo. It is not on `main`. Its `static/index.html` glass layout is an experiment. It dropped ids the scripts need and the portal page stops. Do not point the tunnel or the Docker build at this folder. |
-| `tmp/` in this repo | Scratch. Not part of the product. |
+| `tmp/`, root `patch_*.py`, `workers/app/src/html_backup.ts` | Scratch and one-off patch scripts. Gitignored. Not part of the product. |
 | `analyzer/data/jobs/` | Local takes. Not committed. The server copies live under `/var/sio/analyzer/jobs`. |
 
 The studio PC scripts `start-remote.ps1` must stay off while `cloudflared-analyzer` is running on the Ubuntu server. Two tunnels on the same name fight.

@@ -32,3 +32,15 @@ dist/data/capture-config.php
 .wrangler/
 workers/app/.dev.vars
 .dev.vars
+
+# Scratch scripts and backups. Not the product. See docs/code-map.md.
+/patch.py
+/patch_*.py
+/update_launch.py
+/test-regex.cjs
+/tmp-*.html
+/tmp/
+/TODO.md
+/docs/source-of-truth.md.bak-*
+/workers/app/patch_index_fix.py
+/workers/app/src/html_backup.ts

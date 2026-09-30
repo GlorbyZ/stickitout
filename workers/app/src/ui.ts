@@ -198,14 +198,15 @@ textarea.tall { min-height: 14rem; }
 .legend-limbs { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; font-size: 0.78rem; color: var(--chrome); margin: 0 0 0.4rem; }
 .legend-limbs b { color: var(--gel); }
 .practice-switch {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem;
-  margin: 1.15rem 0 0.15rem; padding: 0.3rem;
-  background: var(--wings); border: 1px solid var(--line); border-radius: 16px;
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.25rem;
+  margin: 1.15rem 0 0.15rem; padding: 0.25rem;
+  background: var(--wings); border: 1px solid var(--line); border-radius: 14px;
 }
 .practice-switch a {
   display: flex; align-items: center; justify-content: center; text-align: center;
-  min-height: var(--touch); padding: 0.4rem 0.6rem; border-radius: 12px;
-  color: var(--chrome); font-weight: 700; cursor: pointer;
+  min-height: var(--touch); padding: 0.35rem 0.4rem; border-radius: 11px;
+  color: var(--chrome); font-weight: 700; font-size: 0.78rem; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; cursor: pointer;
   transition: background 180ms ease, color 180ms ease;
 }
 .practice-switch a:hover { color: var(--cue); }
@@ -1038,9 +1039,9 @@ export function shell(opts: ShellOpts): string {
   ];
   const memberNav: [string, string, keyof typeof icons][] = [
     ['/', 'Home', 'home'],
-    ['/practice', 'Practice', 'practice'],
-    ['/rudiments', 'Rudiments', 'rudiments'],
-    SHOW_CHALLENGES_IN_NAV ? ['/challenges', 'Challenges', 'challenges'] : ['/analyze', 'Analyze', 'analyze'],
+    ['/analyze', 'Analyze', 'analyze'],
+    ['/rudiments', 'Chops', 'rudiments'],
+    ['/library', 'Lessons', 'library'],
     ['/profile', 'Profile', 'profile'],
   ];
   const desk =

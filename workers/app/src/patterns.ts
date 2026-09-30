@@ -2,7 +2,7 @@ import { nowIso, type Person } from './auth';
 import { allowedTiers, type Tier } from './access';
 import { denverDay, shiftDay, touchStreak, type Milestone } from './streaks';
 
-export type Discipline = 'hands' | 'feet' | 'four-limb';
+export type Discipline = 'hands' | 'feet' | 'four-limb' | 'independence';
 export type Level = 'beginner' | 'intermediate' | 'advanced';
 
 export type Pattern = {
@@ -66,6 +66,7 @@ export const DISCIPLINES: { id: Discipline; label: string }[] = [
   { id: 'hands', label: 'Hands' },
   { id: 'feet', label: 'Feet' },
   { id: 'four-limb', label: 'Four-limb' },
+  { id: 'independence', label: 'Independence' },
 ];
 
 export const LEVELS: Level[] = ['beginner', 'intermediate', 'advanced'];
@@ -95,27 +96,33 @@ export function isDiscipline(value: string): value is Discipline {
   return value === 'hands' || value === 'feet' || value === 'four-limb';
 }
 
-export type PracticeTab = 'rudiments' | 'drills';
+export type PracticeTab = 'rudiments' | 'drills' | 'independence';
 
 export const PRACTICE_TABS: { id: PracticeTab; label: string }[] = [
   { id: 'rudiments', label: 'Rudiments' },
   { id: 'drills', label: 'Hand fill drills' },
+  { id: 'independence', label: 'Independence' },
 ];
 
 export function practiceTabFromQuery(params: URLSearchParams): PracticeTab {
   const tab = (params.get('tab') || '').trim();
-  if (tab === 'drills' || tab === 'rudiments') return tab;
+  if (tab === 'drills' || tab === 'rudiments' || tab === 'independence') return tab as PracticeTab;
   const discipline = (params.get('d') || '').trim();
   if (discipline === 'four-limb') return 'drills';
+  if (discipline === 'independence') return 'independence';
   return 'rudiments';
 }
 
 export function disciplinesForTab(tab: PracticeTab): Discipline[] {
-  return tab === 'drills' ? ['four-limb'] : ['hands'];
+  if (tab === 'drills') return ['four-limb'];
+  if (tab === 'independence') return ['independence'];
+  return ['hands'];
 }
 
 export function tabForDiscipline(discipline: string): PracticeTab {
-  return discipline === 'four-limb' ? 'drills' : 'rudiments';
+  if (discipline === 'four-limb') return 'drills';
+  if (discipline === 'independence') return 'independence';
+  return 'rudiments';
 }
 
 /** Highest medal whose tempo the best held BPM reaches. */

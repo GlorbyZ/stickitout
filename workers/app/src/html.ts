@@ -213,23 +213,25 @@ function ladderStrip(
     </div>
     <ol class="ladder">${rungs}</ol>
     ${next ? `<p class="ladder-next muted">Next closest: ${next}</p>` : ''}
-  </section>`;
+  <style>
+          #metro-visual.is-active, #metro-haptic.is-active { color: var(--gel) !important; background: rgba(255, 204, 0, 0.1) !important; }
+          body.is-flashing::after {
+            content: ""; position: fixed; inset: 0; z-index: 99999; pointer-events: none;
+            box-shadow: inset 0 0 60px 15px rgba(255, 204, 0, 0.5);
+          }
+        </style>
+</section>`;
 }
 
 /** Analyze is the thing a video library cannot do. Home is where a member finds out it exists. */
-function analyzeStrip(base: string, pattern: PatternWithProgress | undefined, online: boolean | null): string {
-  const what = pattern ? pattern.title.toLowerCase() : 'a rudiment';
-  const note =
-    online === false
-      ? 'Analyzer is offline right now — practice tools still work.'
-      : 'Never tried it — most members start here.';
-  return `<section class="panel strip" aria-label="Check yourself">
+function lessonsStrip(base: string): string {
+  return `<section class="panel strip" aria-label="Master the fundamentals">
     <div>
-      <p class="label">Check yourself</p>
-      <p class="strip-copy">Film ${HOLD_SECONDS} seconds of ${escapeHtml(what)} and get timing, drift and a coaching line back.</p>
-      <p class="muted strip-note">${escapeHtml(note)}</p>
+      <p class="label" style="color: var(--gel);">Core Curriculum</p>
+      <p class="strip-copy">Watch the latest technique breakdowns and masterclass videos to refine your mechanics.</p>
+      <p class="muted strip-note">New lessons drop weekly.</p>
     </div>
-    <a class="btn ghost" href="${base}/analyze">Open Analyze</a>
+    <a class="btn ghost" href="${base}/library">View Library</a>
   </section>`;
 }
 
@@ -239,6 +241,9 @@ export function memberHome(
   data: {
     streak?: StreakState;
     practiceDays?: string[];
+    isAdmin?: boolean;
+    viewAsMember?: boolean;
+      currentViewAs?: string;
     daily?: DailyPick | null;
     score: { score: number; medal: string };
     evidence?: PracticeEvidence | null;
@@ -248,6 +253,7 @@ export function memberHome(
   },
 ): string {
   const first = (user.name || user.email.split('@')[0]).split(' ')[0];
+    const isFirstTime = (data.practiceDays || []).length === 0 && data.score.score === 0;
   const daily = data.daily || null;
   const pattern = daily?.pattern;
   const nextMedal = pattern ? MEDALS[Math.min(medalIndex(pattern.medal) + 1, MEDALS.length - 1)] : null;
@@ -275,48 +281,243 @@ export function memberHome(
     user,
     wide: true,
     body: `
-      <header class="bench-mast home-mast">
-        <div>
-          <p class="greet">Hey ${escapeHtml(first)}</p>
-          <p class="bench-kicker muted">${escapeHtml(levelName(user.level))} · ${daysHit} of the last 7 days</p>
-        </div>
-        ${chip}
-      </header>
-      <section class="stage rise-in" aria-label="Work on this today">
-        <div class="stage-main">
-          <p class="label">Work on this today</p>
-          <h1 class="display stage-title">${pattern ? escapeHtml(pattern.title) : 'Your next step'}</h1>
-          ${pattern?.sticking ? `<p class="stage-sticking">${escapeHtml(pattern.sticking)}</p>` : ''}
-          ${pattern ? gapBar(pattern, atTop, nextBpm, nextMedal ? nextMedal.label : '') : `<p class="stage-note">${escapeHtml(stageNote)}</p>`}
-          <div class="stage-actions">
-            <a class="btn" href="${base}/practice">Start practice</a>
-            <a class="btn ghost" href="${base}/analyze">Record a take</a>
+        <header class="bench-mast home-mast">
+          <div>
+            <p class="greet">Hey ${escapeHtml(first)}</p>
+            <p class="bench-kicker muted">${escapeHtml(levelName(user.level))} &bull; ${daysHit} of the last 7 days</p>
           </div>
-          ${pattern && user.status === 'waitlist' ? `<p class="stage-note">${escapeHtml(stageNote)}</p>` : ''}
+          ${chip}
+        </header>
+        
+        <style>
+          .video-cinema {
+            position: relative;
+            width: 100%;
+            border: 1px solid var(--line);
+            background: #050505;
+            cursor: pointer;
+            overflow: hidden;
+            transition: border-color 0.3s ease;
+          }
+          .video-cinema:hover {
+            border-color: var(--gel);
+          }
+          .video-cinema:hover .video-play-btn {
+            transform: translate(-50%, -50%) scale(1.1);
+            background: var(--gel);
+            color: #000;
+          }
+          .video-play-btn {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(1);
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            border: 1px solid var(--gel);
+            color: var(--gel);
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 2;
+          }
+          .video-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+          }
+          .video-overlay.is-active {
+            opacity: 1;
+            pointer-events: auto;
+          }
+          .video-expanded {
+            width: 90vw;
+            max-width: 1100px;
+            aspect-ratio: 16/9;
+            background: #000;
+            border: 1px solid var(--gel);
+            transform: scale(0.95) translateY(20px);
+            opacity: 0;
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(232,163,23,0.1);
+          }
+          .video-overlay.is-active .video-expanded {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+          }
+          .video-close {
+            position: absolute;
+            top: -40px; right: 0;
+            color: var(--chrome);
+            background: none; border: none;
+            cursor: pointer;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 1px;
+            transition: color 0.2s ease;
+          }
+          .video-close:hover { color: #fff; }
+          .glowing-ring {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            border: 1px solid var(--gel);
+            animation: pulse-ring 2s infinite cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+          }
+          @keyframes pulse-ring {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+          }
+        </style>
+
+        <section class="panel rise-in" style="margin-bottom: 2rem; border-color: var(--gel); padding: 2.5rem;">
+          <div style="width: 100%; max-width: 900px; margin: 0 auto;">
+            <p class="label" style="color: var(--gel);">Welcome to Stick It Out</p>
+            <h2 class="display" style="font-size: 2rem; margin-bottom: 1.5rem;">Start Here: The Philosophy</h2>
+            
+            <div class="video-cinema" id="inline-video-trigger" style="aspect-ratio: 16/9;">
+               <div class="glowing-ring" id="video-glow" style="display: none;"></div>
+               <div class="video-play-btn">
+                 <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="margin-left: 4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+               </div>
+               <div style="position:absolute; bottom:24px; left:24px; font-family:var(--font-mono); font-size:11px; color:var(--chrome); text-transform:uppercase; letter-spacing:2px; z-index: 2;">
+                 Play Orientation &bull; 03:45
+               </div>
+               <div style="position:absolute; inset:0; background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.8) 100%); pointer-events:none;"></div>
+            </div>
+            <p class="muted" style="margin-top:1.5rem; font-size: 1.1rem; line-height: 1.6;">Watch this short orientation video to understand the training methodology and how to use the ladder system. This is your foundation.</p>
+
+            <!-- TAILORED TEST BLOCK -->
+            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; gap: 1rem;">
+              <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                <div>
+                  <h3 class="label" style="color: #fff; margin-bottom: 0.25rem;">Put It Into Practice</h3>
+                  <p class="muted">Now that you've watched the lesson, take your tailored test.</p>
+                </div>
+                ${pattern ? `<a href="${base}/practice" class="btn" style="background: var(--gel); color: #000; padding: 0.5rem 1.5rem; min-width: max-content;">Take the Test</a>` : ''}
+              </div>
+              ${pattern && nextMedal ? `
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1.25rem;">
+                <img src="/img/badges/medal-${nextMedal.id}.png" alt="${nextMedal.label}" width="56" height="56" style="filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));" onerror="this.style.display='none'" />
+                <div>
+                  <p style="font-size: 0.75rem; color: var(--chrome); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.2rem;">Recommended Target</p>
+                  <p style="font-size: 1.1rem; font-weight: bold; color: #fff;">${escapeHtml(pattern.title)} &bull; Aim for ${nextMedal.label} (${nextBpm} BPM)</p>
+                </div>
+              </div>
+              ` : ''}
+            </div>
+          </div>
+        </section>
+
+        <!-- Expanded Video Overlay -->
+        <div class="video-overlay" id="video-overlay">
+          <div class="video-expanded">
+            <button class="video-close" id="video-close">Close Video [X]</button>
+            <div style="width:100%; height:100%; display:flex; flex-direction: column; align-items:center; justify-content:center; color:var(--chrome); font-family:var(--font-mono);">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="opacity: 0.3; margin-bottom: 1rem;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              [ High-Def Video Player Mounts Here ]
+            </div>
+          </div>
         </div>
-        <div class="stage-side">
-          ${data.streak ? streakRing(data.streak, data.practiceDays || []) : ''}
+
+        <script>
+          document.addEventListener('DOMContentLoaded', () => {
+            const trigger = document.getElementById('inline-video-trigger');
+            const overlay = document.getElementById('video-overlay');
+            const close = document.getElementById('video-close');
+            const glow = document.getElementById('video-glow');
+            
+            // Allow testing the tutorial flow via ?tutorial=true
+            const urlParams = new URLSearchParams(window.location.search);
+            const forceTutorial = urlParams.has('tutorial');
+            const isFirstTime = ${isFirstTime} || forceTutorial;
+            
+            if (isFirstTime && glow) {
+              glow.style.display = 'block';
+            }
+            
+            if (trigger && overlay && close) {
+              const openVideo = () => {
+                overlay.classList.add('is-active');
+                document.body.style.overflow = 'hidden';
+                if (glow) glow.style.display = 'none'; // hide pulse once clicked
+              };
+              
+              trigger.addEventListener('click', openVideo);
+              
+              const hide = () => {
+                overlay.classList.remove('is-active');
+                document.body.style.overflow = '';
+              };
+              
+              close.addEventListener('click', hide);
+              overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) hide();
+              });
+              
+              // Auto-pop tutorial on absolute first login
+              if (isFirstTime && (!sessionStorage.getItem('orientation_seen') || forceTutorial)) {
+                sessionStorage.setItem('orientation_seen', 'true');
+                setTimeout(openVideo, 800);
+              }
+            }
+          });
+        </script>
+
+        <!-- LADDER COMES FIRST -->
+        <h2 class="label section-label">Your Progression Ladder</h2>
+        <div style="margin-bottom: 2rem;">
+          ${pattern ? ladderStrip(base, pattern, data.score, data.closest || []) : '<p class="muted">Log your first practice to see your ladder placement.</p>'}
         </div>
-      </section>
-      <h2 class="label section-label">Since you were here</h2>
-      ${evidenceRail(data.evidence || null, data.today, canPractice(user))}
-      ${pattern ? ladderStrip(base, pattern, data.score, data.closest || []) : ''}
-      ${analyzeStrip(base, pattern, data.analyzer ?? null)}
-      <nav class="home-foot" aria-label="More">
-        <a href="${base}/rudiments">All rudiments</a>
-        <a href="${base}/library">Library</a>
-        <a href="${base}/challenges">Challenge board</a>
-        <a href="${base}/profile">Profile</a>
-      </nav>
-      <p class="muted home-status">${
-        user.status === 'waitlist'
-          ? 'Waitlist — founding spots open soon'
-          : user.status === 'canceled'
-            ? 'Membership canceled — practice tools stay open'
-            : 'Founding member · $19.99/mo locked'
-      }</p>
-    `,
-  });
+
+        <section class="stage rise-in" aria-label="Work on this today" style="margin-top: 2rem;">
+          <div class="stage-main">
+            <p class="label">Work on this today</p>
+            <h1 class="display stage-title">${pattern ? escapeHtml(pattern.title) : 'Your next step'}</h1>
+            ${pattern?.sticking ? `<p class="stage-sticking">${escapeHtml(pattern.sticking)}</p>` : ''}
+            ${pattern ? gapBar(pattern, atTop, nextBpm, nextMedal ? nextMedal.label : '') : `<p class="stage-note">${escapeHtml(stageNote)}</p>`}
+            <div class="stage-actions">
+              <a class="btn" href="${base}/practice">Start practice</a>
+              <!-- analyze button removed for non-admins -->
+            </div>
+            ${pattern && user.status === 'waitlist' ? `<p class="stage-note">${escapeHtml(stageNote)}</p>` : ''}
+          </div>
+          <div class="stage-side">
+            ${data.streak ? streakRing(data.streak, data.practiceDays || []) : ''}
+          </div>
+        </section>
+
+        <h2 class="label section-label">Since you were here</h2>
+        ${evidenceRail(data.evidence || null, data.today, canPractice(user))}
+        
+        ${lessonsStrip(base)}
+        <nav class="home-foot" aria-label="More">
+          <a href="${base}/rudiments">All rudiments</a>
+          <a href="${base}/library">Library</a>
+          <a href="${base}/challenges">Challenge board</a>
+          <a href="${base}/profile">Profile</a>
+        </nav>
+        <p class="muted home-status">${
+          user.status === 'waitlist'
+            ? 'Waitlist &mdash; founding spots open soon'
+            : user.status === 'canceled'
+              ? 'Membership canceled &mdash; practice tools stay open'
+              : 'Founding member &mdash; $19.99/mo locked'
+        }</p>
+      `,
+    });
 }
 
 function streakLine(streak: StreakState): string {
@@ -429,10 +630,12 @@ export type MemberLesson = {
   watched_at?: string | null;
   completed_at?: string | null;
   thumbnail?: string;
+  is_free?: number | null;
 };
 
 export function memberLibrary(base: string, user: Person, lessons: MemberLesson[]): string {
-  const gated = user.status !== 'founding' && user.status !== 'active';
+  const isPro = user.status === 'founding' || user.status === 'active';
+  const gated = !isPro;
   let inner: string;
   if (gated) {
     inner = `<p class="empty">Stream lessons unlock for founding and active members.</p>`;
@@ -471,8 +674,12 @@ export function memberWatch(
   lesson: MemberLesson,
   player: { src: string; ready: boolean; error?: string },
   note = '',
+  testPattern?: PatternWithProgress | null,
 ): string {
-  const gated = user.status !== 'founding' && user.status !== 'active';
+  const nextMedal = testPattern ? MEDALS[Math.min(medalIndex(testPattern.medal) + 1, MEDALS.length - 1)] : null;
+  const nextBpm = testPattern && nextMedal ? nextTargetBpm(testPattern.medal, testPattern) : null;
+  const isPro = user.status === 'founding' || user.status === 'active';
+  const gated = !isPro;
   let media: string;
   if (gated) {
     media = `<p class="empty">This video is gated. Founding and active members can watch.</p>`;
@@ -497,6 +704,25 @@ export function memberWatch(
       ${lesson.summary ? `<p class="muted" style="margin:0.8rem 0 1.1rem;">${escapeHtml(lesson.summary)}</p>` : ''}
       <div class="stack" style="margin-top:1.1rem;">
         ${media}
+
+          ${testPattern && nextMedal ? `
+          <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+              <div>
+                <h3 class="label" style="color: #fff; margin-bottom: 0.25rem;">Put It Into Practice</h3>
+                <p class="muted">Now that you've watched the lesson, take your tailored test.</p>
+              </div>
+              <a href="${base}/practice" class="btn" style="background: var(--gel); color: #000; padding: 0.5rem 1.5rem; min-width: max-content;">Take the Test</a>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 8px; padding: 1.25rem; display: flex; align-items: center; gap: 1.25rem;">
+              <img src="/img/badges/medal-${nextMedal.id}.png" alt="${nextMedal.label}" width="56" height="56" style="filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));" onerror="this.style.display='none'" />
+              <div>
+                <p style="font-size: 0.75rem; color: var(--chrome); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.2rem;">Recommended Target</p>
+                <p style="font-size: 1.1rem; font-weight: bold; color: #fff;">${escapeHtml(testPattern.title)} &bull; Aim for ${nextMedal.label} (${nextBpm} BPM)</p>
+              </div>
+            </div>
+          </div>
+          ` : ''}
         ${
           gated
             ? ''
@@ -583,7 +809,7 @@ function badgeDrawer(
   );
   const groups = families
     .map((f) => ({ label: FAMILY_LABELS[f] || f, items: hands.filter((p) => p.family === f) }))
-    .concat([{ label: 'Hand fill drills', items: patterns.filter((p) => p.discipline === 'four-limb') }])
+    .concat([{ label: 'Hand fill drills', items: patterns.filter((p) => p.discipline === 'four-limb') }]).concat([{ label: 'Independence drills', items: patterns.filter((p) => p.discipline === 'independence') }])
     .filter((g) => g.items.length)
     .map(
       (g) => `<div class="case-group">
@@ -663,6 +889,9 @@ export function memberProfile(
     patterns?: PatternWithProgress[];
     score?: { score: number; medal: string };
     practiceDays?: string[];
+    isAdmin?: boolean;
+    viewAsMember?: boolean;
+      currentViewAs?: string;
   } = {},
 ): string {
   const plan = user.plan === 'yearly' ? 'Yearly' : user.plan === 'monthly' ? 'Monthly' : user.plan ? user.plan : 'No plan yet';
@@ -719,7 +948,19 @@ export function memberProfile(
       ${notes}
       ${settings}
       ${pass}
-      <p class="foot-meta">Version ${APP_VERSION} · <a href="${base}/logout">Sign out</a></p>
+      <p class="foot-meta">
+        ${opts.isAdmin ? `
+          <form method="POST" action="${base}/toggle-view-as-member" style="margin-bottom: 1rem;">
+            <select name="view_as" onchange="this.form.submit()" style="font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 4px; background: rgba(255,255,255,0.05); color: var(--chrome); border: 1px solid var(--line);">
+              <option value="admin" ${!opts.currentViewAs || opts.currentViewAs === 'admin' ? 'selected' : ''}>View as Admin</option>
+              <option value="free" ${opts.currentViewAs === 'free' ? 'selected' : ''}>View as Free Member</option>
+              <option value="member" ${opts.currentViewAs === 'member' ? 'selected' : ''}>View as Pro Member</option>
+              <option value="founder" ${opts.currentViewAs === 'founder' ? 'selected' : ''}>View as Founder</option>
+            </select>
+          </form>
+        ` : ''}
+        Version ${APP_VERSION} &bull; <a href="${base}/logout">Sign out</a>
+      </p>
     `
       : `
       ${head}
@@ -730,7 +971,19 @@ export function memberProfile(
       </div>
       ${drawer}
       ${settings}
-      <p class="foot-meta">Version ${APP_VERSION} · <a href="${base}/logout">Sign out</a></p>
+      <p class="foot-meta">
+        ${opts.isAdmin ? `
+          <form method="POST" action="${base}/toggle-view-as-member" style="margin-bottom: 1rem;">
+            <select name="view_as" onchange="this.form.submit()" style="font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 4px; background: rgba(255,255,255,0.05); color: var(--chrome); border: 1px solid var(--line);">
+              <option value="admin" ${!opts.currentViewAs || opts.currentViewAs === 'admin' ? 'selected' : ''}>View as Admin</option>
+              <option value="free" ${opts.currentViewAs === 'free' ? 'selected' : ''}>View as Free Member</option>
+              <option value="member" ${opts.currentViewAs === 'member' ? 'selected' : ''}>View as Pro Member</option>
+              <option value="founder" ${opts.currentViewAs === 'founder' ? 'selected' : ''}>View as Founder</option>
+            </select>
+          </form>
+        ` : ''}
+        Version ${APP_VERSION} &bull; <a href="${base}/logout">Sign out</a>
+      </p>
     `,
   });
 }
@@ -824,14 +1077,14 @@ export function memberRudiments(
   user: Person,
   data: {
     patterns: PatternWithProgress[];
-    tab: 'rudiments' | 'drills';
+    tab: 'rudiments' | 'drills' | 'independence';
     daily: DailyPick | null;
     streak: StreakState;
     practiceDays: string[];
     note?: string;
   },
 ): string {
-  const tab = data.tab === 'drills' ? 'drills' : 'rudiments';
+  const tab = data.tab === 'drills' ? 'drills' : data.tab === 'independence' ? 'independence' : 'rudiments';
   const tabNav = `<nav class="practice-switch" aria-label="Practice">
     ${PRACTICE_TABS.map(
       (item) =>
@@ -890,7 +1143,7 @@ export function memberRudiments(
     .join('');
 
   return shell({
-    title: 'Rudiments | Stick It Out',
+    title: 'Chops | Stick It Out',
     base,
     kind: 'member',
     path: '/rudiments',
@@ -900,12 +1153,26 @@ export function memberRudiments(
       ${data.note ? `<p class="flash">${escapeHtml(data.note)}</p>` : ''}
       <header class="bench-mast">
         <p class="label">Catalog</p>
-        <h1 class="display bench-title">Rudiments</h1>
+        <h1 class="display bench-title">Chops</h1>
         <p class="muted">Hands, then hand-fill drills. ${escapeHtml(levelName(user.level))} opens first.</p>
       </header>
       ${tabNav}
-      ${goingBlock}
-      ${groups || '<p class="empty">Nothing in this tab yet.</p>'}
+      ${tab === 'independence'
+        ? `<section class="panel" style="margin-top: 2rem; text-align: center; padding: 4rem 1rem;">
+             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem; color: var(--chrome);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+             <h2 style="margin-bottom: 0.5rem; color: #fff;">Independence Drills</h2>
+             <p class="muted" style="margin-bottom: 1.25rem;">This training module is locked and currently in development. Pro members will get full access on launch.</p>
+             <a href="${base}/upgrade" class="btn">Upgrade to Pro</a>
+           </section>`
+        : tab === 'drills' && !canPractice(user)
+        ? `<section class="panel" style="margin-top: 2rem; text-align: center; padding: 4rem 1rem;">
+             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem; color: var(--chrome);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+             <h2 style="margin-bottom: 0.5rem; color: #fff;">Hand Fill Drills</h2>
+             <p class="muted" style="margin-bottom: 1.25rem;">Hand fill drills are a Pro feature. Upgrade to unlock all drills, independence training, and the full medal ladder.</p>
+             <a href="${base}/upgrade" class="btn">Upgrade to Pro</a>
+           </section>`
+        : `${goingBlock}
+           ${groups || '<p class="empty">Nothing in this tab yet.</p>'}`}
     `,
   });
 }
@@ -1005,8 +1272,9 @@ export function memberRudimentDetail(
     nextTarget: number;
     locked: boolean;
     canLog: boolean;
-    streak: StreakState;
-    note?: string;
+      logReason?: string;
+      streak: StreakState;
+      note?: string;
   },
 ): string {
   const p = data.pattern;
@@ -1017,7 +1285,7 @@ export function memberRudimentDetail(
       const earned = medalIndex(p.medal) >= medalIndex(m.id);
       const target = medalTarget(goal, m.id) || p.bpm_start;
       const next = medalIndex(m.id) === medalIndex(p.medal) + 1;
-      return `<li class="${earned ? 'is-earned' : ''}${next ? ' is-next' : ''}">
+      return `<li class="ladder-tier ${earned ? 'is-earned' : ''}${next ? ' is-next' : ''}" style="cursor: pointer;" data-target-bpm="${target}">
         ${medalChip(m.id, !earned)}
         <span class="muted">${next ? 'next · ' : ''}${m.id === 'dirt' ? 'start' : `${target} BPM`}</span>
       </li>`;
@@ -1056,9 +1324,29 @@ export function memberRudimentDetail(
           <button type="button" class="btn ghost" data-metro-up aria-label="Faster by 5">+5</button>
         </div>
         <div class="metro-side">
-          <div class="label" id="click-label">Click</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 0.5rem;">
+              <div class="label" id="click-label" style="margin: 0;">Click</div>
+              <div style="display: flex; gap: 0.25rem;">
+                <button type="button" class="btn ghost" id="metro-visual" title="Visual Flash" style="padding: 0.4rem; border-radius: 4px; color: var(--chrome);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+                </button>
+                <button type="button" class="btn ghost" id="metro-haptic" title="Vibration" style="padding: 0.4rem; border-radius: 4px; color: var(--chrome);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </button>
+              </div>
+            </div>
           <button type="button" class="btn ghost" data-metro-tap>Tap tempo</button>
-        </div>
+            ${data.canLog
+              ? `<button type="button" class="btn" id="studio-trigger" style="margin-left: auto; background: var(--gel); color: #000; border: none; font-weight: bold; letter-spacing: 0.5px; display: flex; align-items: center; gap: 0.4rem;">
+                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                   Studio
+                 </button>`
+              : `<a href="${base}/membership" class="btn" style="margin-left: auto; background: transparent; color: var(--gel); border: 1px solid var(--gel); font-weight: bold; font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem;">
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                   Studio
+                 </a>`
+            }
+          </div>
         <div class="sub-switch" role="group" aria-labelledby="click-label">
           <button type="button" data-metro-sub data-value="1" class="is-on" aria-pressed="true">1/4</button>
           <button type="button" data-metro-sub data-value="2" aria-pressed="false">1/8</button>
@@ -1069,9 +1357,11 @@ export function memberRudimentDetail(
       </section>`;
 
   const logForm = !data.canLog
-    ? `<section class="panel"><p class="empty">${escapeHtml(
-        user.status === 'waitlist' ? 'Founding and active members log sessions and earn medals.' : 'Membership required to log sessions.',
-      )}</p></section>`
+      ? `<section class="panel"><p class="empty" style="margin-bottom: 1rem;">${escapeHtml(
+          user.status === 'waitlist' ? 'Founding and active members log sessions and earn medals.' : 'Membership required to log sessions.',
+        )}</p>
+        <p style="text-align: center;"><a href="${base}/membership" class="btn">Upgrade to Pro</a></p>
+        </section>`
     : `<form class="panel stack log-card" method="post" action="${base}/rudiments/${escapeHtml(p.slug)}" data-log-form>
         <input type="hidden" name="action" value="session" />
         <input type="hidden" name="seconds" value="0" data-log-seconds />
@@ -1092,12 +1382,16 @@ export function memberRudimentDetail(
     user,
     wide: true,
     body: `
-      <header class="bench-mast">
-        <p class="crumb"><a href="${base}/rudiments?tab=${tabForDiscipline(p.discipline)}">${
-          tabForDiscipline(p.discipline) === 'drills' ? 'Hand fill drills' : 'Rudiments'
-        }</a> · ${escapeHtml(p.level)}</p>
-        <h1 class="display pattern-title">${escapeHtml(p.title)}</h1>
-      </header>
+      <div style="margin-bottom: 1.5rem;">
+          <a href="${base}/rudiments?tab=${tabForDiscipline(p.discipline)}" class="btn ghost" style="padding: 0.5rem 1rem; display: inline-flex; align-items: center; gap: 0.5rem; color: var(--chrome);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back to ${tabForDiscipline(p.discipline) === 'drills' ? 'Hand fill drills' : tabForDiscipline(p.discipline) === 'independence' ? 'Independence drills' : 'Chops'}
+          </a>
+        </div>
+        <header class="bench-mast">
+          <p class="crumb">${escapeHtml(p.level)}</p>
+          <h1 class="display pattern-title">${escapeHtml(p.title)}</h1>
+        </header>
       <div class="pattern-stats">
         <div class="pattern-stat">
           <span class="label">Medal</span>
@@ -1141,9 +1435,114 @@ export function memberRudimentDetail(
             ${sessions}
           </section>
         </aside>
-      </div>
-    `,
-    scripts: patternScripts(),
+        </div>
+
+        <style>
+          .studio-mode-overlay {
+            position: fixed; inset: 0; z-index: 10000;
+            background: #000; display: flex; flex-direction: column;
+            opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s;
+          }
+          .studio-mode-overlay.is-active {
+            opacity: 1; pointer-events: auto; visibility: visible;
+          }
+          .studio-video-feed {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1; transform: scaleX(-1);
+          }
+          .studio-hud {
+            position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; justify-content: space-between;
+            padding: 2rem; pointer-events: none;
+          }
+          .studio-top-bar {
+            display: flex; justify-content: space-between; align-items: flex-start;
+          }
+          .studio-rec-status {
+            display: flex; align-items: center; gap: 0.5rem;
+            background: rgba(0,0,0,0.6); padding: 0.5rem 1rem; border-radius: 4px;
+            font-family: var(--font-mono); font-size: 1.1rem; font-weight: bold; color: #fff;
+            backdrop-filter: blur(8px);
+            opacity: 0; transition: opacity 0.3s;
+          }
+          .studio-rec-status.is-recording { opacity: 1; color: #ff3b30; }
+          .studio-rec-dot {
+            width: 12px; height: 12px; border-radius: 50%; background: #ff3b30;
+            animation: studio-rec-blink 1s infinite;
+          }
+          @keyframes studio-rec-blink { 50% { opacity: 0; } }
+          
+          .studio-bpm-display {
+            font-family: var(--font-disp); font-size: 5rem; line-height: 0.9;
+            color: rgba(255,255,255,0.9); text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+          }
+          
+          .studio-pulse-ring {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 240px; height: 240px; border-radius: 50%; border: 4px solid var(--gel);
+            opacity: 0; pointer-events: none;
+          }
+          .studio-pulse-ring.is-hit {
+            animation: studio-ping 0.4s cubic-bezier(0, 0, 0.2, 1) forwards;
+          }
+          @keyframes studio-ping {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+          }
+
+          .studio-bottom-bar {
+            display: flex; justify-content: center; gap: 1rem; pointer-events: auto;
+            padding-bottom: env(safe-area-inset-bottom);
+          }
+          .studio-btn {
+            background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 1rem 2.5rem; border-radius: 50px;
+            font-family: var(--font-mono); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px;
+            backdrop-filter: blur(8px); cursor: pointer; transition: all 0.2s;
+          }
+          .studio-btn:hover { background: rgba(0,0,0,0.8); border-color: var(--gel); color: var(--gel); }
+          .studio-btn.is-active { background: #ff3b30; border-color: #ff3b30; color: #fff; }
+        </style>
+
+        <div id="studio-mode" class="studio-mode-overlay">
+          <video id="studio-video" class="studio-video-feed" autoplay muted playsinline></video>
+          <div id="studio-error" style="position: absolute; inset: 0; z-index: 10; display: none; flex-direction: column; align-items: center; justify-content: center; background: #000; text-align: center; padding: 2rem; pointer-events: auto;">
+             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--chrome)" stroke-width="1.5" style="margin-bottom: 1rem;"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/><line x1="1" y1="1" x2="23" y2="23" stroke="var(--chrome)" stroke-width="2"/></svg>
+             <h2 style="color: #fff; margin-bottom: 0.5rem; font-family: var(--font-disp); font-size: 2.5rem; line-height: 1;">Camera Access Blocked</h2>
+             <p style="color: var(--chrome); max-width: 400px; margin-bottom: 2rem;">To use Studio Mode, please allow camera access in your browser settings so you can record your form.</p>
+             <button type="button" class="studio-btn" id="studio-error-close">Go Back</button>
+          </div>
+                    <div id="studio-bpm-modal" style="position: absolute; inset: 0; z-index: 20; background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto;">
+            <h3 style="color: var(--chrome); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2rem; font-size: 1rem;">Dial Tempo</h3>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 3rem;">
+               <button type="button" id="studio-bpm-down" class="studio-btn" style="border-radius: 50%; width: 70px; height: 70px; font-size: 2rem; padding: 0; display: flex; align-items: center; justify-content: center;">-</button>
+               <div style="font-family: var(--font-disp); font-size: 6.5rem; color: #fff; width: 180px; text-align: center; line-height: 1;" id="studio-bpm-modal-read">120</div>
+               <button type="button" id="studio-bpm-up" class="studio-btn" style="border-radius: 50%; width: 70px; height: 70px; font-size: 2rem; padding: 0; display: flex; align-items: center; justify-content: center;">+</button>
+            </div>
+            <input type="range" id="studio-bpm-slider" min="40" max="250" style="width: 80%; max-width: 400px; margin-bottom: 2rem;">
+            <div style="position: relative; width: 80%; max-width: 400px; margin-bottom: 3rem;">
+              <select id="studio-medal-select" class="studio-medal-select" style="width: 100%; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 1rem 1.5rem; border-radius: 8px; font-size: 1.1rem; font-weight: bold; appearance: none; cursor: pointer; text-align: center;">
+                <option value="" style="color: #000;">Select Target Medal...</option>
+                ${MEDALS.filter(m => medalTarget(goal, m.id) > 0).map(m => `<option value="${medalTarget(goal, m.id)}" style="color: #000;">${m.label} (${medalTarget(goal, m.id)} BPM)</option>`).join('')}
+              </select>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: 0.7;"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <button type="button" id="studio-bpm-done" class="studio-btn" style="background: var(--gel); color: #000; border: none; font-size: 1.2rem; padding: 1.2rem 4rem; font-weight: bold;">Done</button>
+          </div>
+          <div class="studio-hud">
+            <div class="studio-top-bar">
+              <div class="studio-bpm-display" id="studio-bpm-trigger" style="pointer-events: auto; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"><span id="studio-hud-bpm">120</span> <span style="font-size: 1.5rem; opacity: 0.7;">BPM</span></div>
+              <div id="studio-rec-status" class="studio-rec-status"><div class="studio-rec-dot"></div> <span id="studio-rec-time">00:00</span></div>
+            </div>
+            <div id="studio-pulse" class="studio-pulse-ring"></div>
+            <div class="studio-bottom-bar">
+              <button type="button" class="studio-btn" id="studio-close-btn">Exit Studio</button>
+              <button type="button" class="studio-btn" id="studio-rec-btn">Record Take</button>
+              <button type="button" class="studio-btn" id="studio-play-btn" style="border-color: var(--gel); color: var(--gel);">Start Click</button>
+            </div>
+          </div>
+        </div>
+      `,
+      scripts: patternScripts(),
   });
 }
 
@@ -1380,11 +1779,13 @@ function patternScripts(): string {
   function clamp(v) { return Math.max(min, Math.min(max, Math.round(v))); }
 
   function setBpm(v) {
-    bpm = clamp(v);
-    if (read) read.textContent = String(bpm);
-    if (range) range.value = String(bpm);
-    if (bpmInput) bpmInput.value = String(bpm);
-  }
+      bpm = clamp(v);
+      if (read) read.textContent = String(bpm);
+      if (range) range.value = String(bpm);
+      if (bpmInput) bpmInput.value = String(bpm);
+      var sHud = document.getElementById('studio-hud-bpm');
+      if (sHud) sHud.textContent = String(bpm);
+    }
 
   function schedule() {
     if (!ctx) return;
@@ -1398,9 +1799,16 @@ function patternScripts(): string {
       osc.connect(gain).connect(ctx.destination);
       osc.start(nextTick);
       osc.stop(nextTick + 0.05);
-      if (accent && dot) {
-        window.setTimeout(function () { dot.classList.add('is-hit'); window.setTimeout(function () { dot.classList.remove('is-hit'); }, 90); }, Math.max(0, (nextTick - ctx.currentTime) * 1000));
-      }
+      var delay = Math.max(0, (nextTick - ctx.currentTime) * 1000);
+        window.setTimeout(function () {
+          if (accent && dot) dot.classList.add('is-hit');
+          if (useVisual) document.body.classList.add('is-flashing');
+          if (useHaptic && navigator.vibrate) navigator.vibrate(accent ? 30 : 15);
+          window.setTimeout(function () {
+            if (accent && dot) dot.classList.remove('is-hit');
+            if (useVisual) document.body.classList.remove('is-flashing');
+          }, 90);
+        }, delay);
       nextTick += 60 / bpm / sub;
       beat += 1;
     }
@@ -1435,6 +1843,12 @@ function patternScripts(): string {
       toggle.textContent = 'Stop';
       toggle.setAttribute('aria-pressed', 'true');
     }
+    var sPlay = document.getElementById('studio-play-btn');
+    if (sPlay) {
+      sPlay.textContent = 'Stop Click';
+      sPlay.style.borderColor = '#fff';
+      sPlay.style.color = '#fff';
+    }
     panel.classList.add('is-running');
   }
 
@@ -1446,6 +1860,12 @@ function patternScripts(): string {
     if (toggle) {
       toggle.textContent = 'Start';
       toggle.setAttribute('aria-pressed', 'false');
+    }
+    var sPlay = document.getElementById('studio-play-btn');
+    if (sPlay) {
+      sPlay.textContent = 'Start Click';
+      sPlay.style.borderColor = 'var(--gel)';
+      sPlay.style.color = 'var(--gel)';
     }
     panel.classList.remove('is-running');
     tick();
@@ -1477,8 +1897,191 @@ function patternScripts(): string {
       if (avg > 0) setBpm(60000 / avg);
     }
   });
-  setBpm(bpm);
-})();
+    setBpm(bpm);
+
+    var studioTrigger = document.getElementById('studio-trigger');
+    var studioMode = document.getElementById('studio-mode');
+    var studioVideo = document.getElementById('studio-video');
+    var studioClose = document.getElementById('studio-close-btn');
+    var studioRec = document.getElementById('studio-rec-btn');
+    var studioPlay = document.getElementById('studio-play-btn');
+    var studioRecStatus = document.getElementById('studio-rec-status');
+    var studioRecTime = document.getElementById('studio-rec-time');
+    
+    var studioStream = null;
+    var studioRecorder = null;
+    var studioChunks = [];
+    var studioRecTimer = null;
+    var studioStartTime = 0;
+    var isStudioRecording = false;
+    
+    function updateStudioRecTime() {
+      var s = Math.floor((Date.now() - studioStartTime) / 1000);
+      var m = Math.floor(s / 60);
+      s = s % 60;
+      studioRecTime.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    }
+    
+    document.querySelectorAll('.ladder-tier').forEach(function(tier) {
+      tier.addEventListener('click', function() {
+        var target = this.getAttribute('data-target-bpm');
+        if (target) {
+          setBpm(Number(target));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    });
+
+    if (studioTrigger) {
+      studioTrigger.addEventListener('click', async function() {
+        var errBox = document.getElementById('studio-error');
+        try {
+          studioStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+          studioVideo.srcObject = studioStream;
+          studioMode.classList.add('is-active');
+          if (errBox) errBox.style.display = 'none';
+          document.documentElement.requestFullscreen().catch(function(){});
+          var hudBpm = document.getElementById('studio-hud-bpm');
+          if (hudBpm) hudBpm.textContent = String(bpm);
+          localStorage.setItem('sio_studio_allowed', '1');
+        } catch (e) {
+          studioMode.classList.add('is-active');
+          if (errBox) errBox.style.display = 'flex';
+        }
+      });
+    }
+    
+    var errClose = document.getElementById('studio-error-close');
+    if (errClose) {
+      errClose.addEventListener('click', function() {
+        studioMode.classList.remove('is-active');
+      });
+    }
+
+    var studioBpmTrigger = document.getElementById('studio-bpm-trigger');
+    var studioBpmModal = document.getElementById('studio-bpm-modal');
+    var studioBpmDone = document.getElementById('studio-bpm-done');
+    var studioBpmDown = document.getElementById('studio-bpm-down');
+    var studioBpmUp = document.getElementById('studio-bpm-up');
+    var studioBpmSlider = document.getElementById('studio-bpm-slider');
+    var studioMedalSelect = document.getElementById('studio-medal-select');
+    var studioBpmModalRead = document.getElementById('studio-bpm-modal-read');
+
+    function syncStudioBpmModal() {
+      if (studioBpmModalRead) studioBpmModalRead.textContent = String(bpm);
+      if (studioBpmSlider) studioBpmSlider.value = String(bpm);
+      if (studioMedalSelect) {
+        var found = false;
+        for (var i = 0; i < studioMedalSelect.options.length; i++) {
+          if (studioMedalSelect.options[i].value === String(bpm)) {
+            studioMedalSelect.selectedIndex = i;
+            found = true;
+            break;
+          }
+        }
+        if (!found) studioMedalSelect.selectedIndex = 0;
+      }
+    }
+
+    if (studioBpmTrigger && studioBpmModal) {
+      studioBpmTrigger.addEventListener('click', function() {
+        syncStudioBpmModal();
+        studioBpmModal.style.display = 'flex';
+      });
+    }
+
+    if (studioBpmDone) {
+      studioBpmDone.addEventListener('click', function() {
+        studioBpmModal.style.display = 'none';
+      });
+    }
+
+    if (studioBpmDown) {
+      studioBpmDown.addEventListener('click', function() {
+        setBpm(bpm - 5);
+        syncStudioBpmModal();
+      });
+    }
+
+    if (studioBpmUp) {
+      studioBpmUp.addEventListener('click', function() {
+        setBpm(bpm + 5);
+        syncStudioBpmModal();
+      });
+    }
+
+    if (studioBpmSlider) {
+      studioBpmSlider.addEventListener('input', function() {
+        setBpm(Number(studioBpmSlider.value));
+        syncStudioBpmModal();
+      });
+    }
+
+    if (studioMedalSelect) {
+      studioMedalSelect.addEventListener('change', function() {
+        if (studioMedalSelect.value) {
+          setBpm(Number(studioMedalSelect.value));
+          syncStudioBpmModal();
+        }
+      });
+    }
+    
+    function stopStudioRecording() {
+      if (studioRecorder && studioRecorder.state !== 'inactive') studioRecorder.stop();
+      isStudioRecording = false;
+      studioRec.textContent = 'Record Take';
+      studioRec.classList.remove('is-active');
+      studioRecStatus.classList.remove('is-recording');
+      clearInterval(studioRecTimer);
+    }
+
+    if (studioClose) {
+      studioClose.addEventListener('click', function() {
+        if (running) stop();
+        if (isStudioRecording) stopStudioRecording();
+        if (studioStream) { studioStream.getTracks().forEach(function(t) { t.stop(); }); studioStream = null; }
+        studioMode.classList.remove('is-active');
+        if (document.fullscreenElement) document.exitFullscreen().catch(function(){});
+      });
+    }
+    
+    if (studioPlay) {
+      studioPlay.addEventListener('click', function() {
+        running ? stop() : start();
+      });
+    }
+    
+    if (studioRec) {
+      studioRec.addEventListener('click', function() {
+        if (isStudioRecording) {
+          stopStudioRecording();
+        } else {
+          if (!studioStream) return;
+          studioChunks = [];
+          studioRecorder = new MediaRecorder(studioStream, { mimeType: 'video/webm' });
+          studioRecorder.ondataavailable = function(e) { if (e.data.size > 0) studioChunks.push(e.data); };
+          studioRecorder.onstop = function() {
+            var blob = new Blob(studioChunks, { type: 'video/webm' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'StickItOut_Take_' + Date.now() + '.webm';
+            a.click();
+            URL.revokeObjectURL(url);
+          };
+          studioRecorder.start();
+          isStudioRecording = true;
+          studioRec.textContent = 'Stop Recording';
+          studioRec.classList.add('is-active');
+          studioRecStatus.classList.add('is-recording');
+          studioStartTime = Date.now();
+          studioRecTimer = setInterval(updateStudioRecTime, 1000);
+          updateStudioRecTime();
+        }
+      });
+    }
+
+  })();
 </script>`;
 }
 
@@ -1535,6 +2138,17 @@ export function adminDash(
         <ul>${alerts.map((a) => `<li>${a}</li>`).join('')}</ul>
       </section>`
     : '';
+
+  const todoPanel = `
+    <section class="panel dash-full" style="border-color: var(--gel); margin-bottom: 2rem;">
+      <h2 style="color: var(--gel); margin-bottom: 1rem;">Mike's To-Do List</h2>
+      <ul style="list-style-type: square; padding-left: 1.5rem; line-height: 1.6;">
+        <li><strong>Shoot Welcome Video:</strong> A short introduction video for members explaining the training philosophy and how to use the ladder system. (Placeholder is live on Member Home).</li>
+        <li><strong>Level-Up Challenges:</strong> Draft what specific challenges should pop up when a student hits a new milestone (Bronze, Silver, Gold).</li>
+        <li><strong>Technique Videos:</strong> Shoot the 3 core technique videos: Moeller, Open-Close, and Grip.</li>
+      </ul>
+    </section>
+  `;
   const peopleRows = data.recentPeople.length
     ? data.recentPeople
         .map(
@@ -1609,6 +2223,7 @@ export function adminDash(
       </div>
       <div class="dash">
         ${attn}
+        ${todoPanel}
         <section class="panel">
           <h2>Roster mix</h2>
           <p class="muted">${data.people} people in D1</p>
@@ -1735,7 +2350,7 @@ export function adminMembers(
       return `<a class="pill ${s === 'subscribed' ? 'founding' : s} ${on ? 'is-on' : ''}" href="${href}">${s || 'all'}</a>`;
     })
     .join('');
-  const planChips = ['', 'monthly', 'annual']
+  const planChips = ['', 'free', 'monthly', 'annual']
     .map((p) => {
       const href = `${base}/members${membersQuery({ status, plan: p, q })}`;
       const on = plan === p || (!plan && !p);
@@ -1799,6 +2414,7 @@ export type AdminLesson = {
   thumbnail?: string;
   duration?: number;
   watchers?: number;
+  is_free?: number | null;
 };
 
 export type StreamHealth = { ok: boolean; error?: string };
@@ -2072,6 +2688,10 @@ export function adminLessonDetail(
             <div><label for="title">Title</label><input id="title" name="title" value="${escapeHtml(lesson.title)}" /></div>
             <div><label for="week_index">Week</label><input id="week_index" name="week_index" type="number" value="${lesson.week_index}" /></div>
             <div><label for="summary">What members see</label><textarea id="summary" name="summary" placeholder="Hands only. Slow to tempo.">${escapeHtml(lesson.summary || '')}</textarea></div>
+            <div style="display:flex;align-items:center;gap:0.75rem;margin-top:0.25rem;">
+              <input type="checkbox" id="is_free" name="is_free" value="1" ${lesson.is_free ? 'checked' : ''} />
+              <label for="is_free" style="margin:0;font-weight:600;cursor:pointer;">Free lesson (visible to all members without Pro)</label>
+            </div>
             <button class="btn" type="submit">Save</button>
           </form>
           <section class="panel" style="overflow:auto;">
@@ -2198,6 +2818,7 @@ export function adminMemberCrm(
           <label class="sr" for="plan-bar">Plan</label>
           <select id="plan-bar" name="plan" style="max-width:14rem;">
             <option value="" ${!p.plan ? 'selected' : ''}>none</option>
+            <option value="free" ${p.plan === 'free' ? 'selected' : ''}>free</option>
             <option value="monthly" ${p.plan === 'monthly' ? 'selected' : ''}>monthly</option>
             <option value="annual" ${p.plan === 'annual' ? 'selected' : ''}>annual</option>
           </select>
@@ -2231,6 +2852,7 @@ export function adminMemberCrm(
               <label for="plan">Plan</label>
               <select id="plan" name="plan">
                 <option value="" ${!p.plan ? 'selected' : ''}>none</option>
+                <option value="free" ${p.plan === 'free' ? 'selected' : ''}>free forever</option>
                 <option value="monthly" ${p.plan === 'monthly' ? 'selected' : ''}>monthly $19.99</option>
                 <option value="annual" ${p.plan === 'annual' ? 'selected' : ''}>annual $149</option>
               </select>
@@ -3030,5 +3652,40 @@ export function forbidden(base: string): string {
     kind: 'admin',
     path: '/login',
     body: `<h1 class="display" style="font-size:3rem;">No access</h1><p class="muted" style="margin-top:1rem;">This admin is locked to an allowlist.</p><p style="margin-top:1.2rem;"><a class="btn" href="${base}/login">Log in</a></p>`,
+  });
+}
+
+export function memberUpgrade(base: string, user: Person): string {
+  return shell({
+    title: 'Upgrade | Stick It Out',
+    base,
+    kind: 'member',
+    path: '/upgrade',
+    user,
+    body: `
+      <header class="bench-mast" style="text-align:center;padding-top:2rem;">
+        <p class="label">Unlock everything</p>
+        <h1 class="display" style="font-size:3rem;line-height:1;">Go Pro</h1>
+        <p class="muted" style="max-width:28rem;margin:0.75rem auto 0;">Track all 40 rudiments, access hand fill drills, independence training, the full lesson library, and Computer Vision Analyze.</p>
+      </header>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;max-width:600px;margin:2rem auto;">
+        <section class="panel stack" style="text-align:center;">
+          <p class="label">Monthly</p>
+          <p style="font-size:2.5rem;font-weight:800;color:#fff;margin:0.25rem 0;">$19.99</p>
+          <p class="muted" style="margin-bottom:1rem;">per month</p>
+          <a href="https://stickitoutdrums.com/join" class="btn" style="display:block;">Start now</a>
+        </section>
+        <section class="panel stack" style="text-align:center;">
+          <p class="label">Annual</p>
+          <p style="font-size:2.5rem;font-weight:800;color:#fff;margin:0.25rem 0;">$149</p>
+          <p class="muted" style="margin-bottom:1rem;">per year, save 38%</p>
+          <a href="https://stickitoutdrums.com/join?plan=annual" class="btn ghost" style="display:block;">Start now</a>
+        </section>
+      </div>
+      <ul style="max-width:480px;margin:0 auto 2rem;list-style:none;padding:0;display:grid;gap:0.6rem;">
+        ${['Track all 40 rudiments with real medals and streaks','Hand fill drills','Independence drills','Full lesson library','Computer Vision Analyze','Studio Mode','Founder pricing locked in forever (first 100 members)'].map(f => `<li style="display:flex;align-items:center;gap:0.75rem;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gel)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>${f}</span></li>`).join('')}
+      </ul>
+      <p style="text-align:center;margin-top:0.5rem;"><a href="${base}/" class="muted" style="font-size:0.85rem;">Back to home</a></p>
+    `,
   });
 }
